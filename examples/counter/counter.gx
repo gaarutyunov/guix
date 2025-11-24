@@ -1,13 +1,28 @@
 package main
 
 func Counter(count: int) {
-    Div {
-        `Counter: {count}`
+    Div(Class("counter-display")) {
+        Span(Class("counter-value")) {
+            `Counter: {count}`
+        }
     }
 }
 
 func App() {
-    Div {
-        Counter(WithCount(42))
+    Div(Class("app-container")) {
+        H1 {
+            "Counter Example"
+        }
+
+        Div(Class("input-group")) {
+            Input(
+                Type("number"),
+                Placeholder("Enter a number"),
+                Value("0"),
+                ID("counter-input")
+            )
+        }
+
+        Counter(WithCount(0))
     }
 }

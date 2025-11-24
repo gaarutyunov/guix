@@ -31,7 +31,7 @@ func NewCounter(opts ...CounterOption) *Counter {
 	return c
 }
 func (c *Counter) Render() *runtime.VNode {
-	return runtime.Div(runtime.Text("Counter: " + fmt.Sprint(c.Count)))
+	return runtime.Div(runtime.Class("counter-display"), runtime.Span(runtime.Class("counter-value"), runtime.Text("Counter: "+fmt.Sprint(c.Count))))
 }
 func (c *Counter) Mount(parent js.Value) {
 	runtime.Mount(c.Render(), parent)
@@ -53,7 +53,7 @@ func NewApp() *App {
 	return c
 }
 func (c *App) Render() *runtime.VNode {
-	return runtime.Div(runtime.Counter(runtime.WithCount(42)))
+	return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Counter Example")), runtime.Div(runtime.Class("input-group"), runtime.Input(runtime.Type("number"), runtime.Placeholder("Enter a number"), runtime.Value("0"), runtime.ID("counter-input"))), runtime.Counter(runtime.WithCount(0)))
 }
 func (c *App) Mount(parent js.Value) {
 	runtime.Mount(c.Render(), parent)

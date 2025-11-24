@@ -1,0 +1,158 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build CLI
+        run: go build -o guix ./cmd/guix
+
+      - name: Generate components
+        run: ./guix generate -p examples/counter
+
+      - name: Copy wasm_exec.js
+        run: cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" examples/counter/
+
+      - name: Build WASM
+        working-directory: examples/counter
+        run: GOOS=js GOARCH=wasm go build -o main.wasm .
+
+      - name: Create Pages structure
+        run: |
+          mkdir -p _site
+          mkdir -p _site/counter
+          cp examples/counter/index.html _site/counter/
+          cp examples/counter/main.wasm _site/counter/
+          cp examples/counter/wasm_exec.js _site/counter/
+
+          # Create index page with links to examples
+          cat > _site/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Guix Examples</title>
+              <style>
+                  body {
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                      max-width: 800px;
+                      margin: 50px auto;
+                      padding: 20px;
+                      background: #f5f5f5;
+                  }
+                  .container {
+                      background: white;
+                      border-radius: 8px;
+                      padding: 30px;
+                      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                  }
+                  h1 { color: #333; margin-top: 0; }
+                  .examples {
+                      list-style: none;
+                      padding: 0;
+                  }
+                  .examples li {
+                      margin: 15px 0;
+                  }
+                  .examples a {
+                      display: block;
+                      padding: 15px;
+                      background: #007bff;
+                      color: white;
+                      text-decoration: none;
+                      border-radius: 4px;
+                      transition: background 0.2s;
+                  }
+                  .examples a:hover {
+                      background: #0056b3;
+                  }
+                  .info {
+                      background: #e3f2fd;
+                      padding: 15px;
+                      border-radius: 4px;
+                      margin: 20px 0;
+                  }
+                  code {
+                      background: #f5f5f5;
+                      padding: 2px 6px;
+                      border-radius: 3px;
+                      font-family: 'Courier New', monospace;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🚀 Guix Examples</h1>
+                  <p><strong>Guix</strong> - Go-based UI language transpiling to WebAssembly</p>
+
+                  <div class="info">
+                      <h3>About Guix</h3>
+                      <p>
+                          Guix lets you write UI components in Go-like syntax that compile to WebAssembly.
+                          Features include virtual DOM, reactive state, and type-safe event handling.
+                      </p>
+                  </div>
+
+                  <h2>Live Examples</h2>
+                  <ul class="examples">
+                      <li>
+                          <a href="./counter/">
+                              <strong>Counter</strong> - Basic component with props and template interpolation
+                          </a>
+                      </li>
+                  </ul>
+
+                  <div class="info">
+                      <h3>Learn More</h3>
+                      <p>
+                          Visit the <a href="https://github.com/gaarutyunov/guix">GitHub repository</a>
+                          for documentation, source code, and more examples.
+                      </p>
+                  </div>
+              </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+  deploy:
+    name: Deploy to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

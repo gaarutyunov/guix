@@ -20,57 +20,62 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
-        h1 {
+        .app-container h1 {
             color: #333;
             margin-top: 0;
-        }
-
-        input {
-            padding: 10px;
-            font-size: 16px;
-            border: 2px solid #ddd;
-            border-radius: 4px;
-            width: 200px;
-            margin-right: 10px;
-        }
-
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 0 5px;
-        }
-
-        button:hover {
-            background: #0056b3;
-        }
-
-        button:active {
-            transform: translateY(1px);
-        }
-
-        .counter-display {
-            font-size: 48px;
-            font-weight: bold;
-            color: #007bff;
-            margin: 20px 0;
             text-align: center;
         }
 
-        .controls {
+        .input-group {
             display: flex;
             justify-content: center;
-            gap: 10px;
-            margin-top: 20px;
+            margin: 30px 0;
+        }
+
+        .input-group input {
+            padding: 12px 16px;
+            font-size: 18px;
+            border: 2px solid #007bff;
+            border-radius: 6px;
+            width: 250px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .counter-display {
+            margin: 40px 0;
+            text-align: center;
+        }
+
+        .counter-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #007bff;
+            display: block;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 8px;
         }
 
         #loading {
             text-align: center;
             color: #666;
+            padding: 40px;
+        }
+
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
         }
     </style>
 </head>
@@ -87,6 +92,19 @@
             .then((result) => {
                 document.getElementById('loading').remove();
                 go.run(result.instance);
+
+                // After WASM loads, wire up the input to update the counter
+                setTimeout(() => {
+                    const input = document.getElementById('counter-input');
+                    const counterValue = document.querySelector('.counter-value');
+
+                    if (input && counterValue) {
+                        input.addEventListener('input', (e) => {
+                            const value = e.target.value || '0';
+                            counterValue.textContent = 'Counter: ' + value;
+                        });
+                    }
+                }, 100);
             })
             .catch((err) => {
                 document.getElementById('loading').innerHTML =
