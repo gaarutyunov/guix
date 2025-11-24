@@ -9,7 +9,7 @@ func TestParseSimpleComponent(t *testing.T) {
 	source := `
 package main
 
-component Button(label: string) {
+func Button(label: string) {
 	Div {
 	}
 }
@@ -51,7 +51,7 @@ func TestParseTemplate(t *testing.T) {
 	source := `
 package main
 
-component Counter(count: int) {
+func Counter(count: int) {
 	Div {
 		` + "`Counter: {count}`" + `
 	}
@@ -81,7 +81,7 @@ func TestParseChannelParameter(t *testing.T) {
 	source := `
 package main
 
-component Counter(counterChannel: <-chan int) {
+func Counter(counterChannel: <-chan int) {
 	Div {
 	}
 }

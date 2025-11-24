@@ -20,10 +20,10 @@ type Import struct {
 }
 
 // Component represents a component definition
-// Example: component Counter(counterChannel: <-chan int) { ... }
+// Example: func Counter(counterChannel: <-chan int) { ... }
 type Component struct {
 	Pos    lexer.Position
-	Name   string       `"component" @Ident`
+	Name   string       `"func" @Ident`
 	Params []*Parameter `"(" (@@ ("," @@)*)? ")"`
 	Body   *Body        `@@`
 }
@@ -48,10 +48,11 @@ type Type struct {
 	FuncResults []*Type
 }
 
-// Body represents a component body with child nodes
+// Body represents a component body with optional variable declarations and UI tree
 type Body struct {
 	Pos      lexer.Position
-	Children []*Node `"{" @@* "}"`
+	VarDecls []*VarDecl `"{" @@*`
+	Children []*Node    `@@* "}"`
 }
 
 // Node represents any node in the component tree
@@ -163,11 +164,11 @@ type Else struct {
 }
 
 // VarDecl represents a variable declaration
+// Example: counter := make(chan int)
 type VarDecl struct {
 	Pos   lexer.Position
 	Name  string `@Ident`
-	Type  *Type  `(":" @@)?`
-	Op    string `@(":=" | "=")`
+	Op    string `":="`
 	Value *Expr  `@@`
 }
 

@@ -1,13 +1,13 @@
 package main
 
-component Counter(count: int) {
+func Counter(count: int) {
     Div {
         `Counter: {count}`
     }
 }
 
-component App() {
+func App() {
     Div {
-        "Guix Counter Example"
+        Counter(WithCount(42))
     }
 }

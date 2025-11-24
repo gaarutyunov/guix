@@ -397,6 +397,75 @@ func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl 
 
 // generateBody generates code for component body
 func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
+	// If there are variable declarations, wrap everything in an IIFE
+	if len(body.VarDecls) > 0 {
+		stmts := make([]ast.Stmt, 0)
+
+		// Add variable declarations
+		for _, varDecl := range body.VarDecls {
+			stmts = append(stmts, &ast.AssignStmt{
+				Lhs: []ast.Expr{ast.NewIdent(varDecl.Name)},
+				Tok: g.assignOpToToken(varDecl.Op),
+				Rhs: []ast.Expr{g.generateExpr(varDecl.Value)},
+			})
+		}
+
+		// Generate the UI tree
+		var uiExpr ast.Expr
+		if len(body.Children) == 0 {
+			uiExpr = &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent("Div"),
+				},
+			}
+		} else if len(body.Children) == 1 {
+			uiExpr = g.generateNode(body.Children[0])
+		} else {
+			// Multiple children - use Fragment
+			args := make([]ast.Expr, len(body.Children))
+			for i, child := range body.Children {
+				args[i] = g.generateNode(child)
+			}
+			uiExpr = &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent("Fragment"),
+				},
+				Args: args,
+			}
+		}
+
+		// Return the UI tree
+		stmts = append(stmts, &ast.ReturnStmt{
+			Results: []ast.Expr{uiExpr},
+		})
+
+		// Wrap in IIFE
+		return &ast.CallExpr{
+			Fun: &ast.FuncLit{
+				Type: &ast.FuncType{
+					Results: &ast.FieldList{
+						List: []*ast.Field{
+							{
+								Type: &ast.StarExpr{
+									X: &ast.SelectorExpr{
+										X:   ast.NewIdent("runtime"),
+										Sel: ast.NewIdent("VNode"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Body: &ast.BlockStmt{
+					List: stmts,
+				},
+			},
+		}
+	}
+
+	// No statements - simple case
 	if len(body.Children) == 0 {
 		return &ast.CallExpr{
 			Fun: &ast.SelectorExpr{
@@ -671,10 +740,26 @@ func (g *Generator) generateFuncBody(body *guixast.FuncBody) *ast.BlockStmt {
 // generateStatement generates code for a statement
 func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 	if stmt.Assignment != nil {
+		// Handle channel send operation
+		if stmt.Assignment.Op == "<-" {
+			return &ast.SendStmt{
+				Chan:  ast.NewIdent(stmt.Assignment.Left),
+				Value: g.generateExpr(stmt.Assignment.Right),
+			}
+		}
+
 		return &ast.AssignStmt{
 			Lhs: []ast.Expr{ast.NewIdent(stmt.Assignment.Left)},
 			Tok: g.assignOpToToken(stmt.Assignment.Op),
 			Rhs: []ast.Expr{g.generateExpr(stmt.Assignment.Right)},
+		}
+	}
+
+	if stmt.VarDecl != nil {
+		return &ast.AssignStmt{
+			Lhs: []ast.Expr{ast.NewIdent(stmt.VarDecl.Name)},
+			Tok: g.assignOpToToken(stmt.VarDecl.Op),
+			Rhs: []ast.Expr{g.generateExpr(stmt.VarDecl.Value)},
 		}
 	}
 

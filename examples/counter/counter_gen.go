@@ -53,7 +53,7 @@ func NewApp() *App {
 	return c
 }
 func (c *App) Render() *runtime.VNode {
-	return runtime.Div(runtime.Text("Guix Counter Example"))
+	return runtime.Div(runtime.Counter(runtime.WithCount(42)))
 }
 func (c *App) Mount(parent js.Value) {
 	runtime.Mount(c.Render(), parent)

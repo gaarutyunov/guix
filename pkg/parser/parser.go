@@ -15,13 +15,13 @@ var guixLexer = lexer.MustStateful(lexer.Rules{
 	"Root": {
 		{"Comment", `//[^\n]*`, nil},
 		{"Whitespace", `\s+`, nil},
-		{"Keyword", `\b(package|import|component|if|else|for|in|return|func|chan|true|false|make)\b`, nil},
+		{"Keyword", `\b(package|import|if|else|for|in|return|func|chan|true|false|make)\b`, nil},
+		{"Op", `(<-|:=|\+=|-=|\*=|/=|==|!=|<=|>=|&&|\|\||[+\-*/<>&|!.=])`, nil},
 		{"Ident", `[a-zA-Z_][a-zA-Z0-9_]*`, nil},
 		{"Number", `\d+\.?\d*`, nil},
 		{"String", `"(?:\\.|[^"\\])*"`, nil},
 		{"Backtick", "`", lexer.Push("Template")},
 		{"Punct", `[{}()\[\],;:]`, nil},
-		{"Op", `(<-|:=|\+=|-=|\*=|/=|==|!=|<=|>=|&&|\|\||[+\-*/<>&|!.=])`, nil},
 	},
 	"Template": {
 		{"BacktickEnd", "`", lexer.Pop()},
