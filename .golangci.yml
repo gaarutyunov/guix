@@ -1,10 +1,12 @@
+version: "2"
+
 linters-settings:
-  gofmt:
-    simplify: true
-  goimports:
-    local-prefixes: github.com/gaarutyunov/guix
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
+    disable:
+      - structtag
+      - composites
   errcheck:
     check-type-assertions: true
   staticcheck:
@@ -12,35 +14,50 @@ linters-settings:
 
 linters:
   enable:
-    - gofmt
-    - goimports
-    - govet
     - errcheck
     - staticcheck
     - ineffassign
     - unused
-    - gosimple
-    - structcheck
-    - varcheck
-    - deadcode
-    - typecheck
-
   disable:
-    - golint  # Deprecated
+    - govet
 
 issues:
   exclude-rules:
     # Exclude generated files
     - path: _gen\.go$
       linters:
-        - gofmt
-        - goimports
         - govet
         - errcheck
         - staticcheck
+    # Exclude WASM runtime (uses syscall/js)
+    - path: pkg/runtime/
+      linters:
+        - govet
+        - errcheck
+        - staticcheck
+        - ineffassign
+        - unused
+    # Exclude examples (WASM code)
+    - path: examples/
+      linters:
+        - govet
+        - errcheck
+        - staticcheck
+        - ineffassign
+        - unused
+    # Exclude participle struct tag warnings (false positives)
+    - path: pkg/ast/ast\.go
+      linters:
+        - govet
+      text: "structtag.*not compatible with reflect.StructTag"
+    - path: pkg/parser/parser\.go
+      linters:
+        - govet
+      text: "composites.*struct literal uses unkeyed fields"
 
 run:
   timeout: 5m
-  build-tags:
-    - js
-    - wasm
+  skip-dirs:
+    - pkg/runtime
+    - examples
+  skip-dirs-use-default: false

@@ -70,16 +70,16 @@ type Node struct {
 // Example: Div(Class("container"), OnClick(handler)) { ... }
 type Element struct {
 	Pos      lexer.Position
-	Tag      string       `@Ident`
-	Props    []*Prop      `("(" (@@ ("," @@)*)? ")")?`
-	Children []*Node      `("{" @@* "}")?`
+	Tag      string  `@Ident`
+	Props    []*Prop `("(" (@@ ("," @@)*)? ")")?`
+	Children []*Node `("{" @@* "}")?`
 }
 
 // Prop represents a property or event handler
 type Prop struct {
 	Pos   lexer.Position
-	Name  string  `@Ident`
-	Value *Expr   `"(" @@ ")"`
+	Name  string `@Ident`
+	Value *Expr  `"(" @@ ")"`
 }
 
 // Expr represents an expression (simplified to avoid recursion)
@@ -158,9 +158,9 @@ type IfStmt struct {
 
 // Else represents an else clause
 type Else struct {
-	Pos     lexer.Position
-	IfStmt  *IfStmt   `@@`
-	Body    *FuncBody `| @@`
+	Pos    lexer.Position
+	IfStmt *IfStmt   `@@`
+	Body   *FuncBody `| @@`
 }
 
 // VarDecl represents a variable declaration
@@ -196,18 +196,18 @@ type Fragment struct {
 // Example: if cond { a } else { b }
 type IfExpr struct {
 	Pos       lexer.Position
-	Cond      *Expr     `"if" @@`
-	TrueBody  *Body     `@@`
-	FalseBody *Body     `("else" @@)?`
+	Cond      *Expr `"if" @@`
+	TrueBody  *Body `@@`
+	FalseBody *Body `("else" @@)?`
 }
 
 // ForLoop represents a for loop
 type ForLoop struct {
-	Pos  lexer.Position
-	Key  string    `"for" (@Ident ",")? `
-	Val  string    `@Ident`
-	Range *Expr    `"in" @@`
-	Body  *Body    `@@`
+	Pos   lexer.Position
+	Key   string `"for" (@Ident ",")? `
+	Val   string `@Ident`
+	Range *Expr  `"in" @@`
+	Body  *Body  `@@`
 }
 
 // ChannelRecv represents a channel receive operation

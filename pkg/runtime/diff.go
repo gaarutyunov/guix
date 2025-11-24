@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package runtime
@@ -28,11 +29,11 @@ const (
 
 // Patch represents a change to apply to the DOM
 type Patch struct {
-	Type     PatchType
-	OldNode  *VNode
-	NewNode  *VNode
-	Index    int
-	Parent   js.Value
+	Type    PatchType
+	OldNode *VNode
+	NewNode *VNode
+	Index   int
+	Parent  js.Value
 }
 
 // Diff compares two VNode trees and returns patches

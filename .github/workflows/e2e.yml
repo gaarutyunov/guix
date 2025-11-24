@@ -32,7 +32,14 @@ jobs:
         run: |
           ./guix generate -p examples/counter
           cd examples/counter
-          cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .
+          # Copy wasm_exec.js from Go installation
+          GOROOT="$(go env GOROOT)"
+          if [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/misc/wasm/wasm_exec.js" .
+          else
+            # Download from Go repository if not found in GOROOT
+            curl -O https://raw.githubusercontent.com/golang/go/master/misc/wasm/wasm_exec.js
+          fi
           GOOS=js GOARCH=wasm go build -o main.wasm .
 
       - name: Install Playwright

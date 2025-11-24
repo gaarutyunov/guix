@@ -216,7 +216,11 @@ func watchFiles(root string, genCache *cache.Cache, verbose bool, lazy bool) err
 	if err != nil {
 		return fmt.Errorf("failed to create watcher: %w", err)
 	}
-	defer watcher.Close()
+	defer func() {
+		if err := watcher.Close(); err != nil {
+			log.Printf("Warning: failed to close watcher: %v", err)
+		}
+	}()
 
 	// Add directories to watch
 	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -352,9 +356,7 @@ func runClean(c *cli.Context) error {
 
 	// Remove cache directory if empty
 	cacheDir := filepath.Dir(cachePath)
-	if err := os.Remove(cacheDir); err != nil && !os.IsNotExist(err) {
-		// Directory might not be empty, that's ok
-	}
+	_ = os.Remove(cacheDir) // Ignore error - directory might not be empty
 
 	log.Printf("Cleaned %d generated files", count)
 	return nil

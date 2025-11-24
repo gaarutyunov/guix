@@ -34,7 +34,13 @@ jobs:
         run: ./guix generate -p examples/counter
 
       - name: Copy wasm_exec.js
-        run: cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" examples/counter/
+        run: |
+          GOROOT="$(go env GOROOT)"
+          if [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/misc/wasm/wasm_exec.js" examples/counter/
+          else
+            curl -o examples/counter/wasm_exec.js https://raw.githubusercontent.com/golang/go/master/misc/wasm/wasm_exec.js
+          fi
 
       - name: Build WASM
         working-directory: examples/counter
