@@ -1,0 +1,13 @@
+package main
+
+component Counter(count: int) {
+    Div {
+        `Counter: {count}`
+    }
+}
+
+component App() {
+    Div {
+        "Guix Counter Example"
+    }
+}
