@@ -61,7 +61,14 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+        run: |
+          # Test non-WASM packages (exclude runtime and examples which use syscall/js)
+          go test -v -race -coverprofile=coverage.txt -covermode=atomic \
+            ./cmd/... \
+            ./internal/... \
+            ./pkg/ast/... \
+            ./pkg/parser/... \
+            ./pkg/codegen/...
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
