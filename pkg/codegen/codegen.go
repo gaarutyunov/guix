@@ -79,16 +79,12 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 		},
 	}
 
-	// Only add fmt if there are components with channel parameters
+	// Only add fmt if there are channel receives in template interpolations
+	// This is needed for fmt.Sprint() when displaying channel values
 	needsFmt := false
 	for _, comp := range file.Components {
-		for _, param := range comp.Params {
-			if param.Type.IsChan {
-				needsFmt = true
-				break
-			}
-		}
-		if needsFmt {
+		if g.hasChannelInterpolation(comp) {
+			needsFmt = true
 			break
 		}
 	}
@@ -165,6 +161,52 @@ func (g *Generator) hasChannelParams(comp *guixast.Component) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// hasChannelInterpolation checks if component has template interpolations with channel receives
+func (g *Generator) hasChannelInterpolation(comp *guixast.Component) bool {
+	return g.bodyHasChannelInterpolation(comp.Body)
+}
+
+// bodyHasChannelInterpolation recursively checks if body contains channel interpolations
+func (g *Generator) bodyHasChannelInterpolation(body *guixast.Body) bool {
+	if body == nil {
+		return false
+	}
+
+	for _, child := range body.Children {
+		if g.nodeHasChannelInterpolation(child) {
+			return true
+		}
+	}
+	return false
+}
+
+// nodeHasChannelInterpolation checks if a node contains channel interpolations
+func (g *Generator) nodeHasChannelInterpolation(node *guixast.Node) bool {
+	if node == nil {
+		return false
+	}
+
+	// Check template nodes for channel receive operations
+	if node.Template != nil {
+		for _, fragment := range node.Template.Fragments {
+			if fragment.Expr != nil && fragment.Expr.ChannelOp != nil {
+				return true
+			}
+		}
+	}
+
+	// Recursively check element children
+	if node.Element != nil {
+		for _, child := range node.Element.Children {
+			if g.nodeHasChannelInterpolation(child) {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 
