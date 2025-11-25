@@ -79,8 +79,8 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 		},
 	}
 
-	// Only add fmt if there are channel receives in template interpolations
-	// This is needed for fmt.Sprint() when displaying channel values
+	// Only add fmt if there are template interpolations with expressions
+	// This is needed for fmt.Sprint() when displaying values in templates like `{value}` or `{<-channel}`
 	needsFmt := false
 	for _, comp := range file.Components {
 		if g.hasChannelInterpolation(comp) {
@@ -164,35 +164,37 @@ func (g *Generator) hasChannelParams(comp *guixast.Component) bool {
 	return false
 }
 
-// hasChannelInterpolation checks if component has template interpolations with channel receives
+// hasChannelInterpolation checks if component has template interpolations
+// (renamed for compatibility but now checks for any interpolation, not just channels)
 func (g *Generator) hasChannelInterpolation(comp *guixast.Component) bool {
-	return g.bodyHasChannelInterpolation(comp.Body)
+	return g.bodyHasTemplateInterpolation(comp.Body)
 }
 
-// bodyHasChannelInterpolation recursively checks if body contains channel interpolations
-func (g *Generator) bodyHasChannelInterpolation(body *guixast.Body) bool {
+// bodyHasTemplateInterpolation recursively checks if body contains template interpolations
+func (g *Generator) bodyHasTemplateInterpolation(body *guixast.Body) bool {
 	if body == nil {
 		return false
 	}
 
 	for _, child := range body.Children {
-		if g.nodeHasChannelInterpolation(child) {
+		if g.nodeHasTemplateInterpolation(child) {
 			return true
 		}
 	}
 	return false
 }
 
-// nodeHasChannelInterpolation checks if a node contains channel interpolations
-func (g *Generator) nodeHasChannelInterpolation(node *guixast.Node) bool {
+// nodeHasTemplateInterpolation checks if a node contains template interpolations
+func (g *Generator) nodeHasTemplateInterpolation(node *guixast.Node) bool {
 	if node == nil {
 		return false
 	}
 
-	// Check template nodes for channel receive operations
+	// Check template nodes for any expression interpolation
+	// Any expression in a template like `{value}` or `{<-channel}` uses fmt.Sprint
 	if node.Template != nil {
 		for _, fragment := range node.Template.Fragments {
-			if fragment.Expr != nil && fragment.Expr.ChannelOp != nil {
+			if fragment.Expr != nil {
 				return true
 			}
 		}
@@ -201,7 +203,7 @@ func (g *Generator) nodeHasChannelInterpolation(node *guixast.Node) bool {
 	// Recursively check element children
 	if node.Element != nil {
 		for _, child := range node.Element.Children {
-			if g.nodeHasChannelInterpolation(child) {
+			if g.nodeHasTemplateInterpolation(child) {
 				return true
 			}
 		}
