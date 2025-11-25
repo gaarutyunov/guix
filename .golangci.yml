@@ -1,63 +1,11 @@
 version: "2"
 
-linters-settings:
-  govet:
-    enable:
-      - shadow
-    disable:
-      - structtag
-      - composites
-  errcheck:
-    check-type-assertions: true
-  staticcheck:
-    checks: ["all"]
-
 linters:
   enable:
     - errcheck
     - staticcheck
     - ineffassign
     - unused
-  disable:
-    - govet
-
-issues:
-  exclude-rules:
-    # Exclude generated files
-    - path: _gen\.go$
-      linters:
-        - govet
-        - errcheck
-        - staticcheck
-    # Exclude WASM runtime (uses syscall/js)
-    - path: pkg/runtime/
-      linters:
-        - govet
-        - errcheck
-        - staticcheck
-        - ineffassign
-        - unused
-    # Exclude examples (WASM code)
-    - path: examples/
-      linters:
-        - govet
-        - errcheck
-        - staticcheck
-        - ineffassign
-        - unused
-    # Exclude participle struct tag warnings (false positives)
-    - path: pkg/ast/ast\.go
-      linters:
-        - govet
-      text: "structtag.*not compatible with reflect.StructTag"
-    - path: pkg/parser/parser\.go
-      linters:
-        - govet
-      text: "composites.*struct literal uses unkeyed fields"
 
 run:
   timeout: 5m
-  skip-dirs:
-    - pkg/runtime
-    - examples
-  skip-dirs-use-default: false
