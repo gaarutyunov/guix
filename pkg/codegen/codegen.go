@@ -1127,8 +1127,8 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 										List: []ast.Stmt{
 											// for val := range c.ChannelName { ... }
 											&ast.RangeStmt{
-												Key:   nil,
-												Value: ast.NewIdent("val"),
+												Key:   ast.NewIdent("val"),
+												Value: nil,
 												Tok:   token.DEFINE,
 												X: &ast.SelectorExpr{
 													X:   ast.NewIdent("c"),
