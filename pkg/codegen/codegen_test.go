@@ -779,3 +779,129 @@ func Logger(req: Request) {
 		t.Errorf("Generated code does not contain 'req.User.Name'\nGenerated:\n%s", generatedStr)
 	}
 }
+
+func TestGenerateMethodCall(t *testing.T) {
+	source := `package main
+
+func Parser() {
+	result := strconv.Atoi("123")
+
+	Div {
+		` + "`{result}`" + `
+	}
+}`
+
+	p, err := parser.New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse source: %v", err)
+	}
+
+	gen := New("main")
+	generated, err := gen.Generate(file)
+	if err != nil {
+		t.Fatalf("Failed to generate code: %v", err)
+	}
+
+	generatedStr := string(generated)
+
+	// Verify method call is generated
+	if !strings.Contains(generatedStr, "strconv.Atoi(\"123\")") {
+		t.Errorf("Generated code does not contain 'strconv.Atoi(\"123\")'\nGenerated:\n%s", generatedStr)
+	}
+
+	// Verify variable assignment
+	if !strings.Contains(generatedStr, "result := strconv.Atoi(\"123\")") {
+		t.Errorf("Generated code does not contain variable assignment 'result := strconv.Atoi(\"123\")'\nGenerated:\n%s", generatedStr)
+	}
+}
+
+func TestGenerateMultipleAssignment(t *testing.T) {
+	source := `package main
+
+func Handler() {
+	n, err := strconv.Atoi("42")
+
+	Div {
+		` + "`{n}`" + `
+	}
+}`
+
+	p, err := parser.New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse source: %v", err)
+	}
+
+	gen := New("main")
+	generated, err := gen.Generate(file)
+	if err != nil {
+		t.Fatalf("Failed to generate code: %v", err)
+	}
+
+	generatedStr := string(generated)
+
+	// Verify multiple assignment is generated
+	if !strings.Contains(generatedStr, "n, err := strconv.Atoi(\"42\")") {
+		t.Errorf("Generated code does not contain 'n, err := strconv.Atoi(\"42\")'\nGenerated:\n%s", generatedStr)
+	}
+}
+
+func TestGenerateCompleteAppWithMethodCallsAndSelectors(t *testing.T) {
+	source := `package main
+
+func App() {
+	counter := make(chan int, 10)
+
+	Div(Class("app-container")) {
+		H1 {
+			"Counter Example"
+		}
+		Input(
+			OnInput(func(e: Event) {
+				value := e.Target.Value
+				counter <- 42
+			})
+		)
+	}
+}`
+
+	p, err := parser.New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse source: %v", err)
+	}
+
+	gen := New("main")
+	generated, err := gen.Generate(file)
+	if err != nil {
+		t.Fatalf("Failed to generate code: %v", err)
+	}
+
+	generatedStr := string(generated)
+
+	expectedStrings := []string{
+		"make(chan int, 10)",      // make call
+		"e.Target.Value",          // selector expression
+		"value := e.Target.Value", // single assignment with selector
+		"counter <- 42",           // channel send
+	}
+
+	for _, expected := range expectedStrings {
+		if !strings.Contains(generatedStr, expected) {
+			t.Errorf("Generated code does not contain expected string: %q\nGenerated:\n%s", expected, generatedStr)
+		}
+	}
+}

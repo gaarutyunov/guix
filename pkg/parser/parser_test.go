@@ -150,19 +150,19 @@ func App() {
 	}
 
 	varDecl := comp.Body.VarDecls[0]
-	if varDecl.Name != "ch" {
-		t.Errorf("Expected variable name 'ch', got %s", varDecl.Name)
+	if len(varDecl.Names) != 1 || varDecl.Names[0] != "ch" {
+		t.Errorf("Expected variable name 'ch', got %v", varDecl.Names)
 	}
 
-	if varDecl.Value == nil {
-		t.Fatal("Expected variable value")
+	if len(varDecl.Values) != 1 {
+		t.Fatal("Expected one variable value")
 	}
 
-	if varDecl.Value.MakeCall == nil {
+	if varDecl.Values[0].MakeCall == nil {
 		t.Fatal("Expected make() call")
 	}
 
-	makeCall := varDecl.Value.MakeCall
+	makeCall := varDecl.Values[0].MakeCall
 	if makeCall.ChanType == nil {
 		t.Fatal("Expected channel type in make() call")
 	}
@@ -201,11 +201,11 @@ func App() {
 	comp := file.Components[0]
 	varDecl := comp.Body.VarDecls[0]
 
-	if varDecl.Value.MakeCall == nil {
+	if len(varDecl.Values) != 1 || varDecl.Values[0].MakeCall == nil {
 		t.Fatal("Expected make() call")
 	}
 
-	makeCall := varDecl.Value.MakeCall
+	makeCall := varDecl.Values[0].MakeCall
 	if makeCall.ChanType.Name != "string" {
 		t.Errorf("Expected chan type 'string', got %s", makeCall.ChanType.Name)
 	}
@@ -247,32 +247,37 @@ func Handler(e: Event) {
 	}
 
 	varDecl := comp.Body.VarDecls[0]
-	if varDecl.Name != "value" {
-		t.Errorf("Expected variable name 'value', got %s", varDecl.Name)
+	if len(varDecl.Names) != 1 || varDecl.Names[0] != "value" {
+		t.Errorf("Expected variable name 'value', got %v", varDecl.Names)
 	}
 
-	if varDecl.Value == nil {
+	if len(varDecl.Values) != 1 {
 		t.Fatal("Expected variable value")
 	}
 
-	if varDecl.Value.Selector == nil {
-		t.Fatal("Expected selector expression")
+	if varDecl.Values[0].CallOrSel == nil {
+		t.Fatal("Expected call or selector expression")
 	}
 
-	selector := varDecl.Value.Selector
-	if selector.Base != "e" {
-		t.Errorf("Expected base 'e', got %s", selector.Base)
+	callOrSel := varDecl.Values[0].CallOrSel
+	if callOrSel.Base != "e" {
+		t.Errorf("Expected base 'e', got %s", callOrSel.Base)
 	}
 
 	expectedFields := []string{"Target", "Value"}
-	if len(selector.Fields) != len(expectedFields) {
-		t.Fatalf("Expected %d fields, got %d", len(expectedFields), len(selector.Fields))
+	if len(callOrSel.Fields) != len(expectedFields) {
+		t.Fatalf("Expected %d fields, got %d", len(expectedFields), len(callOrSel.Fields))
 	}
 
 	for i, expected := range expectedFields {
-		if selector.Fields[i] != expected {
-			t.Errorf("Expected field[%d] = %s, got %s", i, expected, selector.Fields[i])
+		if callOrSel.Fields[i] != expected {
+			t.Errorf("Expected field[%d] = %s, got %s", i, expected, callOrSel.Fields[i])
 		}
+	}
+
+	// Verify it's a selector (no args)
+	if callOrSel.Args != nil {
+		t.Error("Expected selector (no args), but got call with args")
 	}
 }
 
@@ -301,20 +306,130 @@ func Widget(obj: Object) {
 	comp := file.Components[0]
 	varDecl := comp.Body.VarDecls[0]
 
-	if varDecl.Value.Selector == nil {
-		t.Fatal("Expected selector expression")
+	if len(varDecl.Values) != 1 || varDecl.Values[0].CallOrSel == nil {
+		t.Fatal("Expected call or selector expression")
 	}
 
-	selector := varDecl.Value.Selector
-	if selector.Base != "obj" {
-		t.Errorf("Expected base 'obj', got %s", selector.Base)
+	callOrSel := varDecl.Values[0].CallOrSel
+	if callOrSel.Base != "obj" {
+		t.Errorf("Expected base 'obj', got %s", callOrSel.Base)
 	}
 
-	if len(selector.Fields) != 1 {
-		t.Fatalf("Expected 1 field, got %d", len(selector.Fields))
+	if len(callOrSel.Fields) != 1 {
+		t.Fatalf("Expected 1 field, got %d", len(callOrSel.Fields))
 	}
 
-	if selector.Fields[0] != "Name" {
-		t.Errorf("Expected field 'Name', got %s", selector.Fields[0])
+	if callOrSel.Fields[0] != "Name" {
+		t.Errorf("Expected field 'Name', got %s", callOrSel.Fields[0])
+	}
+
+	// Verify it's a selector (no args)
+	if callOrSel.Args != nil {
+		t.Error("Expected selector (no args), but got call with args")
+	}
+}
+
+func TestParseMethodCall(t *testing.T) {
+	source := `
+package main
+
+func Parser() {
+	result := strconv.Atoi("123")
+
+	Div {
+		` + "`{result}`" + `
+	}
+}
+`
+	p, err := New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	comp := file.Components[0]
+	varDecl := comp.Body.VarDecls[0]
+
+	if len(varDecl.Values) != 1 {
+		t.Fatal("Expected one value")
+	}
+
+	if varDecl.Values[0].CallOrSel == nil {
+		t.Fatal("Expected call or selector expression")
+	}
+
+	callOrSel := varDecl.Values[0].CallOrSel
+	if callOrSel.Base != "strconv" {
+		t.Errorf("Expected base 'strconv', got %s", callOrSel.Base)
+	}
+
+	if len(callOrSel.Fields) != 1 || callOrSel.Fields[0] != "Atoi" {
+		t.Errorf("Expected fields ['Atoi'], got %v", callOrSel.Fields)
+	}
+
+	// Verify it's a call (has args)
+	if callOrSel.Args == nil {
+		t.Fatal("Expected call (with args), but got selector")
+	}
+
+	if len(callOrSel.Args) != 1 {
+		t.Errorf("Expected 1 argument, got %d", len(callOrSel.Args))
+	}
+}
+
+func TestParseMultipleAssignment(t *testing.T) {
+	source := `
+package main
+
+func Handler() {
+	n, err := strconv.Atoi("42")
+
+	Div {
+		` + "`{n}`" + `
+	}
+}
+`
+	p, err := New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	comp := file.Components[0]
+	varDecl := comp.Body.VarDecls[0]
+
+	// Check multiple names
+	if len(varDecl.Names) != 2 {
+		t.Fatalf("Expected 2 names, got %d", len(varDecl.Names))
+	}
+
+	if varDecl.Names[0] != "n" {
+		t.Errorf("Expected first name 'n', got %s", varDecl.Names[0])
+	}
+
+	if varDecl.Names[1] != "err" {
+		t.Errorf("Expected second name 'err', got %s", varDecl.Names[1])
+	}
+
+	// Check single value (function call with multiple returns)
+	if len(varDecl.Values) != 1 {
+		t.Fatalf("Expected 1 value, got %d", len(varDecl.Values))
+	}
+
+	if varDecl.Values[0].CallOrSel == nil {
+		t.Fatal("Expected call or selector expression")
+	}
+
+	// Verify it's a call (has args)
+	if varDecl.Values[0].CallOrSel.Args == nil {
+		t.Fatal("Expected function call (with args)")
 	}
 }

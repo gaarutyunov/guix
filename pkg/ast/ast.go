@@ -85,13 +85,12 @@ type Prop struct {
 // Expr represents an expression (simplified to avoid recursion)
 type Expr struct {
 	Pos       lexer.Position
-	Literal   *Literal   `@@`
-	Selector  *Selector  `| @@`
-	Ident     string     `| @Ident`
-	MakeCall  *MakeCall  `| @@`
-	Call      *Call      `| @@`
-	FuncLit   *FuncLit   `| @@`
-	ChannelOp *ChannelOp `| @@`
+	Literal   *Literal      `@@`
+	MakeCall  *MakeCall     `| @@`
+	CallOrSel *CallOrSelect `| @@`
+	FuncLit   *FuncLit      `| @@`
+	ChannelOp *ChannelOp    `| @@`
+	Ident     string        `| @Ident`
 }
 
 // Literal represents a literal value
@@ -102,7 +101,16 @@ type Literal struct {
 	Bool   *string `| @("true" | "false")`
 }
 
-// Selector represents a selector expression
+// CallOrSelect represents either a selector (obj.field.field) or a call (func() or obj.method())
+// This unifies both to avoid grammar ambiguity
+type CallOrSelect struct {
+	Pos    lexer.Position
+	Base   string   `@Ident`
+	Fields []string `("." @Ident)*`
+	Args   []*Expr  `("(" (@@ ("," @@)*)? ")")?`
+}
+
+// Selector represents a selector expression - deprecated, use CallOrSelect
 // Example: e.Target.Value
 type Selector struct {
 	Pos    lexer.Position
@@ -110,12 +118,13 @@ type Selector struct {
 	Fields []string `("." @Ident)+`
 }
 
-// Call represents a function call
-// Example: OnClick(handler)
+// Call represents a function call or method call - deprecated, use CallOrSelect
+// Example: OnClick(handler) or strconv.Atoi(value)
 type Call struct {
-	Pos  lexer.Position
-	Func string  `@Ident`
-	Args []*Expr `"(" (@@ ("," @@)*)? ")"`
+	Pos    lexer.Position
+	Base   string     `@Ident`
+	Fields []string   `("." @Ident)*`
+	Args   []*Expr    `"(" (@@ ("," @@)*)? ")"`
 }
 
 // MakeCall represents a make() function call with type argument
@@ -183,12 +192,12 @@ type Else struct {
 }
 
 // VarDecl represents a variable declaration
-// Example: counter := make(chan int)
+// Example: counter := make(chan int) or n, err := strconv.Atoi(value)
 type VarDecl struct {
-	Pos   lexer.Position
-	Name  string `@Ident`
-	Op    string `@":="`
-	Value *Expr  `@@`
+	Pos    lexer.Position
+	Names  []string `@Ident ("," @Ident)*`
+	Op     string   `@":="`
+	Values []*Expr  `@@ ("," @@)*`
 }
 
 // TextNode represents plain text

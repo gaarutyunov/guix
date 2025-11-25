@@ -446,10 +446,20 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 
 		// Add variable declarations
 		for _, varDecl := range body.VarDecls {
+			lhs := make([]ast.Expr, len(varDecl.Names))
+			for i, name := range varDecl.Names {
+				lhs[i] = ast.NewIdent(name)
+			}
+
+			rhs := make([]ast.Expr, len(varDecl.Values))
+			for i, val := range varDecl.Values {
+				rhs[i] = g.generateExpr(val)
+			}
+
 			stmts = append(stmts, &ast.AssignStmt{
-				Lhs: []ast.Expr{ast.NewIdent(varDecl.Name)},
+				Lhs: lhs,
 				Tok: g.assignOpToToken(varDecl.Op),
-				Rhs: []ast.Expr{g.generateExpr(varDecl.Value)},
+				Rhs: rhs,
 			})
 		}
 
@@ -702,8 +712,12 @@ func (g *Generator) generateExpr(expr *guixast.Expr) ast.Expr {
 		return g.generateLiteral(expr.Literal)
 	}
 
-	if expr.Selector != nil {
-		return g.generateSelector(expr.Selector)
+	if expr.MakeCall != nil {
+		return g.generateMakeCall(expr.MakeCall)
+	}
+
+	if expr.CallOrSel != nil {
+		return g.generateCallOrSelect(expr.CallOrSel)
 	}
 
 	if expr.Ident != "" {
@@ -712,14 +726,6 @@ func (g *Generator) generateExpr(expr *guixast.Expr) ast.Expr {
 			X:   ast.NewIdent("c"),
 			Sel: ast.NewIdent(capitalize(expr.Ident)),
 		}
-	}
-
-	if expr.MakeCall != nil {
-		return g.generateMakeCall(expr.MakeCall)
-	}
-
-	if expr.Call != nil {
-		return g.generateCall(expr.Call)
 	}
 
 	if expr.FuncLit != nil {
@@ -779,15 +785,24 @@ func (g *Generator) generateSelector(sel *guixast.Selector) ast.Expr {
 	return result
 }
 
-// generateCall generates code for a function call
+// generateCall generates code for a function call or method call
 func (g *Generator) generateCall(call *guixast.Call) ast.Expr {
 	args := make([]ast.Expr, len(call.Args))
 	for i, arg := range call.Args {
 		args[i] = g.generateExpr(arg)
 	}
 
+	// Build the function expression from base and fields
+	var fun ast.Expr = ast.NewIdent(call.Base)
+	for _, field := range call.Fields {
+		fun = &ast.SelectorExpr{
+			X:   fun,
+			Sel: ast.NewIdent(field),
+		}
+	}
+
 	return &ast.CallExpr{
-		Fun:  ast.NewIdent(call.Func),
+		Fun:  fun,
 		Args: args,
 	}
 }
@@ -812,6 +827,34 @@ func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {
 		Fun:  ast.NewIdent("make"),
 		Args: args,
 	}
+}
+
+// generateCallOrSelect generates code for a call or selector expression
+// If Args is present, generates a call. Otherwise, generates a selector.
+func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
+	// Build the base selector expression from base and fields
+	var expr ast.Expr = ast.NewIdent(cos.Base)
+	for _, field := range cos.Fields {
+		expr = &ast.SelectorExpr{
+			X:   expr,
+			Sel: ast.NewIdent(field),
+		}
+	}
+
+	// If there are args, wrap in a call expression
+	if cos.Args != nil {
+		args := make([]ast.Expr, len(cos.Args))
+		for i, arg := range cos.Args {
+			args[i] = g.generateExpr(arg)
+		}
+		return &ast.CallExpr{
+			Fun:  expr,
+			Args: args,
+		}
+	}
+
+	// Otherwise, just return the selector expression
+	return expr
 }
 
 // generateFuncLit generates code for a function literal
@@ -872,10 +915,20 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 	}
 
 	if stmt.VarDecl != nil {
+		lhs := make([]ast.Expr, len(stmt.VarDecl.Names))
+		for i, name := range stmt.VarDecl.Names {
+			lhs[i] = ast.NewIdent(name)
+		}
+
+		rhs := make([]ast.Expr, len(stmt.VarDecl.Values))
+		for i, val := range stmt.VarDecl.Values {
+			rhs[i] = g.generateExpr(val)
+		}
+
 		return &ast.AssignStmt{
-			Lhs: []ast.Expr{ast.NewIdent(stmt.VarDecl.Name)},
+			Lhs: lhs,
 			Tok: g.assignOpToToken(stmt.VarDecl.Op),
-			Rhs: []ast.Expr{g.generateExpr(stmt.VarDecl.Value)},
+			Rhs: rhs,
 		}
 	}
 
