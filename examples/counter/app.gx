@@ -7,17 +7,16 @@ func App() {
 		H1 {
 			"Counter Example"
 		}
-		Div(Class("input-group")) {
-			Input(
-				Type("number"),
-				Placeholder("Enter a number"),
-				ID("counter-input"),
-				OnInput(func(e: Event) {
-					value := e.Target.Value
-					counter <- 42
-				})
-			)
-		}
 		Counter(WithCounterChannel(counter))
+		Div(Class("button-group")) {
+			Button(
+				Class("increment-btn"),
+				OnClick(func() {
+					counter <- 1
+				})
+			) {
+				"Increment"
+			}
+		}
 	}
 }
