@@ -41,6 +41,8 @@ jobs:
             curl -O https://raw.githubusercontent.com/golang/go/master/misc/wasm/wasm_exec.js
           fi
           GOOS=js GOARCH=wasm go build -o main.wasm .
+          echo "Files after build:"
+          ls -lah *.{html,js,wasm,go} 2>/dev/null || ls -lah
 
       - name: Install Playwright
         working-directory: examples/counter

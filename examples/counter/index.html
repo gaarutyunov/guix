@@ -86,17 +86,34 @@
 
     <script src="wasm_exec.js"></script>
     <script>
+        // Log all errors for debugging
+        window.addEventListener('error', (e) => {
+            console.error('Global error:', e.error, e.message);
+        });
+
         const go = new Go();
+
+        console.log('Starting WASM load...');
 
         WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
             .then((result) => {
-                document.getElementById('loading').remove();
+                console.log('WASM loaded, removing loading indicator');
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) {
+                    loadingEl.remove();
+                }
+
+                console.log('Running WASM...');
                 go.run(result.instance);
+                console.log('WASM running');
 
                 // After WASM loads, wire up the input to update the counter
                 setTimeout(() => {
                     const input = document.getElementById('counter-input');
                     const counterValue = document.querySelector('.counter-value');
+
+                    console.log('Input element:', input);
+                    console.log('Counter value element:', counterValue);
 
                     if (input && counterValue) {
                         input.addEventListener('input', (e) => {
@@ -107,9 +124,13 @@
                 }, 100);
             })
             .catch((err) => {
-                document.getElementById('loading').innerHTML =
-                    '<p style="color: red;">Failed to load WASM: ' + err + '</p>' +
-                    '<p>Make sure to build the WASM file first: <code>./build.sh</code></p>';
+                console.error('WASM load error:', err);
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) {
+                    loadingEl.innerHTML =
+                        '<p style="color: red;">Failed to load WASM: ' + err + '</p>' +
+                        '<p>Make sure to build the WASM file first</p>';
+                }
             });
     </script>
 </body>

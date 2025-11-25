@@ -2,12 +2,20 @@
 const { test, expect } = require('@playwright/test');
 
 test.describe('Counter Example', () => {
+  test.beforeEach(async ({ page }) => {
+    // Log console messages for debugging
+    page.on('console', msg => console.log('BROWSER:', msg.text()));
+    page.on('pageerror', err => console.error('PAGE ERROR:', err));
+  });
+
   test('should display initial counter value', async ({ page }) => {
     await page.goto('/');
 
     // Wait for WASM to load
     await page.waitForSelector('#root', { state: 'visible' });
-    await page.waitForTimeout(1000); // Give WASM time to initialize
+
+    // Wait for h1 to appear (WASM needs to initialize and render)
+    await page.waitForSelector('h1', { timeout: 10000 });
 
     // Check that the page loaded
     const title = await page.textContent('h1');
@@ -17,9 +25,8 @@ test.describe('Counter Example', () => {
   test('should update counter when input changes', async ({ page }) => {
     await page.goto('/');
 
-    // Wait for WASM to load
-    await page.waitForSelector('#root', { state: 'visible' });
-    await page.waitForTimeout(1000);
+    // Wait for WASM to load and render
+    await page.waitForSelector('h1', { timeout: 10000 });
 
     // Find the input field
     const input = page.locator('input[type="number"]');
@@ -39,9 +46,8 @@ test.describe('Counter Example', () => {
   test('should handle multiple value changes', async ({ page }) => {
     await page.goto('/');
 
-    // Wait for WASM to load
-    await page.waitForSelector('#root', { state: 'visible' });
-    await page.waitForTimeout(1000);
+    // Wait for WASM to load and render
+    await page.waitForSelector('h1', { timeout: 10000 });
 
     const input = page.locator('input[type="number"]');
     const counterDisplay = page.locator('.counter-value');
@@ -59,8 +65,8 @@ test.describe('Counter Example', () => {
   test('should display correct counter text format', async ({ page }) => {
     await page.goto('/');
 
-    await page.waitForSelector('#root', { state: 'visible' });
-    await page.waitForTimeout(1000);
+    // Wait for WASM to load and render
+    await page.waitForSelector('h1', { timeout: 10000 });
 
     const input = page.locator('input[type="number"]');
     await input.fill('99');
