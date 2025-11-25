@@ -8,14 +8,19 @@ import (
 )
 
 func main() {
-	// Wait for DOM to be ready
-	runtime.WaitForDOMReady(func() {
-		// Create and mount the app
-		app := NewApp()
-		if _, err := runtime.Render("#root", app); err != nil {
-			panic(err)
-		}
-	})
+	// Create the app component
+	appComponent := NewApp()
+
+	// Create the runtime app
+	runtimeApp := runtime.NewApp(appComponent)
+
+	// Bind the component to enable channel reactivity
+	appComponent.BindApp(runtimeApp)
+
+	// Mount the app (Mount internally waits for DOM)
+	if err := runtimeApp.Mount("#root"); err != nil {
+		panic(err)
+	}
 
 	// Block forever - WASM must not exit
 	select {}
