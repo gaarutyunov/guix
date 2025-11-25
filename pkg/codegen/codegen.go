@@ -710,6 +710,10 @@ func (g *Generator) generateExpr(expr *guixast.Expr) ast.Expr {
 		}
 	}
 
+	if expr.MakeCall != nil {
+		return g.generateMakeCall(expr.MakeCall)
+	}
+
 	if expr.Call != nil {
 		return g.generateCall(expr.Call)
 	}
@@ -763,6 +767,28 @@ func (g *Generator) generateCall(call *guixast.Call) ast.Expr {
 
 	return &ast.CallExpr{
 		Fun:  ast.NewIdent(call.Func),
+		Args: args,
+	}
+}
+
+// generateMakeCall generates code for a make() function call
+// Example: make(chan int, 10)
+func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {
+	args := []ast.Expr{
+		// First argument is the channel type
+		&ast.ChanType{
+			Dir:   ast.SEND | ast.RECV,
+			Value: g.typeToAST(makeCall.ChanType),
+		},
+	}
+
+	// Add size argument if present
+	if makeCall.Size != nil {
+		args = append(args, g.generateExpr(makeCall.Size))
+	}
+
+	return &ast.CallExpr{
+		Fun:  ast.NewIdent("make"),
 		Args: args,
 	}
 }

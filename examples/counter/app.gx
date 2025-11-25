@@ -1,35 +1,26 @@
 package main
 
-// NOTE: This file is not currently parseable by the Guix parser because:
-// 1. make(chan int, 10) has a type argument which the parser doesn't support yet
-// 2. Function calls in the parser expect expression arguments, not type arguments
-//
-// For now, this component is manually written in app_gen.go
-// Future work will extend the parser to support type arguments in built-in functions
+func App() {
+	counter := make(chan int, 10)
 
-// This is the intended syntax for the App component:
-//
-// func App() {
-//     counter := make(chan int, 10)
-//
-//     Div(Class("app-container")) {
-//         H1 {
-//             "Counter Example"
-//         }
-//         Div(Class("input-group")) {
-//             Input(
-//                 Type("number"),
-//                 Placeholder("Enter a number"),
-//                 ID("counter-input"),
-//                 OnInput(func(e: Event) {
-//                     value := e.Target.Value
-//                     n, err := strconv.Atoi(value)
-//                     if err == nil {
-//                         counter <- n
-//                     }
-//                 })
-//             )
-//         }
-//         Counter(WithCounterChannel(counter))
-//     }
-// }
+	Div(Class("app-container")) {
+		H1 {
+			"Counter Example"
+		}
+		Div(Class("input-group")) {
+			Input(
+				Type("number"),
+				Placeholder("Enter a number"),
+				ID("counter-input"),
+				OnInput(func(e: Event) {
+					value := e.Target.Value
+					n, err := strconv.Atoi(value)
+					if err == nil {
+						counter <- n
+					}
+				})
+			)
+		}
+		Counter(WithCounterChannel(counter))
+	}
+}

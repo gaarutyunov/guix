@@ -533,3 +533,139 @@ func Widget(value: string) {
 		}
 	}
 }
+
+func TestGenerateMakeCall(t *testing.T) {
+	source := `package main
+
+func App() {
+	counter := make(chan int, 10)
+
+	Div {
+		` + "`{counter}`" + `
+	}
+}`
+
+	p, err := parser.New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse source: %v", err)
+	}
+
+	gen := New("main")
+	generated, err := gen.Generate(file)
+	if err != nil {
+		t.Fatalf("Failed to generate code: %v", err)
+	}
+
+	generatedStr := string(generated)
+
+	// Verify make() call is generated correctly
+	expectedCode := []string{
+		"make(chan int, 10)",
+		"counter := make(chan int, 10)",
+	}
+
+	for _, expected := range expectedCode {
+		if !strings.Contains(generatedStr, expected) {
+			t.Errorf("Generated code does not contain expected code: %q\nGenerated:\n%s", expected, generatedStr)
+		}
+	}
+}
+
+func TestGenerateMakeCallWithoutSize(t *testing.T) {
+	source := `package main
+
+func Watcher() {
+	events := make(chan string)
+
+	Div {
+		"Watching"
+	}
+}`
+
+	p, err := parser.New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse source: %v", err)
+	}
+
+	gen := New("main")
+	generated, err := gen.Generate(file)
+	if err != nil {
+		t.Fatalf("Failed to generate code: %v", err)
+	}
+
+	generatedStr := string(generated)
+
+	// Verify make() call without size is generated correctly
+	if !strings.Contains(generatedStr, "make(chan string)") {
+		t.Errorf("Generated code does not contain 'make(chan string)'\nGenerated:\n%s", generatedStr)
+	}
+
+	// Should not have a second argument
+	if strings.Contains(generatedStr, "make(chan string,") {
+		t.Error("Generated code should not have size argument in make() call")
+	}
+}
+
+func TestGenerateCompleteAppWithMake(t *testing.T) {
+	source := `package main
+
+func App() {
+	dataChannel := make(chan string, 5)
+	statusChannel := make(chan int)
+
+	Div(Class("app")) {
+		H1 {
+			"App with Channels"
+		}
+		Span {
+			` + "`Data: {<-dataChannel}`" + `
+		}
+		Span {
+			` + "`Status: {<-statusChannel}`" + `
+		}
+	}
+}`
+
+	p, err := parser.New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse source: %v", err)
+	}
+
+	gen := New("main")
+	generated, err := gen.Generate(file)
+	if err != nil {
+		t.Fatalf("Failed to generate code: %v", err)
+	}
+
+	generatedStr := string(generated)
+
+	// Verify both make() calls are present
+	expectedCode := []string{
+		"dataChannel := make(chan string, 5)",
+		"statusChannel := make(chan int)",
+		"type App struct",
+		"func NewApp() *App",
+		"func (c *App) Render() *runtime.VNode",
+	}
+
+	for _, expected := range expectedCode {
+		if !strings.Contains(generatedStr, expected) {
+			t.Errorf("Generated code does not contain expected code: %q", expected)
+		}
+	}
+}

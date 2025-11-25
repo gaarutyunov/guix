@@ -113,3 +113,104 @@ func Counter(counterChannel: <-chan int) {
 		t.Error("Expected channel parameter")
 	}
 }
+
+func TestParseMakeCall(t *testing.T) {
+	source := `
+package main
+
+func App() {
+	ch := make(chan int, 10)
+
+	Div {
+		"Test"
+	}
+}
+`
+	p, err := New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	if len(file.Components) != 1 {
+		t.Fatalf("Expected 1 component, got %d", len(file.Components))
+	}
+
+	comp := file.Components[0]
+	if comp.Body == nil {
+		t.Fatal("Expected component body")
+	}
+
+	if len(comp.Body.VarDecls) != 1 {
+		t.Fatalf("Expected 1 variable declaration, got %d", len(comp.Body.VarDecls))
+	}
+
+	varDecl := comp.Body.VarDecls[0]
+	if varDecl.Name != "ch" {
+		t.Errorf("Expected variable name 'ch', got %s", varDecl.Name)
+	}
+
+	if varDecl.Value == nil {
+		t.Fatal("Expected variable value")
+	}
+
+	if varDecl.Value.MakeCall == nil {
+		t.Fatal("Expected make() call")
+	}
+
+	makeCall := varDecl.Value.MakeCall
+	if makeCall.ChanType == nil {
+		t.Fatal("Expected channel type in make() call")
+	}
+
+	if makeCall.ChanType.Name != "int" {
+		t.Errorf("Expected chan type 'int', got %s", makeCall.ChanType.Name)
+	}
+
+	if makeCall.Size == nil {
+		t.Fatal("Expected size argument in make() call")
+	}
+}
+
+func TestParseMakeCallWithoutSize(t *testing.T) {
+	source := `
+package main
+
+func App() {
+	ch := make(chan string)
+
+	Div {
+		"Test"
+	}
+}
+`
+	p, err := New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	comp := file.Components[0]
+	varDecl := comp.Body.VarDecls[0]
+
+	if varDecl.Value.MakeCall == nil {
+		t.Fatal("Expected make() call")
+	}
+
+	makeCall := varDecl.Value.MakeCall
+	if makeCall.ChanType.Name != "string" {
+		t.Errorf("Expected chan type 'string', got %s", makeCall.ChanType.Name)
+	}
+
+	if makeCall.Size != nil {
+		t.Error("Expected no size argument in make() call")
+	}
+}

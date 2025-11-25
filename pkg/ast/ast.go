@@ -87,6 +87,7 @@ type Expr struct {
 	Pos       lexer.Position
 	Literal   *Literal   `@@`
 	Ident     string     `| @Ident`
+	MakeCall  *MakeCall  `| @@`
 	Call      *Call      `| @@`
 	FuncLit   *FuncLit   `| @@`
 	ChannelOp *ChannelOp `| @@`
@@ -106,6 +107,15 @@ type Call struct {
 	Pos  lexer.Position
 	Func string  `@Ident`
 	Args []*Expr `"(" (@@ ("," @@)*)? ")"`
+}
+
+// MakeCall represents a make() function call with type argument
+// Example: make(chan int, 10)
+type MakeCall struct {
+	Pos      lexer.Position
+	Func     string  `@"make"`
+	ChanType *Type   `"(" "chan" @@`
+	Size     *Expr   `("," @@)? ")"`
 }
 
 // FuncLit represents a function literal
@@ -168,7 +178,7 @@ type Else struct {
 type VarDecl struct {
 	Pos   lexer.Position
 	Name  string `@Ident`
-	Op    string `":="`
+	Op    string `@":="`
 	Value *Expr  `@@`
 }
 
