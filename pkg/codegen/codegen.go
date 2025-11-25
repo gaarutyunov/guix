@@ -14,20 +14,27 @@ import (
 
 // Generator generates Go code from Guix components
 type Generator struct {
-	fset *token.FileSet
-	pkg  string
+	fset       *token.FileSet
+	pkg        string
+	components map[string]bool // Track component names for this file
 }
 
 // New creates a new code generator
 func New(pkg string) *Generator {
 	return &Generator{
-		fset: token.NewFileSet(),
-		pkg:  pkg,
+		fset:       token.NewFileSet(),
+		pkg:        pkg,
+		components: make(map[string]bool),
 	}
 }
 
 // Generate generates Go code from a Guix file
 func (g *Generator) Generate(file *guixast.File) ([]byte, error) {
+	// First pass: collect component names
+	for _, comp := range file.Components {
+		g.components[comp.Name] = true
+	}
+
 	goFile := &ast.File{
 		Name: ast.NewIdent(file.Package),
 		Doc: &ast.CommentGroup{
@@ -532,9 +539,21 @@ func (g *Generator) generateNode(node *guixast.Node) ast.Expr {
 func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 	args := []ast.Expr{}
 
+	// Check if this is a custom component
+	isComponent := g.components[elem.Tag]
+
 	// Add props as arguments
 	for _, prop := range elem.Props {
-		args = append(args, g.generateProp(prop))
+		if isComponent {
+			// For components, props are passed as option functions: WithProp(value)
+			args = append(args, &ast.CallExpr{
+				Fun:  ast.NewIdent(prop.Name),
+				Args: []ast.Expr{g.generateExpr(prop.Value)},
+			})
+		} else {
+			// For DOM elements, wrap in runtime.Prop()
+			args = append(args, g.generateProp(prop))
+		}
 	}
 
 	// Add children
@@ -542,12 +561,27 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 		args = append(args, g.generateNode(child))
 	}
 
-	return &ast.CallExpr{
-		Fun: &ast.SelectorExpr{
-			X:   ast.NewIdent("runtime"),
-			Sel: ast.NewIdent(elem.Tag),
-		},
-		Args: args,
+	// Generate function call
+	if isComponent {
+		// Custom component: call NewComponent().Render()
+		return &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X: &ast.CallExpr{
+					Fun:  ast.NewIdent("New" + elem.Tag),
+					Args: args,
+				},
+				Sel: ast.NewIdent("Render"),
+			},
+		}
+	} else {
+		// DOM element: call runtime.Element()
+		return &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent("runtime"),
+				Sel: ast.NewIdent(elem.Tag),
+			},
+			Args: args,
+		}
 	}
 }
 
