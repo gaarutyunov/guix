@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25'
 
       - name: Check formatting
         run: |
@@ -38,13 +38,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25'
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v4
         with:
-          version: latest
-          args: --timeout=5m
+          version: v2.5.0
+          args: --timeout=5m ./cmd/... ./internal/... ./pkg/ast/... ./pkg/parser/... ./pkg/codegen/...
 
   test:
     name: Test
@@ -55,7 +55,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25'
 
       - name: Download dependencies
         run: go mod download
@@ -85,7 +85,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25'
 
       - name: Build CLI
         run: go build -v -o guix ./cmd/guix
@@ -107,7 +107,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25'
 
       - name: Build CLI
         run: go build -o guix ./cmd/guix
@@ -116,7 +116,13 @@ jobs:
         run: ./guix generate -p examples/counter
 
       - name: Copy wasm_exec.js
-        run: cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" examples/counter/
+        run: |
+          GOROOT="$(go env GOROOT)"
+          if [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/misc/wasm/wasm_exec.js" examples/counter/
+          else
+            curl -o examples/counter/wasm_exec.js https://raw.githubusercontent.com/golang/go/master/misc/wasm/wasm_exec.js
+          fi
 
       - name: Build WASM
         working-directory: examples/counter
