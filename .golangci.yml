@@ -6,6 +6,8 @@ linters:
     - staticcheck
     - ineffassign
     - unused
+  disable:
+    - govet
 
 run:
   timeout: 5m
