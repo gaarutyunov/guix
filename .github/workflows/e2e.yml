@@ -34,11 +34,14 @@ jobs:
           cd examples/counter
           # Copy wasm_exec.js from Go installation
           GOROOT="$(go env GOROOT)"
-          if [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+          # Try lib/wasm first (Go 1.24+), then misc/wasm (older versions)
+          if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/lib/wasm/wasm_exec.js" .
+          elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
             cp "$GOROOT/misc/wasm/wasm_exec.js" .
           else
-            # Download from Go repository if not found in GOROOT
-            curl -O https://raw.githubusercontent.com/golang/go/master/misc/wasm/wasm_exec.js
+            echo "wasm_exec.js not found in GOROOT, downloading from GitHub"
+            curl -o wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
           fi
           GOOS=js GOARCH=wasm go build -o main.wasm .
           echo "Files after build:"

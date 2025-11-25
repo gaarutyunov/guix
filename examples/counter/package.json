@@ -7,10 +7,14 @@
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug"
   },
-  "keywords": ["guix", "webassembly", "go"],
+  "keywords": [
+    "guix",
+    "webassembly",
+    "go"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@playwright/test": "^1.40.0"
+    "@playwright/test": "^1.56.1"
   }
 }
