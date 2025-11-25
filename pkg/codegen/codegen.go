@@ -74,15 +74,32 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 		&ast.ImportSpec{
 			Path: &ast.BasicLit{
 				Kind:  token.STRING,
-				Value: `"fmt"`,
-			},
-		},
-		&ast.ImportSpec{
-			Path: &ast.BasicLit{
-				Kind:  token.STRING,
 				Value: `"github.com/gaarutyunov/guix/pkg/runtime"`,
 			},
 		},
+	}
+
+	// Only add fmt if there are components with channel parameters
+	needsFmt := false
+	for _, comp := range file.Components {
+		for _, param := range comp.Params {
+			if param.Type.IsChan {
+				needsFmt = true
+				break
+			}
+		}
+		if needsFmt {
+			break
+		}
+	}
+
+	if needsFmt {
+		specs = append(specs, &ast.ImportSpec{
+			Path: &ast.BasicLit{
+				Kind:  token.STRING,
+				Value: `"fmt"`,
+			},
+		})
 	}
 
 	// Add user imports
@@ -122,10 +139,11 @@ func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	// Check if component has channel parameters
 	hasChannels := g.hasChannelParams(comp)
 
-	// Generate BindApp method if there are channels
+	// Always generate BindApp method for API consistency
+	decls = append(decls, g.generateBindAppMethod(comp))
+
+	// Generate listener methods for each channel (only if there are channels)
 	if hasChannels {
-		decls = append(decls, g.generateBindAppMethod(comp))
-		// Generate listener methods for each channel
 		decls = append(decls, g.generateChannelListenerMethods(comp)...)
 	}
 
@@ -581,12 +599,26 @@ func (g *Generator) generateNode(node *guixast.Node) ast.Expr {
 	}
 }
 
+// Known DOM element names (common HTML elements)
+var knownDOMElements = map[string]bool{
+	"Div": true, "Span": true, "P": true, "A": true, "Button": true, "Input": true,
+	"H1": true, "H2": true, "H3": true, "H4": true, "H5": true, "H6": true,
+	"Ul": true, "Li": true, "Ol": true, "Img": true, "Form": true, "Label": true,
+	"Select": true, "Option": true, "Textarea": true, "Table": true, "Tr": true,
+	"Td": true, "Th": true, "Thead": true, "Tbody": true, "Tfoot": true,
+	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
+	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
+}
+
 // generateElement generates code for an element
 func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 	args := []ast.Expr{}
 
 	// Check if this is a custom component
-	isComponent := g.components[elem.Tag]
+	// A tag is a component if:
+	// 1. It's defined in the current file (in g.components map), OR
+	// 2. It starts with a capital letter AND is NOT a known DOM element
+	isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag])
 
 	// Add props as arguments
 	for _, prop := range elem.Props {
@@ -950,12 +982,26 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 }
 
 // typeToAST converts a Guix type to Go AST type
+// Known runtime types that should be qualified with runtime package
+var runtimeTypes = map[string]bool{
+	"Event": true, "VNode": true, "App": true,
+}
+
 func (g *Generator) typeToAST(t *guixast.Type) ast.Expr {
 	if t == nil {
 		return ast.NewIdent("interface{}")
 	}
 
-	var base ast.Expr = ast.NewIdent(t.Name)
+	var base ast.Expr
+	// Use runtime.TypeName for known runtime types
+	if runtimeTypes[t.Name] {
+		base = &ast.SelectorExpr{
+			X:   ast.NewIdent("runtime"),
+			Sel: ast.NewIdent(t.Name),
+		}
+	} else {
+		base = ast.NewIdent(t.Name)
+	}
 
 	// Handle channel types
 	// IsChannel && IsChan means "<-chan T" (receive-only)

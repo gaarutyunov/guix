@@ -11,7 +11,7 @@ func App() {
 		Div(Class("button-group")) {
 			Button(
 				Class("increment-btn"),
-				OnClick(func() {
+				OnClick(func(e: Event) {
 					counter <- 1
 				})
 			) {

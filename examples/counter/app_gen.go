@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/gaarutyunov/guix/pkg/runtime"
 	"syscall/js"
 )
@@ -16,10 +15,13 @@ func NewApp() *App {
 	c := &App{}
 	return c
 }
+func (c *App) BindApp(app *runtime.App) {
+	c.app = app
+}
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
 		counter := make(chan int, 10)
-		return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Counter Example")), runtime.Counter(runtime.WithCounterChannel(counter)), runtime.Div(runtime.Class("button-group"), runtime.Button(runtime.Class("increment-btn"), runtime.OnClick(func() {
+		return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Counter Example")), NewCounter(WithCounterChannel(counter)).Render(), runtime.Div(runtime.Class("button-group"), runtime.Button(runtime.Class("increment-btn"), runtime.OnClick(func(e runtime.Event) {
 			counter <- 1
 		}), runtime.Text("Increment"))))
 	}()

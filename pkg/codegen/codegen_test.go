@@ -476,7 +476,6 @@ func Simple() {
 	// Verify required imports are present
 	requiredImports := []string{
 		`"syscall/js"`,
-		`"fmt"`,
 		`"github.com/gaarutyunov/guix/pkg/runtime"`,
 	}
 
@@ -484,6 +483,11 @@ func Simple() {
 		if !strings.Contains(generatedStr, imp) {
 			t.Errorf("Generated code does not contain required import: %s", imp)
 		}
+	}
+
+	// fmt should NOT be imported since there are no channel parameters
+	if strings.Contains(generatedStr, `"fmt"`) {
+		t.Error("Generated code should not import fmt when there are no channel parameters")
 	}
 
 	// Verify code generation comment
