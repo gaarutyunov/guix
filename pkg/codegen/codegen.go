@@ -119,6 +119,16 @@ func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	// Generate constructor
 	decls = append(decls, g.generateConstructor(comp))
 
+	// Check if component has channel parameters
+	hasChannels := g.hasChannelParams(comp)
+
+	// Generate BindApp method if there are channels
+	if hasChannels {
+		decls = append(decls, g.generateBindAppMethod(comp))
+		// Generate listener methods for each channel
+		decls = append(decls, g.generateChannelListenerMethods(comp)...)
+	}
+
 	// Generate Render method
 	decls = append(decls, g.generateRenderMethod(comp))
 
@@ -128,6 +138,16 @@ func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	decls = append(decls, g.generateUpdateMethod(comp))
 
 	return decls
+}
+
+// hasChannelParams checks if a component has any channel parameters
+func (g *Generator) hasChannelParams(comp *guixast.Component) bool {
+	for _, param := range comp.Params {
+		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+			return true
+		}
+	}
+	return false
 }
 
 // generatePropsStruct generates a Props struct for component parameters
@@ -267,6 +287,22 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 			Names: []*ast.Ident{ast.NewIdent(capitalize(param.Name))},
 			Type:  g.typeToAST(param.Type),
 		})
+
+		// For channel parameters, add a current value field
+		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+			// Extract the element type from the channel
+			var elemType ast.Expr
+			if param.Type.Generic != nil {
+				elemType = g.typeToAST(param.Type.Generic)
+			} else {
+				elemType = g.typeToAST(&guixast.Type{Name: param.Type.Name})
+			}
+
+			fields = append(fields, &ast.Field{
+				Names: []*ast.Ident{ast.NewIdent("current" + capitalize(param.Name))},
+				Type:  elemType,
+			})
+		}
 	}
 
 	return &ast.GenDecl{
@@ -683,12 +719,11 @@ func (g *Generator) generateExpr(expr *guixast.Expr) ast.Expr {
 	}
 
 	if expr.ChannelOp != nil {
-		return &ast.UnaryExpr{
-			Op: token.ARROW,
-			X: &ast.SelectorExpr{
-				X:   ast.NewIdent("c"),
-				Sel: ast.NewIdent(capitalize(expr.ChannelOp.Channel)),
-			},
+		// Instead of reading from the channel (which would block),
+		// use the current value field that's updated by the channel listener
+		return &ast.SelectorExpr{
+			X:   ast.NewIdent("c"),
+			Sel: ast.NewIdent("current" + capitalize(expr.ChannelOp.Channel)),
 		}
 	}
 
@@ -822,14 +857,15 @@ func (g *Generator) typeToAST(t *guixast.Type) ast.Expr {
 
 	var base ast.Expr = ast.NewIdent(t.Name)
 
-	if t.IsChannel {
+	// Handle channel types
+	// IsChannel && IsChan means "<-chan T" (receive-only)
+	// IsChan only means "chan T" (bidirectional)
+	if t.IsChannel && t.IsChan {
 		base = &ast.ChanType{
 			Dir:   ast.RECV,
 			Value: base,
 		}
-	}
-
-	if t.IsChan {
+	} else if t.IsChan {
 		base = &ast.ChanType{
 			Dir:   ast.SEND | ast.RECV,
 			Value: base,
@@ -980,6 +1016,178 @@ func (g *Generator) generateUpdateMethod(comp *guixast.Component) *ast.FuncDecl 
 			},
 		},
 	}
+}
+
+// generateBindAppMethod generates the BindApp method for components with channels
+func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl {
+	stmts := []ast.Stmt{
+		// c.app = app
+		&ast.AssignStmt{
+			Lhs: []ast.Expr{
+				&ast.SelectorExpr{
+					X:   ast.NewIdent("c"),
+					Sel: ast.NewIdent("app"),
+				},
+			},
+			Tok: token.ASSIGN,
+			Rhs: []ast.Expr{ast.NewIdent("app")},
+		},
+	}
+
+	// For each channel parameter, start a listener
+	for _, param := range comp.Params {
+		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+			// if c.ChannelName != nil { c.startChannelNameListener() }
+			stmts = append(stmts, &ast.IfStmt{
+				Cond: &ast.BinaryExpr{
+					X: &ast.SelectorExpr{
+						X:   ast.NewIdent("c"),
+						Sel: ast.NewIdent(capitalize(param.Name)),
+					},
+					Op: token.NEQ,
+					Y:  ast.NewIdent("nil"),
+				},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.ExprStmt{
+							X: &ast.CallExpr{
+								Fun: &ast.SelectorExpr{
+									X:   ast.NewIdent("c"),
+									Sel: ast.NewIdent("start" + capitalize(param.Name) + "Listener"),
+								},
+							},
+						},
+					},
+				},
+			})
+		}
+	}
+
+	return &ast.FuncDecl{
+		Recv: &ast.FieldList{
+			List: []*ast.Field{
+				{
+					Names: []*ast.Ident{ast.NewIdent("c")},
+					Type: &ast.StarExpr{
+						X: ast.NewIdent(comp.Name),
+					},
+				},
+			},
+		},
+		Name: ast.NewIdent("BindApp"),
+		Type: &ast.FuncType{
+			Params: &ast.FieldList{
+				List: []*ast.Field{
+					{
+						Names: []*ast.Ident{ast.NewIdent("app")},
+						Type: &ast.StarExpr{
+							X: &ast.SelectorExpr{
+								X:   ast.NewIdent("runtime"),
+								Sel: ast.NewIdent("App"),
+							},
+						},
+					},
+				},
+			},
+		},
+		Body: &ast.BlockStmt{
+			List: stmts,
+		},
+	}
+}
+
+// generateChannelListenerMethods generates listener methods for each channel parameter
+func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []ast.Decl {
+	var decls []ast.Decl
+
+	for _, param := range comp.Params {
+		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+			// Generate: func (c *Component) startChannelNameListener() { go func() { for val := range c.ChannelName { c.currentChannelName = val; c.app.Update() } }() }
+			decls = append(decls, &ast.FuncDecl{
+				Recv: &ast.FieldList{
+					List: []*ast.Field{
+						{
+							Names: []*ast.Ident{ast.NewIdent("c")},
+							Type: &ast.StarExpr{
+								X: ast.NewIdent(comp.Name),
+							},
+						},
+					},
+				},
+				Name: ast.NewIdent("start" + capitalize(param.Name) + "Listener"),
+				Type: &ast.FuncType{},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						// go func() { ... }()
+						&ast.GoStmt{
+							Call: &ast.CallExpr{
+								Fun: &ast.FuncLit{
+									Type: &ast.FuncType{},
+									Body: &ast.BlockStmt{
+										List: []ast.Stmt{
+											// for val := range c.ChannelName { ... }
+											&ast.RangeStmt{
+												Key:   nil,
+												Value: ast.NewIdent("val"),
+												Tok:   token.DEFINE,
+												X: &ast.SelectorExpr{
+													X:   ast.NewIdent("c"),
+													Sel: ast.NewIdent(capitalize(param.Name)),
+												},
+												Body: &ast.BlockStmt{
+													List: []ast.Stmt{
+														// c.currentChannelName = val
+														&ast.AssignStmt{
+															Lhs: []ast.Expr{
+																&ast.SelectorExpr{
+																	X:   ast.NewIdent("c"),
+																	Sel: ast.NewIdent("current" + capitalize(param.Name)),
+																},
+															},
+															Tok: token.ASSIGN,
+															Rhs: []ast.Expr{ast.NewIdent("val")},
+														},
+														// if c.app != nil { c.app.Update() }
+														&ast.IfStmt{
+															Cond: &ast.BinaryExpr{
+																X: &ast.SelectorExpr{
+																	X:   ast.NewIdent("c"),
+																	Sel: ast.NewIdent("app"),
+																},
+																Op: token.NEQ,
+																Y:  ast.NewIdent("nil"),
+															},
+															Body: &ast.BlockStmt{
+																List: []ast.Stmt{
+																	&ast.ExprStmt{
+																		X: &ast.CallExpr{
+																			Fun: &ast.SelectorExpr{
+																				X: &ast.SelectorExpr{
+																					X:   ast.NewIdent("c"),
+																					Sel: ast.NewIdent("app"),
+																				},
+																				Sel: ast.NewIdent("Update"),
+																			},
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+		}
+	}
+
+	return decls
 }
 
 // Helper functions
