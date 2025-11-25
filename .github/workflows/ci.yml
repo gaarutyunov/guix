@@ -41,9 +41,9 @@ jobs:
           go-version: '1.25'
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v2.5.0
+          version: v1.62
           args: --timeout=5m ./cmd/... ./internal/... ./pkg/ast/... ./pkg/parser/... ./pkg/codegen/...
 
   test:
