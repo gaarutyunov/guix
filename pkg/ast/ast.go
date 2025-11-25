@@ -86,6 +86,7 @@ type Prop struct {
 type Expr struct {
 	Pos       lexer.Position
 	Literal   *Literal   `@@`
+	Selector  *Selector  `| @@`
 	Ident     string     `| @Ident`
 	MakeCall  *MakeCall  `| @@`
 	Call      *Call      `| @@`
@@ -99,6 +100,14 @@ type Literal struct {
 	String *string `@String`
 	Number *string `| @Number`
 	Bool   *string `| @("true" | "false")`
+}
+
+// Selector represents a selector expression
+// Example: e.Target.Value
+type Selector struct {
+	Pos    lexer.Position
+	Base   string   `@Ident`
+	Fields []string `("." @Ident)+`
 }
 
 // Call represents a function call

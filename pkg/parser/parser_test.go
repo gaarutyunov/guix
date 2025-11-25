@@ -214,3 +214,107 @@ func App() {
 		t.Error("Expected no size argument in make() call")
 	}
 }
+
+func TestParseSelector(t *testing.T) {
+	source := `
+package main
+
+func Handler(e: Event) {
+	value := e.Target.Value
+
+	Div {
+		` + "`{value}`" + `
+	}
+}
+`
+	p, err := New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	if len(file.Components) != 1 {
+		t.Fatalf("Expected 1 component, got %d", len(file.Components))
+	}
+
+	comp := file.Components[0]
+	if len(comp.Body.VarDecls) != 1 {
+		t.Fatalf("Expected 1 variable declaration, got %d", len(comp.Body.VarDecls))
+	}
+
+	varDecl := comp.Body.VarDecls[0]
+	if varDecl.Name != "value" {
+		t.Errorf("Expected variable name 'value', got %s", varDecl.Name)
+	}
+
+	if varDecl.Value == nil {
+		t.Fatal("Expected variable value")
+	}
+
+	if varDecl.Value.Selector == nil {
+		t.Fatal("Expected selector expression")
+	}
+
+	selector := varDecl.Value.Selector
+	if selector.Base != "e" {
+		t.Errorf("Expected base 'e', got %s", selector.Base)
+	}
+
+	expectedFields := []string{"Target", "Value"}
+	if len(selector.Fields) != len(expectedFields) {
+		t.Fatalf("Expected %d fields, got %d", len(expectedFields), len(selector.Fields))
+	}
+
+	for i, expected := range expectedFields {
+		if selector.Fields[i] != expected {
+			t.Errorf("Expected field[%d] = %s, got %s", i, expected, selector.Fields[i])
+		}
+	}
+}
+
+func TestParseSelectorSingleField(t *testing.T) {
+	source := `
+package main
+
+func Widget(obj: Object) {
+	name := obj.Name
+
+	Div {
+		` + "`{name}`" + `
+	}
+}
+`
+	p, err := New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	comp := file.Components[0]
+	varDecl := comp.Body.VarDecls[0]
+
+	if varDecl.Value.Selector == nil {
+		t.Fatal("Expected selector expression")
+	}
+
+	selector := varDecl.Value.Selector
+	if selector.Base != "obj" {
+		t.Errorf("Expected base 'obj', got %s", selector.Base)
+	}
+
+	if len(selector.Fields) != 1 {
+		t.Fatalf("Expected 1 field, got %d", len(selector.Fields))
+	}
+
+	if selector.Fields[0] != "Name" {
+		t.Errorf("Expected field 'Name', got %s", selector.Fields[0])
+	}
+}

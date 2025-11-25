@@ -669,3 +669,113 @@ func App() {
 		}
 	}
 }
+
+func TestGenerateSelector(t *testing.T) {
+	source := `package main
+
+func Handler(e: Event) {
+	value := e.Target.Value
+
+	Div {
+		` + "`{value}`" + `
+	}
+}`
+
+	p, err := parser.New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse source: %v", err)
+	}
+
+	gen := New("main")
+	generated, err := gen.Generate(file)
+	if err != nil {
+		t.Fatalf("Failed to generate code: %v", err)
+	}
+
+	generatedStr := string(generated)
+
+	// Verify selector expression is generated correctly
+	if !strings.Contains(generatedStr, "e.Target.Value") {
+		t.Errorf("Generated code does not contain 'e.Target.Value'\nGenerated:\n%s", generatedStr)
+	}
+
+	// Verify it's in the right context (variable declaration)
+	if !strings.Contains(generatedStr, "value := e.Target.Value") {
+		t.Errorf("Generated code does not contain 'value := e.Target.Value'")
+	}
+}
+
+func TestGenerateSelectorSingleField(t *testing.T) {
+	source := `package main
+
+func Widget(obj: Object) {
+	name := obj.Name
+
+	Div {
+		` + "`{name}`" + `
+	}
+}`
+
+	p, err := parser.New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse source: %v", err)
+	}
+
+	gen := New("main")
+	generated, err := gen.Generate(file)
+	if err != nil {
+		t.Fatalf("Failed to generate code: %v", err)
+	}
+
+	generatedStr := string(generated)
+
+	// Verify single-field selector is generated
+	if !strings.Contains(generatedStr, "obj.Name") {
+		t.Errorf("Generated code does not contain 'obj.Name'\nGenerated:\n%s", generatedStr)
+	}
+}
+
+func TestGenerateSelectorInFunctionCall(t *testing.T) {
+	source := `package main
+
+func Logger(req: Request) {
+	msg := req.User.Name
+
+	Div {
+		` + "`{msg}`" + `
+	}
+}`
+
+	p, err := parser.New()
+	if err != nil {
+		t.Fatalf("Failed to create parser: %v", err)
+	}
+
+	file, err := p.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("Failed to parse source: %v", err)
+	}
+
+	gen := New("main")
+	generated, err := gen.Generate(file)
+	if err != nil {
+		t.Fatalf("Failed to generate code: %v", err)
+	}
+
+	generatedStr := string(generated)
+
+	// Verify chained selector is generated
+	if !strings.Contains(generatedStr, "req.User.Name") {
+		t.Errorf("Generated code does not contain 'req.User.Name'\nGenerated:\n%s", generatedStr)
+	}
+}

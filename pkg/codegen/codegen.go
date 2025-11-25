@@ -702,6 +702,10 @@ func (g *Generator) generateExpr(expr *guixast.Expr) ast.Expr {
 		return g.generateLiteral(expr.Literal)
 	}
 
+	if expr.Selector != nil {
+		return g.generateSelector(expr.Selector)
+	}
+
 	if expr.Ident != "" {
 		// Check if it's a component field reference
 		return &ast.SelectorExpr{
@@ -756,6 +760,23 @@ func (g *Generator) generateLiteral(lit *guixast.Literal) ast.Expr {
 	}
 
 	return ast.NewIdent("nil")
+}
+
+// generateSelector generates code for a selector expression
+// Example: e.Target.Value
+func (g *Generator) generateSelector(sel *guixast.Selector) ast.Expr {
+	// Start with the base identifier
+	var result ast.Expr = ast.NewIdent(sel.Base)
+
+	// Chain the field selectors
+	for _, field := range sel.Fields {
+		result = &ast.SelectorExpr{
+			X:   result,
+			Sel: ast.NewIdent(field),
+		}
+	}
+
+	return result
 }
 
 // generateCall generates code for a function call
