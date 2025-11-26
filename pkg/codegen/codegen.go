@@ -23,10 +23,10 @@ type childComponentInfo struct {
 type Generator struct {
 	fset                *token.FileSet
 	pkg                 string
-	components          map[string]bool                         // Track component names for this file
-	hoistedVars         map[string]bool                         // Track hoisted variable names in current component
+	components          map[string]bool                          // Track component names for this file
+	hoistedVars         map[string]bool                          // Track hoisted variable names in current component
 	hoistedComponentMap map[*guixast.Element]*childComponentInfo // Map elements to their hoisted component info
-	currentCompBody     *guixast.Body                           // Current component body being generated
+	currentCompBody     *guixast.Body                            // Current component body being generated
 }
 
 // New creates a new code generator
@@ -677,7 +677,7 @@ func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl 
 				// log("ComponentName: Render called")
 				&ast.ExprStmt{
 					X: &ast.CallExpr{
-						Fun:  ast.NewIdent("log"),
+						Fun: ast.NewIdent("log"),
 						Args: []ast.Expr{
 							&ast.BasicLit{
 								Kind:  token.STRING,
@@ -1497,7 +1497,7 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 		// log("ComponentName: BindApp called")
 		&ast.ExprStmt{
 			X: &ast.CallExpr{
-				Fun:  ast.NewIdent("log"),
+				Fun: ast.NewIdent("log"),
 				Args: []ast.Expr{
 					&ast.BasicLit{
 						Kind:  token.STRING,

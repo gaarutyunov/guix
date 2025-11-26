@@ -595,9 +595,9 @@ func App() {
 	// Verify make() call is generated correctly
 	// With hoisting, channels are struct fields and initialized in Render
 	expectedCode := []string{
-		"counter chan int",                // Field in struct
-		"c.counter = make(chan int, 10)",  // Hoisted assignment in Render
-		"fmt.Sprint(c.counter)",           // Reference to hoisted var
+		"counter chan int",               // Field in struct
+		"c.counter = make(chan int, 10)", // Hoisted assignment in Render
+		"fmt.Sprint(c.counter)",          // Reference to hoisted var
 	}
 
 	for _, expected := range expectedCode {
@@ -687,12 +687,12 @@ func App() {
 
 	// Verify hoisted channels are in struct and initialized correctly
 	expectedCode := []string{
-		"dataChannel",                         // Field name in struct
-		"chan string",                         // Field type
-		"statusChannel",                       // Field name in struct
-		"chan int",                            // Field type
-		"c.dataChannel = make(chan string, 5)",   // Hoisted assignment
-		"c.statusChannel = make(chan int)",       // Hoisted assignment
+		"dataChannel",                          // Field name in struct
+		"chan string",                          // Field type
+		"statusChannel",                        // Field name in struct
+		"chan int",                             // Field type
+		"c.dataChannel = make(chan string, 5)", // Hoisted assignment
+		"c.statusChannel = make(chan int)",     // Hoisted assignment
 		"type App struct",
 		"func NewApp() *App",
 		"func (c *App) Render() *runtime.VNode",
