@@ -27,7 +27,7 @@ Create a file `hello.gx`:
 ```go
 package main
 
-component Hello(name: string) {
+func Hello(name: string) {
     Div {
         H1 {
             `Hello, {name}!`
@@ -64,7 +64,7 @@ GOOS=js GOARCH=wasm go build -o main.wasm .
 Components are the building blocks of Guix applications:
 
 ```go
-component Button(label: string, onClick: func(Event)) {
+func Button(label: string, onClick: func(Event)) {
     Button(OnClick(onClick)) {
         Text(label)
     }
@@ -99,7 +99,7 @@ btn := NewButton(
 Use backticks for template strings with embedded expressions:
 
 ```go
-component Counter(count: int) {
+func Counter(count: int) {
     Div {
         `Count: {count}`
     }
@@ -111,19 +111,35 @@ component Counter(count: int) {
 Channels enable reactive, real-time updates:
 
 ```go
-component Counter(counterChannel: <-chan int) {
-    Div {
-        `Counter: {<-counterChannel}`
+import "strconv"
+
+func Counter(counterChannel: chan int) {
+    Div(Class("counter-display")) {
+        Span(Class("counter-value")) {
+            `Counter: {<-counterChannel}`
+        }
     }
 }
 
-component App() {
-    Div {
-        Input(OnInput(func(ev Event) {
-            // Send to channel
-            counterChan <- parseValue(ev.Target.Value)
-        }))
-        Counter(WithCounterChannel(counterChan))
+func App() {
+    counter := make(chan int, 10)
+
+    Div(Class("app-container")) {
+        H1 {
+            "Counter Example"
+        }
+        Counter(WithCounterChannel(counter))
+        Div(Class("input-group")) {
+            Input(
+                Type("number"),
+                Placeholder("Enter a number"),
+                OnInput(func(e: Event) {
+                    value := e.Target.Value
+                    n, _ := strconv.Atoi(value)
+                    counter <- n
+                })
+            )
+        }
     }
 }
 ```
@@ -133,23 +149,23 @@ component App() {
 Type-safe event handling with Go functions:
 
 ```go
-component Form() {
+func Form() {
     Div {
         Input(
-            OnInput(func(ev Event) {
-                value := ev.Target.Value
+            OnInput(func(e: Event) {
+                value := e.Target.Value
                 // Handle input
             }),
             Placeholder("Enter text...")
         )
 
         Button(
-            OnClick(func(ev Event) {
-                ev.Native.Call("preventDefault")
+            OnClick(func(e: Event) {
+                e.Native.Call("preventDefault")
                 // Handle click
             })
         ) {
-            "Submit"
+            Text("Submit")
         }
     }
 }
@@ -161,22 +177,24 @@ Common HTML elements with type-safe APIs:
 
 ```go
 Div(Class("container")) {
-    H1 { "Title" }
+    H1 {
+        Text("Title")
+    }
 
     P(Style("color: blue;")) {
-        "Paragraph text"
+        Text("Paragraph text")
     }
 
     Button(
         ID("submit-btn"),
         OnClick(handleSubmit)
     ) {
-        "Submit"
+        Text("Submit")
     }
 
     Img(
         Src("/image.png"),
-        Attr{"alt", "Description"}
+        Attr{Key: "alt", Value: "Description"}
     )
 }
 ```
@@ -248,12 +266,54 @@ The parser (`pkg/parser`) implements:
 
 ### Counter
 
-See `examples/counter/` for a complete counter application with:
+See `examples/counter/` for a complete counter application demonstrating:
 
-- Component composition
-- Event handling
-- State management
-- Template interpolation
+- Component composition with the `Counter` component
+- Reactive channel-based state management
+- Event handling with `OnInput`
+- Template interpolation with backtick strings
+- Type-safe props and option functions
+
+The example consists of two components in `.gx` files:
+
+**`counter.gx`** - Display component that renders channel values:
+```go
+func Counter(counterChannel: chan int) {
+    Div(Class("counter-display")) {
+        Span(Class("counter-value")) {
+            `Counter: {<-counterChannel}`
+        }
+    }
+}
+```
+
+**`app.gx`** - Main app component with input handling:
+```go
+import "strconv"
+
+func App() {
+    counter := make(chan int, 10)
+
+    Div(Class("app-container")) {
+        H1 {
+            "Counter Example"
+        }
+        Counter(WithCounterChannel(counter))
+        Div(Class("input-group")) {
+            Input(
+                Type("number"),
+                Placeholder("Enter a number"),
+                ID("counter-input"),
+                OnInput(func(e: Event) {
+                    value := e.Target.Value
+                    n, _ := strconv.Atoi(value)
+                    counter <- n
+                })
+            )
+        }
+    }
+}
+```
 
 To run:
 
