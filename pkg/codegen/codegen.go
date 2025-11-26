@@ -12,13 +12,22 @@ import (
 	guixast "github.com/gaarutyunov/guix/pkg/ast"
 )
 
+// childComponentInfo holds information about a child component instance
+type childComponentInfo struct {
+	varName       string
+	componentType string
+	element       *guixast.Element // The element with props
+}
+
 // Generator generates Go code from Guix components
 type Generator struct {
-	fset            *token.FileSet
-	pkg             string
-	components      map[string]bool   // Track component names for this file
-	hoistedVars     map[string]bool   // Track hoisted variable names in current component
-	currentCompBody *guixast.Body     // Current component body being generated
+	fset                *token.FileSet
+	pkg                 string
+	components          map[string]bool                         // Track component names for this file
+	hoistedVars         map[string]bool                         // Track hoisted variable names in current component
+	hoistedComponents   []*childComponentInfo                   // Track hoisted child components
+	hoistedComponentMap map[*guixast.Element]*childComponentInfo // Map elements to their hoisted component info
+	currentCompBody     *guixast.Body                           // Current component body being generated
 }
 
 // New creates a new code generator
@@ -121,6 +130,9 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	var decls []ast.Decl
 
+	// Reset hoisted component map for this component
+	g.hoistedComponentMap = make(map[*guixast.Element]*childComponentInfo)
+
 	// Generate Props struct if component has parameters
 	if len(comp.Params) > 0 {
 		decls = append(decls, g.generatePropsStruct(comp))
@@ -212,6 +224,39 @@ func (g *Generator) nodeHasTemplateInterpolation(node *guixast.Node) bool {
 	}
 
 	return false
+}
+
+// collectChildComponents recursively collects child component usages from nodes
+func (g *Generator) collectChildComponents(nodes []*guixast.Node) []*childComponentInfo {
+	var childComponents []*childComponentInfo
+	g.collectChildComponentsFromNodes(nodes, &childComponents)
+	return childComponents
+}
+
+func (g *Generator) collectChildComponentsFromNodes(nodes []*guixast.Node, result *[]*childComponentInfo) {
+	for _, node := range nodes {
+		if node.Element != nil {
+			elem := node.Element
+			// Check if this is a component (capitalized tag name)
+			isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag])
+
+			if isComponent {
+				// Generate a variable name for this component instance
+				varName := strings.ToLower(elem.Tag[:1]) + elem.Tag[1:] + "Instance"
+				childInfo := &childComponentInfo{
+					varName:       varName,
+					componentType: elem.Tag,
+					element:       elem,
+				}
+				*result = append(*result, childInfo)
+				// Add to map for quick lookup during render generation
+				g.hoistedComponentMap[elem] = childInfo
+			}
+
+			// Recursively check children
+			g.collectChildComponentsFromNodes(elem.Children, result)
+		}
+	}
 }
 
 // generatePropsStruct generates a Props struct for component parameters
@@ -386,6 +431,18 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 				}
 			}
 		}
+
+		// Add child component instance fields
+		// Collect child components from the template
+		childComponents := g.collectChildComponents(comp.Body.Children)
+		for _, childInfo := range childComponents {
+			fields = append(fields, &ast.Field{
+				Names: []*ast.Ident{ast.NewIdent(childInfo.varName)},
+				Type: &ast.StarExpr{
+					X: ast.NewIdent(childInfo.componentType),
+				},
+			})
+		}
 	}
 
 	// Add listenersStarted flag if component has channel parameters
@@ -488,6 +545,16 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 
 	// Initialize hoisted variables (like channels) in constructor
 	if comp.Body != nil {
+		// Set up hoisted vars map for expression generation
+		g.hoistedVars = make(map[string]bool)
+		g.currentCompBody = comp.Body
+		for _, varDecl := range comp.Body.VarDecls {
+			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 &&
+				g.inferTypeFromExpr(varDecl.Values[0]) != nil {
+				g.hoistedVars[varDecl.Names[0]] = true
+			}
+		}
+
 		for _, varDecl := range comp.Body.VarDecls {
 			// Only initialize single-variable declarations with inferable types
 			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 &&
@@ -502,6 +569,34 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					Rhs: []ast.Expr{g.generateExpr(varDecl.Values[0])},
 				})
 			}
+		}
+
+		// Initialize child component instances
+		childComponents := g.collectChildComponents(comp.Body.Children)
+		for _, childInfo := range childComponents {
+			// Generate option calls from props
+			optionCalls := []ast.Expr{}
+			for _, prop := range childInfo.element.Props {
+				optionCalls = append(optionCalls, &ast.CallExpr{
+					Fun:  ast.NewIdent(prop.Name),
+					Args: []ast.Expr{g.generateExpr(prop.Value)},
+				})
+			}
+
+			// Generate: c.childInstance = NewChildComponent(options...)
+			bodyStmts = append(bodyStmts, &ast.AssignStmt{
+				Lhs: []ast.Expr{&ast.SelectorExpr{
+					X:   ast.NewIdent("c"),
+					Sel: ast.NewIdent(childInfo.varName),
+				}},
+				Tok: token.ASSIGN,
+				Rhs: []ast.Expr{
+					&ast.CallExpr{
+						Fun:  ast.NewIdent("New" + childInfo.componentType),
+						Args: optionCalls,
+					},
+				},
+			})
 		}
 	}
 
@@ -543,6 +638,11 @@ func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl 
 				g.hoistedVars[varDecl.Names[0]] = true
 			}
 		}
+	}
+
+	// Populate hoisted component map for this component
+	if comp.Body != nil {
+		g.collectChildComponents(comp.Body.Children)
 	}
 
 	body := g.generateBody(comp.Body)
@@ -794,7 +894,22 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 
 	// Generate function call
 	if isComponent {
-		// Custom component: wrap in IIFE to call BindApp before Render
+		// Check if this component is hoisted
+		if hoistedInfo, isHoisted := g.hoistedComponentMap[elem]; isHoisted {
+			// Hoisted component: just call Render on the hoisted instance
+			// Generate: c.counterInstance.Render()
+			return &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X: &ast.SelectorExpr{
+						X:   ast.NewIdent("c"),
+						Sel: ast.NewIdent(hoistedInfo.varName),
+					},
+					Sel: ast.NewIdent("Render"),
+				},
+			}
+		}
+
+		// Non-hoisted component: wrap in IIFE to call BindApp before Render
 		// Generate:
 		// func() *runtime.VNode {
 		//     comp := NewComponent(...)
@@ -1445,6 +1560,40 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 									X:   ast.NewIdent("c"),
 									Sel: ast.NewIdent("start" + capitalize(param.Name) + "Listener"),
 								},
+							},
+						},
+					},
+				},
+			})
+		}
+	}
+
+	// Call BindApp on child component instances
+	if comp.Body != nil {
+		childComponents := g.collectChildComponents(comp.Body.Children)
+		for _, childInfo := range childComponents {
+			// Generate: if c.childInstance != nil { c.childInstance.BindApp(app) }
+			stmts = append(stmts, &ast.IfStmt{
+				Cond: &ast.BinaryExpr{
+					X: &ast.SelectorExpr{
+						X:   ast.NewIdent("c"),
+						Sel: ast.NewIdent(childInfo.varName),
+					},
+					Op: token.NEQ,
+					Y:  ast.NewIdent("nil"),
+				},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.ExprStmt{
+							X: &ast.CallExpr{
+								Fun: &ast.SelectorExpr{
+									X: &ast.SelectorExpr{
+										X:   ast.NewIdent("c"),
+										Sel: ast.NewIdent(childInfo.varName),
+									},
+									Sel: ast.NewIdent("BindApp"),
+								},
+								Args: []ast.Expr{ast.NewIdent("app")},
 							},
 						},
 					},
