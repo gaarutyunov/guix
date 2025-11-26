@@ -9,11 +9,13 @@ import (
 )
 
 type App struct {
-	app *runtime.App
+	app     *runtime.App
+	counter chan int
 }
 
 func NewApp() *App {
 	c := &App{}
+	c.counter = make(chan int, 10)
 	return c
 }
 func (c *App) BindApp(app *runtime.App) {
@@ -21,11 +23,16 @@ func (c *App) BindApp(app *runtime.App) {
 }
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
-		counter := make(chan int, 10)
-		return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Counter Example")), NewCounter(WithCounterChannel(counter)).Render(), runtime.Div(runtime.Class("input-group"), runtime.Input(runtime.Type("number"), runtime.Placeholder("Enter a number"), runtime.ID("counter-input"), runtime.OnInput(func(e runtime.Event) {
+		return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Counter Example")), func() *runtime.VNode {
+			_counter := NewCounter(WithCounterChannel(c.counter))
+			if c.app != nil {
+				_counter.BindApp(c.app)
+			}
+			return _counter.Render()
+		}(), runtime.Div(runtime.Class("input-group"), runtime.Input(runtime.Type("number"), runtime.Placeholder("Enter a number"), runtime.ID("counter-input"), runtime.OnInput(func(e runtime.Event) {
 			value := e.Target.Value
 			n, _ := strconv.Atoi(value)
-			counter <- n
+			c.counter <- n
 		}))))
 	}()
 }

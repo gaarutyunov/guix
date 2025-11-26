@@ -23,6 +23,7 @@ type Counter struct {
 	app                   *runtime.App
 	CounterChannel        chan int
 	currentCounterChannel int
+	listenersStarted      bool
 }
 
 func NewCounter(opts ...CounterOption) *Counter {
@@ -34,9 +35,13 @@ func NewCounter(opts ...CounterOption) *Counter {
 }
 func (c *Counter) BindApp(app *runtime.App) {
 	c.app = app
+	if c.listenersStarted {
+		return
+	}
 	if c.CounterChannel != nil {
 		c.startCounterChannelListener()
 	}
+	c.listenersStarted = true
 }
 func (c *Counter) startCounterChannelListener() {
 	go func() {

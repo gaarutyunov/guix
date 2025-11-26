@@ -14,9 +14,11 @@ import (
 
 // Generator generates Go code from Guix components
 type Generator struct {
-	fset       *token.FileSet
-	pkg        string
-	components map[string]bool // Track component names for this file
+	fset            *token.FileSet
+	pkg             string
+	components      map[string]bool   // Track component names for this file
+	hoistedVars     map[string]bool   // Track hoisted variable names in current component
+	currentCompBody *guixast.Body     // Current component body being generated
 }
 
 // New creates a new code generator
@@ -367,6 +369,34 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 		}
 	}
 
+	// Add VarDecl fields from component body (for stateful variables)
+	// This ensures channels and components persist across renders
+	if comp.Body != nil {
+		for _, varDecl := range comp.Body.VarDecls {
+			for i, name := range varDecl.Names {
+				if i < len(varDecl.Values) {
+					// Determine the type from the value expression
+					varType := g.inferTypeFromExpr(varDecl.Values[i])
+					if varType != nil {
+						fields = append(fields, &ast.Field{
+							Names: []*ast.Ident{ast.NewIdent(name)},
+							Type:  varType,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// Add listenersStarted flag if component has channel parameters
+	// This makes BindApp idempotent to prevent multiple goroutine leaks
+	if g.hasChannelParams(comp) {
+		fields = append(fields, &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent("listenersStarted")},
+			Type:  ast.NewIdent("bool"),
+		})
+	}
+
 	return &ast.GenDecl{
 		Tok: token.TYPE,
 		Specs: []ast.Spec{
@@ -378,6 +408,26 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 			},
 		},
 	}
+}
+
+// inferTypeFromExpr infers the Go AST type from a Guix expression
+func (g *Generator) inferTypeFromExpr(expr *guixast.Expr) ast.Expr {
+	if expr == nil {
+		return nil
+	}
+
+	// Handle make(chan Type, size)
+	if expr.MakeCall != nil {
+		return &ast.ChanType{
+			Dir:   ast.SEND | ast.RECV,
+			Value: g.typeToAST(expr.MakeCall.ChanType),
+		}
+	}
+
+	// For other expression types, we can't easily infer the type without more context
+	// For now, return nil and skip adding the field (will remain as local var)
+	// TODO: Add type inference for other expressions if needed
+	return nil
 }
 
 // generateConstructor generates the New* constructor function
@@ -436,6 +486,25 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 		})
 	}
 
+	// Initialize hoisted variables (like channels) in constructor
+	if comp.Body != nil {
+		for _, varDecl := range comp.Body.VarDecls {
+			// Only initialize single-variable declarations with inferable types
+			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 &&
+				g.inferTypeFromExpr(varDecl.Values[0]) != nil {
+				// Generate: c.varName = make(chan Type, size)
+				bodyStmts = append(bodyStmts, &ast.AssignStmt{
+					Lhs: []ast.Expr{&ast.SelectorExpr{
+						X:   ast.NewIdent("c"),
+						Sel: ast.NewIdent(varDecl.Names[0]),
+					}},
+					Tok: token.ASSIGN,
+					Rhs: []ast.Expr{g.generateExpr(varDecl.Values[0])},
+				})
+			}
+		}
+	}
+
 	bodyStmts = append(bodyStmts, &ast.ReturnStmt{
 		Results: []ast.Expr{ast.NewIdent("c")},
 	})
@@ -462,6 +531,20 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 
 // generateRenderMethod generates the Render method
 func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl {
+	// Set up context for hoisted variable tracking
+	g.hoistedVars = make(map[string]bool)
+	g.currentCompBody = comp.Body
+
+	// Collect hoisted variable names
+	if comp.Body != nil {
+		for _, varDecl := range comp.Body.VarDecls {
+			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 &&
+				g.inferTypeFromExpr(varDecl.Values[0]) != nil {
+				g.hoistedVars[varDecl.Names[0]] = true
+			}
+		}
+	}
+
 	body := g.generateBody(comp.Body)
 
 	return &ast.FuncDecl{
@@ -507,22 +590,36 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 		stmts := make([]ast.Stmt, 0)
 
 		// Add variable declarations
+		// VarDecls with inferable types (like channels) are hoisted to struct fields
+		// and initialized in the constructor - skip them here in Render
+		// All other VarDecls remain as local variables (including multiple assignments)
 		for _, varDecl := range body.VarDecls {
-			lhs := make([]ast.Expr, len(varDecl.Names))
-			for i, name := range varDecl.Names {
-				lhs[i] = ast.NewIdent(name)
-			}
+			// Check if ALL variables in this decl can be hoisted
+			// For now, only hoist if there's a single variable with an inferable type
+			canHoist := len(varDecl.Names) == 1 && len(varDecl.Values) == 1 &&
+				g.inferTypeFromExpr(varDecl.Values[0]) != nil
 
-			rhs := make([]ast.Expr, len(varDecl.Values))
-			for i, val := range varDecl.Values {
-				rhs[i] = g.generateExpr(val)
-			}
+			if canHoist {
+				// Hoisted field - skip initialization in Render (already done in constructor)
+				continue
+			} else {
+				// Local variable(s) - generate: name := value or n, err := value
+				lhs := make([]ast.Expr, len(varDecl.Names))
+				for i, name := range varDecl.Names {
+					lhs[i] = ast.NewIdent(name)
+				}
 
-			stmts = append(stmts, &ast.AssignStmt{
-				Lhs: lhs,
-				Tok: g.assignOpToToken(varDecl.Op),
-				Rhs: rhs,
-			})
+				rhs := make([]ast.Expr, len(varDecl.Values))
+				for i, val := range varDecl.Values {
+					rhs[i] = g.generateExpr(val)
+				}
+
+				stmts = append(stmts, &ast.AssignStmt{
+					Lhs: lhs,
+					Tok: g.assignOpToToken(varDecl.Op),
+					Rhs: rhs,
+				})
+			}
 		}
 
 		// Generate the UI tree
@@ -685,14 +782,85 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 
 	// Generate function call
 	if isComponent {
-		// Custom component: call NewComponent().Render()
+		// Custom component: wrap in IIFE to call BindApp before Render
+		// Generate:
+		// func() *runtime.VNode {
+		//     comp := NewComponent(...)
+		//     if c.app != nil { comp.BindApp(c.app) }
+		//     return comp.Render()
+		// }()
+		compVar := "_" + strings.ToLower(elem.Tag[:1]) + elem.Tag[1:]
 		return &ast.CallExpr{
-			Fun: &ast.SelectorExpr{
-				X: &ast.CallExpr{
-					Fun:  ast.NewIdent("New" + elem.Tag),
-					Args: args,
+			Fun: &ast.FuncLit{
+				Type: &ast.FuncType{
+					Results: &ast.FieldList{
+						List: []*ast.Field{
+							{
+								Type: &ast.StarExpr{
+									X: &ast.SelectorExpr{
+										X:   ast.NewIdent("runtime"),
+										Sel: ast.NewIdent("VNode"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Sel: ast.NewIdent("Render"),
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						// comp := NewComponent(...)
+						&ast.AssignStmt{
+							Lhs: []ast.Expr{ast.NewIdent(compVar)},
+							Tok: token.DEFINE,
+							Rhs: []ast.Expr{
+								&ast.CallExpr{
+									Fun:  ast.NewIdent("New" + elem.Tag),
+									Args: args,
+								},
+							},
+						},
+						// if c.app != nil { comp.BindApp(c.app) }
+						&ast.IfStmt{
+							Cond: &ast.BinaryExpr{
+								X: &ast.SelectorExpr{
+									X:   ast.NewIdent("c"),
+									Sel: ast.NewIdent("app"),
+								},
+								Op: token.NEQ,
+								Y:  ast.NewIdent("nil"),
+							},
+							Body: &ast.BlockStmt{
+								List: []ast.Stmt{
+									&ast.ExprStmt{
+										X: &ast.CallExpr{
+											Fun: &ast.SelectorExpr{
+												X:   ast.NewIdent(compVar),
+												Sel: ast.NewIdent("BindApp"),
+											},
+											Args: []ast.Expr{
+												&ast.SelectorExpr{
+													X:   ast.NewIdent("c"),
+													Sel: ast.NewIdent("app"),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						// return comp.Render()
+						&ast.ReturnStmt{
+							Results: []ast.Expr{
+								&ast.CallExpr{
+									Fun: &ast.SelectorExpr{
+										X:   ast.NewIdent(compVar),
+										Sel: ast.NewIdent("Render"),
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		}
 	} else {
@@ -797,7 +965,15 @@ func (g *Generator) generateExpr(expr *guixast.Expr) ast.Expr {
 	}
 
 	if expr.Ident != "" {
-		// Check if it's a component field reference
+		// Check if it's a hoisted variable (stored as-is in component struct)
+		if g.hoistedVars != nil && g.hoistedVars[expr.Ident] {
+			return &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(expr.Ident), // Use exact name, not capitalized
+			}
+		}
+		// Otherwise it's a component parameter field (capitalized) or local var
+		// For now, assume it's a field - local vars are handled differently
 		return &ast.SelectorExpr{
 			X:   ast.NewIdent("c"),
 			Sel: ast.NewIdent(capitalize(expr.Ident)),
@@ -869,6 +1045,15 @@ func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {
 // generateCallOrSelect generates code for a call or selector expression
 // If Args is present, generates a call. Otherwise, generates a selector.
 func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
+	// Check if this is a simple identifier (no fields, no args) that's a hoisted variable
+	if len(cos.Fields) == 0 && len(cos.Args) == 0 && g.hoistedVars != nil && g.hoistedVars[cos.Base] {
+		// Hoisted variable - generate c.base
+		return &ast.SelectorExpr{
+			X:   ast.NewIdent("c"),
+			Sel: ast.NewIdent(cos.Base),
+		}
+	}
+
 	// Build the base selector expression from base and fields
 	var expr ast.Expr = ast.NewIdent(cos.Base)
 	for _, field := range cos.Fields {
@@ -938,8 +1123,19 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 	if stmt.Assignment != nil {
 		// Handle channel send operation
 		if stmt.Assignment.Op == "<-" {
+			// Check if channel is a hoisted variable
+			var chanExpr ast.Expr
+			if g.hoistedVars != nil && g.hoistedVars[stmt.Assignment.Left] {
+				chanExpr = &ast.SelectorExpr{
+					X:   ast.NewIdent("c"),
+					Sel: ast.NewIdent(stmt.Assignment.Left),
+				}
+			} else {
+				chanExpr = ast.NewIdent(stmt.Assignment.Left)
+			}
+
 			return &ast.SendStmt{
-				Chan:  ast.NewIdent(stmt.Assignment.Left),
+				Chan:  chanExpr,
 				Value: g.generateExpr(stmt.Assignment.Right),
 			}
 		}
@@ -1185,6 +1381,25 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 		},
 	}
 
+	// Check if component has channel parameters
+	hasChannels := g.hasChannelParams(comp)
+
+	if hasChannels {
+		// Add early return if listeners already started
+		// if c.listenersStarted { return }
+		stmts = append(stmts, &ast.IfStmt{
+			Cond: &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent("listenersStarted"),
+			},
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.ReturnStmt{},
+				},
+			},
+		})
+	}
+
 	// For each channel parameter, start a listener
 	for _, param := range comp.Params {
 		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
@@ -1212,6 +1427,20 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 				},
 			})
 		}
+	}
+
+	// Set flag after starting listeners
+	if hasChannels {
+		stmts = append(stmts, &ast.AssignStmt{
+			Lhs: []ast.Expr{
+				&ast.SelectorExpr{
+					X:   ast.NewIdent("c"),
+					Sel: ast.NewIdent("listenersStarted"),
+				},
+			},
+			Tok: token.ASSIGN,
+			Rhs: []ast.Expr{ast.NewIdent("true")},
+		})
 	}
 
 	return &ast.FuncDecl{
