@@ -1,0 +1,26 @@
+package main
+
+import "strconv"
+
+func App() {
+	counter := make(chan int, 10)
+
+	Div(Class("app-container")) {
+		H1 {
+			"Counter Example"
+		}
+		Counter(WithCounterChannel(counter))
+		Div(Class("input-group")) {
+			Input(
+				Type("number"),
+				Placeholder("Enter a number"),
+				ID("counter-input"),
+				OnInput(func(e: Event) {
+					value := e.Target.Value
+					n, _ := strconv.Atoi(value)
+					counter <- n
+				})
+			)
+		}
+	}
+}

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guix Counter Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        #root {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .app-container h1 {
+            color: #333;
+            margin-top: 0;
+            text-align: center;
+        }
+
+        .input-group {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .input-group input {
+            padding: 12px 16px;
+            font-size: 18px;
+            border: 2px solid #007bff;
+            border-radius: 6px;
+            width: 250px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .counter-display {
+            margin: 40px 0;
+            text-align: center;
+        }
+
+        .counter-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #007bff;
+            display: block;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 8px;
+        }
+
+        #loading {
+            text-align: center;
+            color: #666;
+            padding: 40px;
+        }
+
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div id="loading">Loading Guix application...</div>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        // Log all errors for debugging
+        window.addEventListener('error', (e) => {
+            console.error('Global error:', e.error, e.message);
+        });
+
+        const go = new Go();
+
+        console.log('Starting WASM load...');
+
+        WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
+            .then((result) => {
+                console.log('WASM loaded, removing loading indicator');
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) {
+                    loadingEl.remove();
+                }
+
+                console.log('Running WASM...');
+                go.run(result.instance);
+                console.log('WASM running');
+            })
+            .catch((err) => {
+                console.error('WASM load error:', err);
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) {
+                    loadingEl.innerHTML =
+                        '<p style="color: red;">Failed to load WASM: ' + err + '</p>' +
+                        '<p>Make sure to build the WASM file first</p>';
+                }
+            });
+    </script>
+</body>
+</html>

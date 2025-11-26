@@ -1,0 +1,67 @@
+name: E2E Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  playwright:
+    name: Playwright Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build CLI
+        run: go build -o guix ./cmd/guix
+
+      - name: Generate and build counter example
+        run: |
+          ./guix generate -p examples/counter
+          cd examples/counter
+          # Copy wasm_exec.js from Go installation
+          GOROOT="$(go env GOROOT)"
+          # Try lib/wasm first (Go 1.24+), then misc/wasm (older versions)
+          if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/lib/wasm/wasm_exec.js" .
+          elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/misc/wasm/wasm_exec.js" .
+          else
+            echo "wasm_exec.js not found in GOROOT, downloading from GitHub"
+            curl -o wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
+          fi
+          GOOS=js GOARCH=wasm go build -o main.wasm .
+          echo "Files after build:"
+          ls -lah *.{html,js,wasm,go} 2>/dev/null || ls -lah
+
+      - name: Install Playwright
+        working-directory: examples/counter
+        run: |
+          npm init -y
+          npm install -D @playwright/test
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: examples/counter
+        run: npx playwright test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: examples/counter/test-results/
+          retention-days: 7
