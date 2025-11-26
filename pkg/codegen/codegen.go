@@ -25,7 +25,6 @@ type Generator struct {
 	pkg                 string
 	components          map[string]bool                         // Track component names for this file
 	hoistedVars         map[string]bool                         // Track hoisted variable names in current component
-	hoistedComponents   []*childComponentInfo                   // Track hoisted child components
 	hoistedComponentMap map[*guixast.Element]*childComponentInfo // Map elements to their hoisted component info
 	currentCompBody     *guixast.Body                           // Current component body being generated
 }
