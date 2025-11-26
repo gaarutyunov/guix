@@ -13,12 +13,22 @@ var console = js.Global().Get("console")
 
 // log writes a debug message to the browser console
 func log(args ...interface{}) {
-	console.Call("log", args...)
+	// Convert all args to strings to avoid js.ValueOf errors
+	jsArgs := make([]interface{}, len(args))
+	for i, arg := range args {
+		jsArgs[i] = fmt.Sprint(arg)
+	}
+	console.Call("log", jsArgs...)
 }
 
 // logError writes an error message to the browser console
 func logError(args ...interface{}) {
-	console.Call("error", args...)
+	// Convert all args to strings to avoid js.ValueOf errors
+	jsArgs := make([]interface{}, len(args))
+	for i, arg := range args {
+		jsArgs[i] = fmt.Sprint(arg)
+	}
+	console.Call("error", jsArgs...)
 }
 
 // Mount creates a real DOM node from a VNode and appends it to parent

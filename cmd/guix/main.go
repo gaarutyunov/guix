@@ -79,12 +79,20 @@ func generateHelpersFile(root string) error {
 
 package main
 
-import "syscall/js"
+import (
+	"fmt"
+	"syscall/js"
+)
 
 var console = js.Global().Get("console")
 
 func log(args ...interface{}) {
-	console.Call("log", args...)
+	// Convert all args to strings to avoid js.ValueOf errors
+	jsArgs := make([]interface{}, len(args))
+	for i, arg := range args {
+		jsArgs[i] = fmt.Sprint(arg)
+	}
+	console.Call("log", jsArgs...)
 }
 `
 	helpersPath := filepath.Join(root, "guix_helpers_gen.go")
