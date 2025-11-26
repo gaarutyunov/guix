@@ -844,45 +844,6 @@ func (g *Generator) generateLiteral(lit *guixast.Literal) ast.Expr {
 	return ast.NewIdent("nil")
 }
 
-// generateSelector generates code for a selector expression
-// Example: e.Target.Value
-func (g *Generator) generateSelector(sel *guixast.Selector) ast.Expr {
-	// Start with the base identifier
-	var result ast.Expr = ast.NewIdent(sel.Base)
-
-	// Chain the field selectors
-	for _, field := range sel.Fields {
-		result = &ast.SelectorExpr{
-			X:   result,
-			Sel: ast.NewIdent(field),
-		}
-	}
-
-	return result
-}
-
-// generateCall generates code for a function call or method call
-func (g *Generator) generateCall(call *guixast.Call) ast.Expr {
-	args := make([]ast.Expr, len(call.Args))
-	for i, arg := range call.Args {
-		args[i] = g.generateExpr(arg)
-	}
-
-	// Build the function expression from base and fields
-	var fun ast.Expr = ast.NewIdent(call.Base)
-	for _, field := range call.Fields {
-		fun = &ast.SelectorExpr{
-			X:   fun,
-			Sel: ast.NewIdent(field),
-		}
-	}
-
-	return &ast.CallExpr{
-		Fun:  fun,
-		Args: args,
-	}
-}
-
 // generateMakeCall generates code for a make() function call
 // Example: make(chan int, 10)
 func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {

@@ -7,19 +7,6 @@ import (
 	"github.com/gaarutyunov/guix/pkg/parser"
 )
 
-// normalizeWhitespace normalizes whitespace in generated code for comparison
-func normalizeWhitespace(s string) string {
-	lines := strings.Split(s, "\n")
-	var normalized []string
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			normalized = append(normalized, trimmed)
-		}
-	}
-	return strings.Join(normalized, "\n")
-}
-
 func TestGenerateSimpleComponent(t *testing.T) {
 	tests := []struct {
 		name     string
