@@ -17,7 +17,7 @@ func App() {
 				ID("counter-input"),
 				OnInput(func(e: Event) {
 					value := e.Target.Value
-					n := strconv.Atoi(value)
+					n, _ := strconv.Atoi(value)
 					counter <- n
 				})
 			)

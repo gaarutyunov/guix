@@ -154,12 +154,12 @@ type FuncBody struct {
 // Statement represents a statement in a function body
 type Statement struct {
 	Pos        lexer.Position
-	Assignment *Assignment `@@`
+	VarDecl    *VarDecl    `@@`
+	Assignment *Assignment `| @@`
 	Expr       *Expr       `| @@`
 	Return     *Return     `| @@`
 	If         *IfStmt     `| @@`
 	For        *ForLoop    `| @@`
-	VarDecl    *VarDecl    `| @@`
 }
 
 // Assignment represents an assignment statement
