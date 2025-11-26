@@ -2,7 +2,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"go/format"
 	"io/fs"
 	"log"
 	"os"
@@ -96,7 +98,16 @@ func log(args ...interface{}) {
 }
 `
 	helpersPath := filepath.Join(root, "guix_helpers_gen.go")
-	return os.WriteFile(helpersPath, []byte(helpersContent), 0644)
+	if err := os.WriteFile(helpersPath, []byte(helpersContent), 0644); err != nil {
+		return err
+	}
+
+	// Format with gofmt for consistency
+	if err := formatFile(helpersPath); err != nil {
+		log.Printf("Warning: failed to format %s: %v", helpersPath, err)
+	}
+
+	return nil
 }
 
 func runGenerate(c *cli.Context) error {
@@ -199,6 +210,27 @@ func generateAll(root string, genCache *cache.Cache, verbose bool) error {
 	return nil
 }
 
+func formatFile(path string) error {
+	// Read the file
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	// Format with gofmt (uses go/format.Source internally)
+	formatted, err := format.Source(src)
+	if err != nil {
+		return err
+	}
+
+	// Write back if changed
+	if !bytes.Equal(src, formatted) {
+		return os.WriteFile(path, formatted, 0644)
+	}
+
+	return nil
+}
+
 func generateFile(srcPath string, p *parser.Parser, verbose bool) error {
 	if verbose {
 		log.Printf("Generating %s", srcPath)
@@ -232,6 +264,11 @@ func generateFile(srcPath string, p *parser.Parser, verbose bool) error {
 	outPath := strings.TrimSuffix(srcPath, guixExt) + "_gen.go"
 	if err := os.WriteFile(outPath, output, 0644); err != nil {
 		return err
+	}
+
+	// Format with gofmt for consistency
+	if err := formatFile(outPath); err != nil {
+		log.Printf("Warning: failed to format %s: %v", outPath, err)
 	}
 
 	if verbose {
