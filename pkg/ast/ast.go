@@ -122,18 +122,18 @@ type Selector struct {
 // Example: OnClick(handler) or strconv.Atoi(value)
 type Call struct {
 	Pos    lexer.Position
-	Base   string     `@Ident`
-	Fields []string   `("." @Ident)*`
-	Args   []*Expr    `"(" (@@ ("," @@)*)? ")"`
+	Base   string   `@Ident`
+	Fields []string `("." @Ident)*`
+	Args   []*Expr  `"(" (@@ ("," @@)*)? ")"`
 }
 
 // MakeCall represents a make() function call with type argument
 // Example: make(chan int, 10)
 type MakeCall struct {
 	Pos      lexer.Position
-	Func     string  `@"make"`
-	ChanType *Type   `"(" "chan" @@`
-	Size     *Expr   `("," @@)? ")"`
+	Func     string `@"make"`
+	ChanType *Type  `"(" "chan" @@`
+	Size     *Expr  `("," @@)? ")"`
 }
 
 // FuncLit represents a function literal
