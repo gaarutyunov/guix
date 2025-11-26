@@ -83,6 +83,8 @@ func (a *App) render() error {
 			logError("App: Apply patches failed:", err)
 			return err
 		}
+		// Copy DOMNode references from old tree to new tree so next update can find them
+		CopyDOMRefs(a.rootVNode, newVNode)
 		a.rootVNode = newVNode
 		log("App: Update complete")
 	}

@@ -265,6 +265,31 @@ func ApplyPatches(patches []Patch) error {
 	return nil
 }
 
+// CopyDOMRefs copies DOMNode references from old VNode tree to new VNode tree
+// This preserves DOM references after updates so subsequent diffs can find nodes
+func CopyDOMRefs(oldNode, newNode *VNode) {
+	if oldNode == nil || newNode == nil {
+		return
+	}
+
+	// Copy the DOMNode reference
+	if !oldNode.DOMNode.IsUndefined() && !oldNode.DOMNode.IsNull() {
+		newNode.DOMNode = oldNode.DOMNode
+	}
+
+	// Recursively copy for children (match by position)
+	oldChildren := oldNode.Children
+	newChildren := newNode.Children
+	minLen := len(oldChildren)
+	if len(newChildren) < minLen {
+		minLen = len(newChildren)
+	}
+
+	for i := 0; i < minLen; i++ {
+		CopyDOMRefs(oldChildren[i], newChildren[i])
+	}
+}
+
 // Helper functions
 
 func attrsChanged(old, new map[string]string) bool {
