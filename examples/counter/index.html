@@ -106,22 +106,6 @@
                 console.log('Running WASM...');
                 go.run(result.instance);
                 console.log('WASM running');
-
-                // After WASM loads, wire up the input to update the counter
-                setTimeout(() => {
-                    const input = document.getElementById('counter-input');
-                    const counterValue = document.querySelector('.counter-value');
-
-                    console.log('Input element:', input);
-                    console.log('Counter value element:', counterValue);
-
-                    if (input && counterValue) {
-                        input.addEventListener('input', (e) => {
-                            const value = e.target.value || '0';
-                            counterValue.textContent = 'Counter: ' + value;
-                        });
-                    }
-                }, 100);
             })
             .catch((err) => {
                 console.error('WASM load error:', err);
