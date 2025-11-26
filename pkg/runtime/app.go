@@ -18,6 +18,7 @@ type App struct {
 
 // NewApp creates a new Guix application
 func NewApp(component Component) *App {
+	log("App: Creating new Guix application")
 	return &App{
 		component: component,
 	}
@@ -25,13 +26,16 @@ func NewApp(component Component) *App {
 
 // Mount mounts the application to a DOM element
 func (a *App) Mount(selector string) error {
+	log("App: Mounting to selector:", selector)
 	doc := js.Global().Get("document")
 	root := doc.Call("querySelector", selector)
 
 	if root.IsUndefined() || root.IsNull() {
+		logError("App: Element not found:", selector)
 		return fmt.Errorf("element not found: %s", selector)
 	}
 
+	log("App: Found root element, starting render")
 	a.root = root
 	return a.render()
 }
@@ -48,22 +52,39 @@ func (a *App) MountElement(element js.Value) error {
 
 // render performs the initial render or updates
 func (a *App) render() error {
+	log("App: Rendering component, mounted:", a.mounted)
+
+	defer func() {
+		if r := recover(); r != nil {
+			logError("App: Render panicked:", r)
+			panic(r)
+		}
+	}()
+
 	newVNode := a.component.Render()
+	log("App: Component.Render() returned vnode")
 
 	if !a.mounted {
 		// Initial render
+		log("App: Performing initial mount")
 		if err := Mount(newVNode, a.root); err != nil {
+			logError("App: Initial mount failed:", err)
 			return err
 		}
 		a.rootVNode = newVNode
 		a.mounted = true
+		log("App: Initial mount complete")
 	} else {
 		// Update render
+		log("App: Performing update (diff/patch)")
 		patches := Diff(a.rootVNode, newVNode)
+		log("App: Generated", len(patches), "patches")
 		if err := ApplyPatches(patches); err != nil {
+			logError("App: Apply patches failed:", err)
 			return err
 		}
 		a.rootVNode = newVNode
+		log("App: Update complete")
 	}
 
 	return nil
@@ -71,8 +92,10 @@ func (a *App) render() error {
 
 // Update triggers a re-render of the application
 func (a *App) Update() {
+	log("App: Update triggered")
 	ScheduleUpdate(func() {
 		if err := a.render(); err != nil {
+			logError("App: Render error:", err)
 			fmt.Printf("Render error: %v\n", err)
 		}
 	})

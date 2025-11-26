@@ -575,6 +575,18 @@ func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl 
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
+				// log("ComponentName: Render called")
+				&ast.ExprStmt{
+					X: &ast.CallExpr{
+						Fun:  ast.NewIdent("log"),
+						Args: []ast.Expr{
+							&ast.BasicLit{
+								Kind:  token.STRING,
+								Value: fmt.Sprintf(`"%s: Render called"`, comp.Name),
+							},
+						},
+					},
+				},
 				&ast.ReturnStmt{
 					Results: []ast.Expr{body},
 				},
@@ -1368,6 +1380,18 @@ func (g *Generator) generateUpdateMethod(comp *guixast.Component) *ast.FuncDecl 
 // generateBindAppMethod generates the BindApp method for components with channels
 func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl {
 	stmts := []ast.Stmt{
+		// log("ComponentName: BindApp called")
+		&ast.ExprStmt{
+			X: &ast.CallExpr{
+				Fun:  ast.NewIdent("log"),
+				Args: []ast.Expr{
+					&ast.BasicLit{
+						Kind:  token.STRING,
+						Value: fmt.Sprintf(`"%s: BindApp called"`, comp.Name),
+					},
+				},
+			},
+		},
 		// c.app = app
 		&ast.AssignStmt{
 			Lhs: []ast.Expr{

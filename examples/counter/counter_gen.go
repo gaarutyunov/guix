@@ -34,6 +34,7 @@ func NewCounter(opts ...CounterOption) *Counter {
 	return c
 }
 func (c *Counter) BindApp(app *runtime.App) {
+	log("Counter: BindApp called")
 	c.app = app
 	if c.listenersStarted {
 		return
@@ -54,6 +55,7 @@ func (c *Counter) startCounterChannelListener() {
 	}()
 }
 func (c *Counter) Render() *runtime.VNode {
+	log("Counter: Render called")
 	return runtime.Div(runtime.Class("counter-display"), runtime.Span(runtime.Class("counter-value"), runtime.Text("Counter: "+fmt.Sprint(c.currentCounterChannel))))
 }
 func (c *Counter) Mount(parent js.Value) {

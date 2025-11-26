@@ -8,15 +8,31 @@ import (
 	"syscall/js"
 )
 
+// console provides access to browser console for debugging
+var console = js.Global().Get("console")
+
+// log writes a debug message to the browser console
+func log(args ...interface{}) {
+	console.Call("log", args...)
+}
+
+// logError writes an error message to the browser console
+func logError(args ...interface{}) {
+	console.Call("error", args...)
+}
+
 // Mount creates a real DOM node from a VNode and appends it to parent
 func Mount(vnode *VNode, parent js.Value) error {
+	log("DOM: Mount called for vnode type:", vnode.Type, "tag:", vnode.Tag)
 	domNode, err := createDOMNode(vnode)
 	if err != nil {
+		logError("DOM: Mount failed to create DOM node:", err)
 		return err
 	}
 
 	vnode.DOMNode = domNode
 	parent.Call("appendChild", domNode)
+	log("DOM: Successfully mounted", vnode.Tag)
 	return nil
 }
 
@@ -43,6 +59,7 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 
 		// Attach event handlers
 		for name, handler := range vnode.Events {
+			log("DOM: Attaching event handler:", name, "to element:", vnode.Tag)
 			attachEventHandler(elem, name, handler, vnode)
 		}
 
@@ -79,10 +96,12 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 func attachEventHandler(elem js.Value, eventName string, handler EventHandler, vnode *VNode) {
 	jsFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) == 0 {
+			log("DOM: Event handler called with no args")
 			return nil
 		}
 
 		jsEvent := args[0]
+		log("DOM: Event fired:", eventName, "on element:", elem.Get("tagName"))
 
 		// Create Go Event wrapper
 		event := Event{
@@ -99,6 +118,7 @@ func attachEventHandler(elem js.Value, eventName string, handler EventHandler, v
 		// Get value if it exists
 		if target.Get("value").Type() == js.TypeString {
 			event.Target.Value = target.Get("value").String()
+			log("DOM: Event target value:", event.Target.Value)
 		}
 
 		// Get checked if it exists
@@ -106,8 +126,17 @@ func attachEventHandler(elem js.Value, eventName string, handler EventHandler, v
 			event.Target.Checked = target.Get("checked").Bool()
 		}
 
+		log("DOM: Calling event handler in goroutine")
 		// Call the handler in a goroutine to avoid blocking the event loop
-		go handler.Handler(event)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logError("DOM: Event handler panicked:", r)
+				}
+			}()
+			handler.Handler(event)
+			log("DOM: Event handler completed")
+		}()
 
 		return nil
 	})

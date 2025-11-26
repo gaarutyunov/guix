@@ -19,9 +19,11 @@ func NewApp() *App {
 	return c
 }
 func (c *App) BindApp(app *runtime.App) {
+	log("App: BindApp called")
 	c.app = app
 }
 func (c *App) Render() *runtime.VNode {
+	log("App: Render called")
 	return func() *runtime.VNode {
 		return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Counter Example")), func() *runtime.VNode {
 			_counter := NewCounter(WithCounterChannel(c.counter))
