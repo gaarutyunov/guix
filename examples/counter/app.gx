@@ -1,5 +1,7 @@
 package main
 
+import "strconv"
+
 func App() {
 	counter := make(chan int, 10)
 
@@ -8,15 +10,17 @@ func App() {
 			"Counter Example"
 		}
 		Counter(WithCounterChannel(counter))
-		Div(Class("button-group")) {
-			Button(
-				Class("increment-btn"),
-				OnClick(func(e: Event) {
-					counter <- 1
+		Div(Class("input-group")) {
+			Input(
+				Type("number"),
+				Placeholder("Enter a number"),
+				ID("counter-input"),
+				OnInput(func(e: Event) {
+					value := e.Target.Value
+					n := strconv.Atoi(value)
+					counter <- n
 				})
-			) {
-				"Increment"
-			}
+			)
 		}
 	}
 }

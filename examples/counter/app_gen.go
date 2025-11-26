@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/gaarutyunov/guix/pkg/runtime"
+	"strconv"
 	"syscall/js"
 )
 
@@ -21,9 +22,11 @@ func (c *App) BindApp(app *runtime.App) {
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
 		counter := make(chan int, 10)
-		return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Counter Example")), NewCounter(WithCounterChannel(counter)).Render(), runtime.Div(runtime.Class("button-group"), runtime.Button(runtime.Class("increment-btn"), runtime.OnClick(func(e runtime.Event) {
-			counter <- 1
-		}), runtime.Text("Increment"))))
+		return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Counter Example")), NewCounter(WithCounterChannel(counter)).Render(), runtime.Div(runtime.Class("input-group"), runtime.Input(runtime.Type("number"), runtime.Placeholder("Enter a number"), runtime.ID("counter-input"), runtime.OnInput(func(e runtime.Event) {
+			value := e.Target.Value
+			n := strconv.Atoi(value)
+			counter <- n
+		}))))
 	}()
 }
 func (c *App) Mount(parent js.Value) {
