@@ -2,6 +2,12 @@ package main
 
 func App() (Component) {
 	stateChannel := make(chan CalculatorState, 10)
+	stateChannel <- CalculatorState{
+		Display: "0",
+		PreviousValue: 0,
+		Operator: "",
+		WaitingForOperand: false,
+	}
 
 	Div(Class("app-container")) {
 		H1 {

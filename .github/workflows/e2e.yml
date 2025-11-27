@@ -94,19 +94,12 @@ jobs:
 
           # Patch generated files to workaround codegen issues
           echo "Patching generated code..."
-          # Add build tags to generated files
-          sed -i '1i//go:build js && wasm\n// +build js,wasm\n' calculator_gen.go
-          sed -i '1i//go:build js && wasm\n// +build js,wasm\n' app_gen.go
-          sed -i '1i//go:build js && wasm\n// +build js,wasm\n' guix_helpers_gen.go
-
-          # Fix stateChannel references in calculator_gen.go
+          # Fix stateChannel references in calculator_gen.go (parameter references in closures)
+          # TODO: This should be fixed in the codegen to properly handle parameter references
           sed -i 's/handleNumber(stateChannel,/handleNumber(c.StateChannel,/g' calculator_gen.go
           sed -i 's/handleOperator(stateChannel,/handleOperator(c.StateChannel,/g' calculator_gen.go
           sed -i 's/handleClear(stateChannel)/handleClear(c.StateChannel)/g' calculator_gen.go
           sed -i 's/handleEquals(stateChannel,/handleEquals(c.StateChannel,/g' calculator_gen.go
-
-          # Initialize the state channel with initial value in app_gen.go
-          sed -i '/c.stateChannel = make(chan CalculatorState, 10)/a\	c.stateChannel <- CalculatorState{Display: "0", PreviousValue: 0, Operator: "", WaitingForOperand: false}' app_gen.go
 
           # Copy wasm_exec.js from Go installation
           GOROOT="$(go env GOROOT)"
