@@ -76,7 +76,8 @@ func TestCalculatorE2E(t *testing.T) {
 	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	defer cancel()
 
-	ctx, cancel := chromedp.NewContext(allocCtx)
+	// Enable chromedp logging for debugging
+	ctx, cancel := chromedp.NewContext(allocCtx, chromedp.WithLogf(t.Logf))
 	defer cancel()
 
 	// Set timeout
@@ -132,14 +133,17 @@ func testBasicArithmetic(t *testing.T, ctx context.Context) {
 		t.Run(tt.name, func(t *testing.T) {
 			var display string
 
+			t.Logf("Navigating to %s", testURL)
 			err := chromedp.Run(ctx,
 				chromedp.Navigate(testURL),
+				chromedp.Sleep(1*time.Second), // Give more time for WASM to load
 				waitForWASM(),
 				chromedp.Sleep(500*time.Millisecond),
 			)
 			if err != nil {
 				t.Fatalf("Failed to load page: %v", err)
 			}
+			t.Logf("Page loaded successfully")
 
 			// Click clear first
 			err = chromedp.Run(ctx, clickButton("C"))
