@@ -337,3 +337,53 @@ type ChannelOp struct {
 // Note: More complex expressions like binary, unary, selector, and index
 // expressions are not yet supported in the parser to avoid infinite recursion.
 // These will be added in a future version with proper precedence handling.
+
+// Accept methods for visitor pattern
+
+// Top-level declarations
+func (n *File) Accept(v Visitor) interface{}        { return v.VisitFile(n) }
+func (n *Import) Accept(v Visitor) interface{}      { return v.VisitImport(n) }
+func (n *TypeDef) Accept(v Visitor) interface{}     { return v.VisitTypeDef(n) }
+func (n *StructType) Accept(v Visitor) interface{}  { return v.VisitStructType(n) }
+func (n *StructField) Accept(v Visitor) interface{} { return v.VisitStructField(n) }
+func (n *Component) Accept(v Visitor) interface{}   { return v.VisitComponent(n) }
+func (n *Parameter) Accept(v Visitor) interface{}   { return v.VisitParameter(n) }
+func (n *Type) Accept(v Visitor) interface{}        { return v.VisitType(n) }
+
+// Body and statements
+func (n *Body) Accept(v Visitor) interface{}          { return v.VisitBody(n) }
+func (n *BodyStatement) Accept(v Visitor) interface{} { return v.VisitBodyStatement(n) }
+func (n *Statement) Accept(v Visitor) interface{}     { return v.VisitStatement(n) }
+func (n *VarDecl) Accept(v Visitor) interface{}       { return v.VisitVarDecl(n) }
+func (n *Assignment) Accept(v Visitor) interface{}    { return v.VisitAssignment(n) }
+func (n *Return) Accept(v Visitor) interface{}        { return v.VisitReturn(n) }
+func (n *IfStmt) Accept(v Visitor) interface{}        { return v.VisitIfStmt(n) }
+func (n *Else) Accept(v Visitor) interface{}          { return v.VisitElse(n) }
+func (n *ForLoop) Accept(v Visitor) interface{}       { return v.VisitForLoop(n) }
+
+// Nodes and expressions
+func (n *Node) Accept(v Visitor) interface{}           { return v.VisitNode(n) }
+func (n *Element) Accept(v Visitor) interface{}        { return v.VisitElement(n) }
+func (n *Prop) Accept(v Visitor) interface{}           { return v.VisitProp(n) }
+func (n *ExprStmt) Accept(v Visitor) interface{}       { return v.VisitExprStmt(n) }
+func (n *Expr) Accept(v Visitor) interface{}           { return v.VisitExpr(n) }
+func (n *BinaryOp) Accept(v Visitor) interface{}       { return v.VisitBinaryOp(n) }
+func (n *Primary) Accept(v Visitor) interface{}        { return v.VisitPrimary(n) }
+func (n *UnaryExpr) Accept(v Visitor) interface{}      { return v.VisitUnaryExpr(n) }
+func (n *Literal) Accept(v Visitor) interface{}        { return v.VisitLiteral(n) }
+func (n *CallOrSelect) Accept(v Visitor) interface{}   { return v.VisitCallOrSelect(n) }
+func (n *Selector) Accept(v Visitor) interface{}       { return v.VisitSelector(n) }
+func (n *Call) Accept(v Visitor) interface{}           { return v.VisitCall(n) }
+func (n *MakeCall) Accept(v Visitor) interface{}       { return v.VisitMakeCall(n) }
+func (n *FuncLit) Accept(v Visitor) interface{}        { return v.VisitFuncLit(n) }
+func (n *FuncBody) Accept(v Visitor) interface{}       { return v.VisitFuncBody(n) }
+func (n *CompositeLit) Accept(v Visitor) interface{}   { return v.VisitCompositeLit(n) }
+func (n *KeyValue) Accept(v Visitor) interface{}       { return v.VisitKeyValue(n) }
+
+// Templates and special nodes
+func (n *TextNode) Accept(v Visitor) interface{}    { return v.VisitTextNode(n) }
+func (n *Template) Accept(v Visitor) interface{}    { return v.VisitTemplate(n) }
+func (n *Fragment) Accept(v Visitor) interface{}    { return v.VisitFragment(n) }
+func (n *IfExpr) Accept(v Visitor) interface{}      { return v.VisitIfExpr(n) }
+func (n *ChannelRecv) Accept(v Visitor) interface{} { return v.VisitChannelRecv(n) }
+func (n *ChannelOp) Accept(v Visitor) interface{}   { return v.VisitChannelOp(n) }
