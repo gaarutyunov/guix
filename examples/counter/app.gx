@@ -2,7 +2,7 @@ package main
 
 import "strconv"
 
-func App() {
+func App() (Component) {
 	counter := make(chan int, 10)
 
 	Div(Class("app-container")) {
