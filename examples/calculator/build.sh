@@ -11,6 +11,11 @@ cd examples/calculator
 
 # Patch generated files to workaround codegen issues
 echo "Patching generated code..."
+# Add build tags to generated files
+sed -i '1i//go:build js && wasm\n// +build js,wasm\n' calculator_gen.go
+sed -i '1i//go:build js && wasm\n// +build js,wasm\n' app_gen.go
+sed -i '1i//go:build js && wasm\n// +build js,wasm\n' guix_helpers_gen.go
+
 # Fix stateChannel references in calculator_gen.go
 sed -i 's/handleNumber(stateChannel,/handleNumber(c.StateChannel,/g' calculator_gen.go
 sed -i 's/handleOperator(stateChannel,/handleOperator(c.StateChannel,/g' calculator_gen.go
