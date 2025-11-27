@@ -1,6 +1,6 @@
 package main
 
-func Counter(counterChannel: chan int) {
+func Counter(counterChannel chan int) {
     Div(Class("counter-display")) {
         Span(Class("counter-value")) {
             `Counter: {<-counterChannel}`
