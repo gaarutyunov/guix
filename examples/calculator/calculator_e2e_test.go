@@ -66,8 +66,17 @@ func TestCalculatorE2E(t *testing.T) {
 		server.Shutdown(ctx)
 	}()
 
-	// Create browser context
-	ctx, cancel := chromedp.NewContext(context.Background())
+	// Create browser context with CI-friendly options
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("headless", true),
+		chromedp.Flag("disable-gpu", true),
+		chromedp.Flag("no-sandbox", true),
+		chromedp.Flag("disable-dev-shm-usage", true),
+	)
+	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancel()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
 	defer cancel()
 
 	// Set timeout
