@@ -42,7 +42,9 @@ func NewCalculator(opts ...CalculatorOption) *Calculator {
 		opt(c)
 	}
 	if c.StateChannel != nil {
+		log("Calculator: About to read initial state from StateChannel")
 		c.currentStateChannel = <-c.StateChannel
+		log("Calculator: Received initial state from channel")
 	}
 	return c
 }

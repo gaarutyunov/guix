@@ -755,6 +755,60 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					if isParam {
 						// Generate: if c.ChannelName != nil { c.currentChannelName = <-c.ChannelName }
 						// The field "currentChannelName" was already created in generateComponentStruct
+
+						// Build the channel read statements (with optional logging)
+						channelReadStmts := []ast.Stmt{}
+
+						// Add debug log if verbose
+						if g.verbose {
+							channelReadStmts = append(channelReadStmts, &ast.ExprStmt{
+								X: &ast.CallExpr{
+									Fun: ast.NewIdent("log"),
+									Args: []ast.Expr{
+										&ast.BasicLit{
+											Kind:  token.STRING,
+											Value: fmt.Sprintf(`"%s: About to read initial state from %s"`, comp.Name, capitalize(channelName)),
+										},
+									},
+								},
+							})
+						}
+
+						// Add the channel read
+						channelReadStmts = append(channelReadStmts, &ast.AssignStmt{
+							Lhs: []ast.Expr{
+								&ast.SelectorExpr{
+									X:   ast.NewIdent("c"),
+									Sel: ast.NewIdent("current" + capitalize(channelName)),
+								},
+							},
+							Tok: token.ASSIGN,
+							Rhs: []ast.Expr{
+								&ast.UnaryExpr{
+									Op: token.ARROW,
+									X: &ast.SelectorExpr{
+										X:   ast.NewIdent("c"),
+										Sel: ast.NewIdent(capitalize(channelName)),
+									},
+								},
+							},
+						})
+
+						// Add debug log if verbose
+						if g.verbose {
+							channelReadStmts = append(channelReadStmts, &ast.ExprStmt{
+								X: &ast.CallExpr{
+									Fun: ast.NewIdent("log"),
+									Args: []ast.Expr{
+										&ast.BasicLit{
+											Kind:  token.STRING,
+											Value: fmt.Sprintf(`"%s: Received initial state from channel"`, comp.Name),
+										},
+									},
+								},
+							})
+						}
+
 						bodyStmts = append(bodyStmts, &ast.IfStmt{
 							Cond: &ast.BinaryExpr{
 								X: &ast.SelectorExpr{
@@ -765,26 +819,7 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 								Y:  ast.NewIdent("nil"),
 							},
 							Body: &ast.BlockStmt{
-								List: []ast.Stmt{
-									&ast.AssignStmt{
-										Lhs: []ast.Expr{
-											&ast.SelectorExpr{
-												X:   ast.NewIdent("c"),
-												Sel: ast.NewIdent("current" + capitalize(channelName)),
-											},
-										},
-										Tok: token.ASSIGN,
-										Rhs: []ast.Expr{
-											&ast.UnaryExpr{
-												Op: token.ARROW,
-												X: &ast.SelectorExpr{
-													X:   ast.NewIdent("c"),
-													Sel: ast.NewIdent(capitalize(channelName)),
-												},
-											},
-										},
-									},
-								},
+								List: channelReadStmts,
 							},
 						})
 					}
@@ -825,6 +860,60 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					if isParam {
 						// Generate: if c.ChannelName != nil { c.currentChannelName = <-c.ChannelName }
 						// The field "currentChannelName" was already created in generateComponentStruct
+
+						// Build the channel read statements (with optional logging)
+						channelReadStmts := []ast.Stmt{}
+
+						// Add debug log if verbose
+						if g.verbose {
+							channelReadStmts = append(channelReadStmts, &ast.ExprStmt{
+								X: &ast.CallExpr{
+									Fun: ast.NewIdent("log"),
+									Args: []ast.Expr{
+										&ast.BasicLit{
+											Kind:  token.STRING,
+											Value: fmt.Sprintf(`"%s: About to read initial state from %s"`, comp.Name, capitalize(channelName)),
+										},
+									},
+								},
+							})
+						}
+
+						// Add the channel read
+						channelReadStmts = append(channelReadStmts, &ast.AssignStmt{
+							Lhs: []ast.Expr{
+								&ast.SelectorExpr{
+									X:   ast.NewIdent("c"),
+									Sel: ast.NewIdent("current" + capitalize(channelName)),
+								},
+							},
+							Tok: token.ASSIGN,
+							Rhs: []ast.Expr{
+								&ast.UnaryExpr{
+									Op: token.ARROW,
+									X: &ast.SelectorExpr{
+										X:   ast.NewIdent("c"),
+										Sel: ast.NewIdent(capitalize(channelName)),
+									},
+								},
+							},
+						})
+
+						// Add debug log if verbose
+						if g.verbose {
+							channelReadStmts = append(channelReadStmts, &ast.ExprStmt{
+								X: &ast.CallExpr{
+									Fun: ast.NewIdent("log"),
+									Args: []ast.Expr{
+										&ast.BasicLit{
+											Kind:  token.STRING,
+											Value: fmt.Sprintf(`"%s: Received initial state from channel"`, comp.Name),
+										},
+									},
+								},
+							})
+						}
+
 						bodyStmts = append(bodyStmts, &ast.IfStmt{
 							Cond: &ast.BinaryExpr{
 								X: &ast.SelectorExpr{
@@ -835,26 +924,7 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 								Y:  ast.NewIdent("nil"),
 							},
 							Body: &ast.BlockStmt{
-								List: []ast.Stmt{
-									&ast.AssignStmt{
-										Lhs: []ast.Expr{
-											&ast.SelectorExpr{
-												X:   ast.NewIdent("c"),
-												Sel: ast.NewIdent("current" + capitalize(channelName)),
-											},
-										},
-										Tok: token.ASSIGN,
-										Rhs: []ast.Expr{
-											&ast.UnaryExpr{
-												Op: token.ARROW,
-												X: &ast.SelectorExpr{
-													X:   ast.NewIdent("c"),
-													Sel: ast.NewIdent(capitalize(channelName)),
-												},
-											},
-										},
-									},
-								},
+								List: channelReadStmts,
 							},
 						})
 					}
