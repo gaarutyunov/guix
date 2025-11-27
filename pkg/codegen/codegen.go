@@ -727,17 +727,54 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 
 		for _, varDecl := range comp.Body.VarDecls {
 			// Only initialize single-variable declarations with inferable types
-			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 &&
-				g.inferTypeFromExpr(varDecl.Values[0]) != nil {
-				// Generate: c.varName = make(chan Type, size)
-				bodyStmts = append(bodyStmts, &ast.AssignStmt{
-					Lhs: []ast.Expr{&ast.SelectorExpr{
-						X:   ast.NewIdent("c"),
-						Sel: ast.NewIdent(varDecl.Names[0]),
-					}},
-					Tok: token.ASSIGN,
-					Rhs: []ast.Expr{g.generateExpr(varDecl.Values[0])},
-				})
+			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 {
+				varType := g.inferTypeFromExpr(varDecl.Values[0])
+				if varType != nil {
+					// Generate: c.varName = make(chan Type, size)
+					bodyStmts = append(bodyStmts, &ast.AssignStmt{
+						Lhs: []ast.Expr{&ast.SelectorExpr{
+							X:   ast.NewIdent("c"),
+							Sel: ast.NewIdent(varDecl.Names[0]),
+						}},
+						Tok: token.ASSIGN,
+						Rhs: []ast.Expr{g.generateExpr(varDecl.Values[0])},
+					})
+				} else if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
+					// This is a channel receive: varName := <-channelName
+					channelName := varDecl.Values[0].Left.ChannelOp.Channel
+
+					// Check if the channel is a component parameter
+					isParam := false
+					for _, param := range comp.Params {
+						if param.Name == channelName {
+							isParam = true
+							break
+						}
+					}
+
+					if isParam {
+						// Generate: c.currentChannelName = <-c.ChannelName
+						// The field "currentChannelName" was already created in generateComponentStruct
+						bodyStmts = append(bodyStmts, &ast.AssignStmt{
+							Lhs: []ast.Expr{
+								&ast.SelectorExpr{
+									X:   ast.NewIdent("c"),
+									Sel: ast.NewIdent("current" + capitalize(channelName)),
+								},
+							},
+							Tok: token.ASSIGN,
+							Rhs: []ast.Expr{
+								&ast.UnaryExpr{
+									Op: token.ARROW,
+									X: &ast.SelectorExpr{
+										X:   ast.NewIdent("c"),
+										Sel: ast.NewIdent(capitalize(channelName)),
+									},
+								},
+							},
+						})
+					}
+				}
 			}
 		}
 

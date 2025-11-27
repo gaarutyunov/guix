@@ -41,10 +41,7 @@ func NewCalculator(opts ...CalculatorOption) *Calculator {
 	for _, opt := range opts {
 		opt(c)
 	}
-	// Initialize current state from channel
-	if c.StateChannel != nil {
-		c.currentStateChannel = <-c.StateChannel
-	}
+	c.currentStateChannel = <-c.StateChannel
 	return c
 }
 func (c *Calculator) BindApp(app *runtime.App) {
