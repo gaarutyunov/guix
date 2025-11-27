@@ -30,7 +30,7 @@ jobs:
 
       - name: Generate and build counter example
         run: |
-          ./guix generate -p examples/counter
+          ./guix generate -p examples/counter --verbose-logs
           cd examples/counter
           # Copy wasm_exec.js from Go installation
           GOROOT="$(go env GOROOT)"
@@ -89,7 +89,7 @@ jobs:
 
       - name: Generate and build calculator example
         run: |
-          ./guix generate -p examples/calculator
+          ./guix generate -p examples/calculator --verbose-logs
           cd examples/calculator
 
           # Copy wasm_exec.js from Go installation

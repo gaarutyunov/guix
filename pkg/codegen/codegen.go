@@ -29,6 +29,7 @@ type Generator struct {
 	currentCompBody     *guixast.Body                            // Current component body being generated
 	currentComp         *guixast.Component                       // Current component being generated
 	componentParams     map[string]bool                          // Track current component's parameter names
+	verbose             bool                                     // Generate verbose logging statements
 }
 
 // New creates a new code generator
@@ -37,7 +38,13 @@ func New(pkg string) *Generator {
 		fset:       token.NewFileSet(),
 		pkg:        pkg,
 		components: make(map[string]bool),
+		verbose:    false, // Verbose logging disabled by default
 	}
+}
+
+// SetVerbose enables or disables verbose logging in generated code
+func (g *Generator) SetVerbose(verbose bool) {
+	g.verbose = verbose
 }
 
 // isComponentFunc checks if a function is a UI component (returns Component interface)
@@ -854,10 +861,12 @@ func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl 
 				},
 			},
 		},
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				// log("ComponentName: Render called")
-				&ast.ExprStmt{
+		Body: func() *ast.BlockStmt {
+			stmts := []ast.Stmt{}
+
+			// Add verbose logging if enabled
+			if g.verbose {
+				stmts = append(stmts, &ast.ExprStmt{
 					X: &ast.CallExpr{
 						Fun: ast.NewIdent("log"),
 						Args: []ast.Expr{
@@ -867,12 +876,16 @@ func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl 
 							},
 						},
 					},
-				},
-				&ast.ReturnStmt{
-					Results: []ast.Expr{body},
-				},
-			},
-		},
+				})
+			}
+
+			// Add return statement
+			stmts = append(stmts, &ast.ReturnStmt{
+				Results: []ast.Expr{body},
+			})
+
+			return &ast.BlockStmt{List: stmts}
+		}(),
 	}
 }
 
@@ -1941,9 +1954,11 @@ func (g *Generator) generateUpdateMethod(comp *guixast.Component) *ast.FuncDecl 
 
 // generateBindAppMethod generates the BindApp method for components with channels
 func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl {
-	stmts := []ast.Stmt{
-		// log("ComponentName: BindApp called")
-		&ast.ExprStmt{
+	stmts := []ast.Stmt{}
+
+	// Add verbose logging if enabled
+	if g.verbose {
+		stmts = append(stmts, &ast.ExprStmt{
 			X: &ast.CallExpr{
 				Fun: ast.NewIdent("log"),
 				Args: []ast.Expr{
@@ -1953,8 +1968,11 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 					},
 				},
 			},
-		},
-		// c.app = app
+		})
+	}
+
+	// c.app = app
+	stmts = append(stmts,
 		&ast.AssignStmt{
 			Lhs: []ast.Expr{
 				&ast.SelectorExpr{
@@ -1965,7 +1983,7 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 			Tok: token.ASSIGN,
 			Rhs: []ast.Expr{ast.NewIdent("app")},
 		},
-	}
+	)
 
 	// Check if component has channel parameters
 	hasChannels := g.hasChannelParams(comp)

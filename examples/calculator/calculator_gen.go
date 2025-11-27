@@ -44,7 +44,6 @@ func NewCalculator(opts ...CalculatorOption) *Calculator {
 	return c
 }
 func (c *Calculator) BindApp(app *runtime.App) {
-	log("Calculator: BindApp called")
 	c.app = app
 	if c.listenersStarted {
 		return
@@ -65,7 +64,6 @@ func (c *Calculator) startStateChannelListener() {
 	}()
 }
 func (c *Calculator) Render() *runtime.VNode {
-	log("Calculator: Render called")
 	return func() *runtime.VNode {
 		currentState := c.currentStateChannel
 		return runtime.Div(runtime.Class("calculator"), runtime.Div(runtime.Class("display"), runtime.Text(fmt.Sprint(currentState.Display))), runtime.Div(runtime.Class("buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
