@@ -16,9 +16,6 @@ go.work
 wasm_exec.js
 main.wasm
 
-# Generated files
-*_gen.go
-
 # Cache
 .guix/
 *.cache
