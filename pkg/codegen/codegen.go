@@ -27,6 +27,8 @@ type Generator struct {
 	hoistedVars         map[string]bool                          // Track hoisted variable names in current component
 	hoistedComponentMap map[*guixast.Element]*childComponentInfo // Map elements to their hoisted component info
 	currentCompBody     *guixast.Body                            // Current component body being generated
+	currentComp         *guixast.Component                       // Current component being generated
+	componentParams     map[string]bool                          // Track current component's parameter names
 }
 
 // New creates a new code generator
@@ -283,6 +285,13 @@ func (g *Generator) generateFunctionBodyStmts(body *guixast.Body) []ast.Stmt {
 // generateComponent generates code for a component
 func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	var decls []ast.Decl
+
+	// Set current component context
+	g.currentComp = comp
+	g.componentParams = make(map[string]bool)
+	for _, param := range comp.Params {
+		g.componentParams[param.Name] = true
+	}
 
 	// Reset hoisted component map for this component
 	g.hoistedComponentMap = make(map[*guixast.Element]*childComponentInfo)
@@ -1350,12 +1359,15 @@ func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
 				Sel: ast.NewIdent(primary.Ident), // Use exact name, not capitalized
 			}
 		}
-		// Otherwise it's a component parameter field (capitalized) or local var
-		// For now, assume it's a field - local vars are handled differently
-		return &ast.SelectorExpr{
-			X:   ast.NewIdent("c"),
-			Sel: ast.NewIdent(capitalize(primary.Ident)),
+		// Check if it's a component parameter (should be converted to c.FieldName)
+		if g.componentParams != nil && g.componentParams[primary.Ident] {
+			return &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(capitalize(primary.Ident)),
+			}
 		}
+		// Otherwise it's a local variable or other identifier, use as-is
+		return ast.NewIdent(primary.Ident)
 	}
 
 	if primary.FuncLit != nil {
@@ -1485,12 +1497,21 @@ func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {
 // generateCallOrSelect generates code for a call or selector expression
 // If Args is present, generates a call. Otherwise, generates a selector.
 func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
-	// Check if this is a simple identifier (no fields, no args) that's a hoisted variable
-	if len(cos.Fields) == 0 && len(cos.Args) == 0 && g.hoistedVars != nil && g.hoistedVars[cos.Base] {
-		// Hoisted variable - generate c.base
-		return &ast.SelectorExpr{
-			X:   ast.NewIdent("c"),
-			Sel: ast.NewIdent(cos.Base),
+	// Check if this is a simple identifier (no fields, no args)
+	if len(cos.Fields) == 0 && len(cos.Args) == 0 {
+		// Check if it's a hoisted variable
+		if g.hoistedVars != nil && g.hoistedVars[cos.Base] {
+			return &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(cos.Base),
+			}
+		}
+		// Check if it's a component parameter
+		if g.componentParams != nil && g.componentParams[cos.Base] {
+			return &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(capitalize(cos.Base)),
+			}
 		}
 	}
 

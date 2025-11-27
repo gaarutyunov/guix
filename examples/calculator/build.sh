@@ -9,15 +9,6 @@ cd ../..
 go run ./cmd/guix generate -p examples/calculator
 cd examples/calculator
 
-# Patch generated files to workaround codegen issues
-echo "Patching generated code..."
-# Fix stateChannel references in calculator_gen.go (parameter references in closures)
-# TODO: This should be fixed in the codegen to properly handle parameter references
-sed -i 's/handleNumber(stateChannel,/handleNumber(c.StateChannel,/g' calculator_gen.go
-sed -i 's/handleOperator(stateChannel,/handleOperator(c.StateChannel,/g' calculator_gen.go
-sed -i 's/handleClear(stateChannel)/handleClear(c.StateChannel)/g' calculator_gen.go
-sed -i 's/handleEquals(stateChannel,/handleEquals(c.StateChannel,/g' calculator_gen.go
-
 # Copy wasm_exec.js
 echo "Copying wasm_exec.js..."
 GOROOT="$(go env GOROOT)"
