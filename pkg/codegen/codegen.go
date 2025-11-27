@@ -38,11 +38,31 @@ func New(pkg string) *Generator {
 	}
 }
 
+// isComponentFunc checks if a function is a UI component (returns Component interface)
+// or just a regular helper function
+func (g *Generator) isComponentFunc(comp *guixast.Component) bool {
+	// If it has no return type, it's a regular function
+	if len(comp.Results) == 0 {
+		return false
+	}
+
+	// Check if any result is named "Component" (the interface)
+	for _, result := range comp.Results {
+		if result.Name == "Component" {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Generate generates Go code from a Guix file
 func (g *Generator) Generate(file *guixast.File) ([]byte, error) {
-	// First pass: collect component names
+	// First pass: collect component names (only for actual components, not helper functions)
 	for _, comp := range file.Components {
-		g.components[comp.Name] = true
+		if g.isComponentFunc(comp) {
+			g.components[comp.Name] = true
+		}
 	}
 
 	goFile := &ast.File{
@@ -52,9 +72,16 @@ func (g *Generator) Generate(file *guixast.File) ([]byte, error) {
 	// Add imports
 	goFile.Decls = append(goFile.Decls, g.generateImports(file))
 
-	// Generate code for each component
+	// Generate code for each component/function
 	for _, comp := range file.Components {
-		decls := g.generateComponent(comp)
+		var decls []ast.Decl
+		if g.isComponentFunc(comp) {
+			// Generate full component with struct, methods, etc.
+			decls = g.generateComponent(comp)
+		} else {
+			// Generate simple function
+			decls = []ast.Decl{g.generateFunction(comp)}
+		}
 		goFile.Decls = append(goFile.Decls, decls...)
 	}
 
@@ -123,6 +150,99 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 		Lparen: 1,
 		Specs:  specs,
 	}
+}
+
+// generateFunction generates code for a regular helper function (not a UI component)
+func (g *Generator) generateFunction(comp *guixast.Component) *ast.FuncDecl {
+	// Set up context
+	g.hoistedVars = make(map[string]bool)
+	g.currentCompBody = comp.Body
+
+	// Generate parameters
+	params := make([]*ast.Field, len(comp.Params))
+	for i, param := range comp.Params {
+		params[i] = &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent(param.Name)},
+			Type:  g.typeToAST(param.Type),
+		}
+	}
+
+	// Generate result types
+	var results *ast.FieldList
+	if len(comp.Results) > 0 {
+		resultFields := make([]*ast.Field, len(comp.Results))
+		for i, result := range comp.Results {
+			resultFields[i] = &ast.Field{
+				Type: g.typeToAST(result),
+			}
+		}
+		results = &ast.FieldList{List: resultFields}
+	}
+
+	// Generate function body as statements
+	bodyStmts := g.generateFunctionBodyStmts(comp.Body)
+
+	return &ast.FuncDecl{
+		Name: ast.NewIdent(comp.Name),
+		Type: &ast.FuncType{
+			Params:  &ast.FieldList{List: params},
+			Results: results,
+		},
+		Body: &ast.BlockStmt{
+			List: bodyStmts,
+		},
+	}
+}
+
+// generateFunctionBodyStmts generates statements for a regular function body
+func (g *Generator) generateFunctionBodyStmts(body *guixast.Body) []ast.Stmt {
+	stmts := make([]ast.Stmt, 0)
+
+	// Add variable declarations
+	for _, varDecl := range body.VarDecls {
+		lhs := make([]ast.Expr, len(varDecl.Names))
+		for i, name := range varDecl.Names {
+			lhs[i] = ast.NewIdent(name)
+		}
+
+		rhs := make([]ast.Expr, len(varDecl.Values))
+		for i, val := range varDecl.Values {
+			rhs[i] = g.generateExpr(val)
+		}
+
+		stmts = append(stmts, &ast.AssignStmt{
+			Lhs: lhs,
+			Tok: g.assignOpToToken(varDecl.Op),
+			Rhs: rhs,
+		})
+	}
+
+	// Add assignments
+	for _, assignment := range body.Assignments {
+		if assignment.Op == "<-" {
+			stmts = append(stmts, &ast.SendStmt{
+				Chan:  ast.NewIdent(assignment.Left),
+				Value: g.generateExpr(assignment.Right),
+			})
+		} else {
+			stmts = append(stmts, &ast.AssignStmt{
+				Lhs: []ast.Expr{ast.NewIdent(assignment.Left)},
+				Tok: g.assignOpToToken(assignment.Op),
+				Rhs: []ast.Expr{g.generateExpr(assignment.Right)},
+			})
+		}
+	}
+
+	// Process children as statements (should be minimal for regular functions)
+	for _, child := range body.Children {
+		if child.ExprStmt != nil {
+			stmts = append(stmts, &ast.ExprStmt{
+				X: g.generateCallOrSelect(child.ExprStmt.Expr),
+			})
+		}
+	}
+
+	return stmts
 }
 
 // generateComponent generates code for a component

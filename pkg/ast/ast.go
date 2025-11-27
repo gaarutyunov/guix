@@ -19,13 +19,15 @@ type Import struct {
 	Path string `"import" @String`
 }
 
-// Component represents a component definition
-// Example: func Counter(counterChannel: <-chan int) { ... }
+// Component represents a component or function definition
+// If Results is non-empty, it's a component function that returns Component interface
+// If Results is empty, it's a regular helper function
 type Component struct {
-	Pos    lexer.Position
-	Name   string       `"func" @Ident`
-	Params []*Parameter `"(" (@@ ("," @@)*)? ")"`
-	Body   *Body        `@@`
+	Pos     lexer.Position
+	Name    string       `"func" @Ident`
+	Params  []*Parameter `"(" (@@ ("," @@)*)? ")"`
+	Results []*Type      `("(" (@@ ("," @@)*)? ")")?`
+	Body    *Body        `@@`
 }
 
 // Parameter represents a component parameter with name and type

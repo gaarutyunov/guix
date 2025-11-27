@@ -1,8 +1,7 @@
 package main
 
-func App() {
-	stateChannel := make(chan CalculatorState, 10)
-	_ = InitCalculatorState(stateChannel)
+func App() (Component) {
+	stateChannel := NewCalculatorStateChannel()
 
 	Div(Class("app-container")) {
 		H1 {

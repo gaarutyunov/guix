@@ -1,6 +1,6 @@
 package main
 
-func Calculator(stateChannel: chan CalculatorState) {
+func Calculator(stateChannel: chan CalculatorState) (Component) {
 	currentState := <-stateChannel
 
 	Div(Class("calculator")) {

@@ -19,13 +19,14 @@ type CalculatorState struct {
 	WaitingForOperand bool
 }
 
-// InitCalculatorState initializes a calculator state channel with default state
-func InitCalculatorState(ch chan CalculatorState) bool {
+// NewCalculatorStateChannel creates and initializes a calculator state channel
+func NewCalculatorStateChannel() chan CalculatorState {
+	ch := make(chan CalculatorState, 10)
 	ch <- CalculatorState{
 		Display:          "0",
 		PreviousValue:    0,
 		Operator:         "",
 		WaitingForOperand: false,
 	}
-	return true
+	return ch
 }
