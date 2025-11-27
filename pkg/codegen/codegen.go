@@ -756,6 +756,44 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 						Value: g.generateExpr(stmt.Assignment.Right),
 					})
 				}
+			} else if stmt.Assignment != nil && (stmt.Assignment.Op == ":=" || stmt.Assignment.Op == "=") {
+				// Check if this is a channel receive assignment: varName := <-channelName
+				if stmt.Assignment.Right != nil && stmt.Assignment.Right.Left != nil &&
+					stmt.Assignment.Right.Left.ChannelOp != nil {
+					channelName := stmt.Assignment.Right.Left.ChannelOp.Channel
+
+					// Check if the channel is a component parameter
+					isParam := false
+					for _, param := range comp.Params {
+						if param.Name == channelName {
+							isParam = true
+							break
+						}
+					}
+
+					if isParam {
+						// Generate: c.currentChannelName = <-c.ChannelName
+						// The field "currentChannelName" was already created in generateComponentStruct
+						bodyStmts = append(bodyStmts, &ast.AssignStmt{
+							Lhs: []ast.Expr{
+								&ast.SelectorExpr{
+									X:   ast.NewIdent("c"),
+									Sel: ast.NewIdent("current" + capitalize(channelName)),
+								},
+							},
+							Tok: token.ASSIGN,
+							Rhs: []ast.Expr{
+								&ast.UnaryExpr{
+									Op: token.ARROW,
+									X: &ast.SelectorExpr{
+										X:   ast.NewIdent("c"),
+										Sel: ast.NewIdent(capitalize(channelName)),
+									},
+								},
+							},
+						})
+					}
+				}
 			}
 		}
 
