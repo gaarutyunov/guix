@@ -753,22 +753,36 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					}
 
 					if isParam {
-						// Generate: c.currentChannelName = <-c.ChannelName
+						// Generate: if c.ChannelName != nil { c.currentChannelName = <-c.ChannelName }
 						// The field "currentChannelName" was already created in generateComponentStruct
-						bodyStmts = append(bodyStmts, &ast.AssignStmt{
-							Lhs: []ast.Expr{
-								&ast.SelectorExpr{
+						bodyStmts = append(bodyStmts, &ast.IfStmt{
+							Cond: &ast.BinaryExpr{
+								X: &ast.SelectorExpr{
 									X:   ast.NewIdent("c"),
-									Sel: ast.NewIdent("current" + capitalize(channelName)),
+									Sel: ast.NewIdent(capitalize(channelName)),
 								},
+								Op: token.NEQ,
+								Y:  ast.NewIdent("nil"),
 							},
-							Tok: token.ASSIGN,
-							Rhs: []ast.Expr{
-								&ast.UnaryExpr{
-									Op: token.ARROW,
-									X: &ast.SelectorExpr{
-										X:   ast.NewIdent("c"),
-										Sel: ast.NewIdent(capitalize(channelName)),
+							Body: &ast.BlockStmt{
+								List: []ast.Stmt{
+									&ast.AssignStmt{
+										Lhs: []ast.Expr{
+											&ast.SelectorExpr{
+												X:   ast.NewIdent("c"),
+												Sel: ast.NewIdent("current" + capitalize(channelName)),
+											},
+										},
+										Tok: token.ASSIGN,
+										Rhs: []ast.Expr{
+											&ast.UnaryExpr{
+												Op: token.ARROW,
+												X: &ast.SelectorExpr{
+													X:   ast.NewIdent("c"),
+													Sel: ast.NewIdent(capitalize(channelName)),
+												},
+											},
+										},
 									},
 								},
 							},
@@ -809,22 +823,36 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					}
 
 					if isParam {
-						// Generate: c.currentChannelName = <-c.ChannelName
+						// Generate: if c.ChannelName != nil { c.currentChannelName = <-c.ChannelName }
 						// The field "currentChannelName" was already created in generateComponentStruct
-						bodyStmts = append(bodyStmts, &ast.AssignStmt{
-							Lhs: []ast.Expr{
-								&ast.SelectorExpr{
+						bodyStmts = append(bodyStmts, &ast.IfStmt{
+							Cond: &ast.BinaryExpr{
+								X: &ast.SelectorExpr{
 									X:   ast.NewIdent("c"),
-									Sel: ast.NewIdent("current" + capitalize(channelName)),
+									Sel: ast.NewIdent(capitalize(channelName)),
 								},
+								Op: token.NEQ,
+								Y:  ast.NewIdent("nil"),
 							},
-							Tok: token.ASSIGN,
-							Rhs: []ast.Expr{
-								&ast.UnaryExpr{
-									Op: token.ARROW,
-									X: &ast.SelectorExpr{
-										X:   ast.NewIdent("c"),
-										Sel: ast.NewIdent(capitalize(channelName)),
+							Body: &ast.BlockStmt{
+								List: []ast.Stmt{
+									&ast.AssignStmt{
+										Lhs: []ast.Expr{
+											&ast.SelectorExpr{
+												X:   ast.NewIdent("c"),
+												Sel: ast.NewIdent("current" + capitalize(channelName)),
+											},
+										},
+										Tok: token.ASSIGN,
+										Rhs: []ast.Expr{
+											&ast.UnaryExpr{
+												Op: token.ARROW,
+												X: &ast.SelectorExpr{
+													X:   ast.NewIdent("c"),
+													Sel: ast.NewIdent(capitalize(channelName)),
+												},
+											},
+										},
 									},
 								},
 							},

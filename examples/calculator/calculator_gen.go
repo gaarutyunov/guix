@@ -41,7 +41,9 @@ func NewCalculator(opts ...CalculatorOption) *Calculator {
 	for _, opt := range opts {
 		opt(c)
 	}
-	c.currentStateChannel = <-c.StateChannel
+	if c.StateChannel != nil {
+		c.currentStateChannel = <-c.StateChannel
+	}
 	return c
 }
 func (c *Calculator) BindApp(app *runtime.App) {
