@@ -4,16 +4,8 @@
 package main
 
 import (
-	"syscall/js"
-
 	"github.com/gaarutyunov/guix/pkg/runtime"
 )
-
-var console = js.Global().Get("console")
-
-func log(args ...interface{}) {
-	console.Call("log", args...)
-}
 
 func main() {
 	log("MAIN: Starting calculator example")
