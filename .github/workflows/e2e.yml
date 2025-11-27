@@ -66,8 +66,8 @@ jobs:
           path: examples/counter/test-results/
           retention-days: 7
 
-  chromedp:
-    name: Calculator E2E Tests (chromedp)
+  calculator:
+    name: Calculator E2E Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,12 +77,10 @@ jobs:
         with:
           go-version: '1.25'
 
-      - name: Install Chrome
-        run: |
-          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Build CLI
         run: go build -o guix ./cmd/guix
@@ -102,18 +100,24 @@ jobs:
             echo "wasm_exec.js not found in GOROOT, downloading from GitHub"
             curl -o wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
           fi
-          GOOS=js GOARCH=wasm go build -o calculator.wasm .
+          GOOS=js GOARCH=wasm go build -o main.wasm .
           echo "Files after build:"
           ls -lah *.{html,js,wasm} 2>/dev/null || ls -lah
 
-      - name: Run chromedp E2E tests
+      - name: Install Playwright
         working-directory: examples/calculator
-        run: go test -v -tags=e2e -timeout=120s
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
 
-      - name: Upload test logs
-        if: failure()
+      - name: Run Playwright tests
+        working-directory: examples/calculator
+        run: npx playwright test
+
+      - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: calculator-e2e-logs
-          path: examples/calculator/*.log
+          name: calculator-playwright-results
+          path: examples/calculator/test-results/
           retention-days: 7

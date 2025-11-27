@@ -1,0 +1,21 @@
+{
+  "name": "guix-calculator-example",
+  "version": "1.0.0",
+  "description": "Guix calculator example with Playwright tests",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug"
+  },
+  "keywords": [
+    "guix",
+    "webassembly",
+    "go",
+    "calculator"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}
