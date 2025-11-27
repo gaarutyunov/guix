@@ -1921,6 +1921,31 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 		return &ast.ReturnStmt{Results: results}
 	}
 
+	if stmt.If != nil {
+		// Generate if statement
+		ifStmt := &ast.IfStmt{
+			Cond: g.generateExpr(stmt.If.Cond),
+			Body: g.generateFuncBody(stmt.If.Body),
+		}
+		if stmt.If.Else != nil {
+			if stmt.If.Else.IfStmt != nil {
+				// else if
+				ifStmt.Else = g.generateStatement(&guixast.Statement{
+					If: stmt.If.Else.IfStmt,
+				})
+			} else if stmt.If.Else.Body != nil {
+				// else block
+				ifStmt.Else = g.generateFuncBody(stmt.If.Else.Body)
+			}
+		}
+		return ifStmt
+	}
+
+	if stmt.For != nil {
+		// TODO: Generate for loop statement
+		return &ast.EmptyStmt{}
+	}
+
 	return &ast.EmptyStmt{}
 }
 

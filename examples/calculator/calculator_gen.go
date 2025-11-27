@@ -123,6 +123,11 @@ func handleNumber(stateChannel chan CalculatorState, state CalculatorState, digi
 		state.Display = digit
 		state.WaitingForOperand = false
 	} else {
+		if state.Display == "0" {
+			state.Display = digit
+		} else {
+			state.Display = state.Display + digit
+		}
 	}
 	stateChannel <- state
 }
@@ -164,6 +169,11 @@ func calculate(a float64, b float64, operator string) float64 {
 	} else if operator == "*" {
 		result = a * b
 	} else if operator == "/" {
+		if b != 0 {
+			result = a / b
+		} else {
+			result = 0
+		}
 	}
 	return result
 }
