@@ -696,8 +696,17 @@ func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl 
 
 // generateBody generates code for component body
 func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
-	// If there are variable declarations, wrap everything in an IIFE
-	if len(body.VarDecls) > 0 {
+	// Check if we need an IIFE (for VarDecls or ExprStmts)
+	hasExprStmts := false
+	for _, child := range body.Children {
+		if child.ExprStmt != nil {
+			hasExprStmts = true
+			break
+		}
+	}
+
+	// If there are variable declarations, assignments, or expression statements, wrap everything in an IIFE
+	if len(body.VarDecls) > 0 || len(body.Assignments) > 0 || hasExprStmts {
 		stmts := make([]ast.Stmt, 0)
 
 		// Add variable declarations
@@ -733,21 +742,64 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 			}
 		}
 
-		// Generate the UI tree
+		// Add assignments (including function calls assigned to _)
+		for _, assignment := range body.Assignments {
+			// Handle channel send operation
+			if assignment.Op == "<-" {
+				// Check if channel is a hoisted variable
+				var chanExpr ast.Expr
+				if g.hoistedVars != nil && g.hoistedVars[assignment.Left] {
+					chanExpr = &ast.SelectorExpr{
+						X:   ast.NewIdent("c"),
+						Sel: ast.NewIdent(assignment.Left),
+					}
+				} else {
+					chanExpr = ast.NewIdent(assignment.Left)
+				}
+
+				stmts = append(stmts, &ast.SendStmt{
+					Chan:  chanExpr,
+					Value: g.generateExpr(assignment.Right),
+				})
+			} else {
+				stmts = append(stmts, &ast.AssignStmt{
+					Lhs: []ast.Expr{ast.NewIdent(assignment.Left)},
+					Tok: g.assignOpToToken(assignment.Op),
+					Rhs: []ast.Expr{g.generateExpr(assignment.Right)},
+				})
+			}
+		}
+
+		// Add expression statements (function calls)
+		// Collect only the UI nodes (non-ExprStmt children)
+		var uiChildren []*guixast.Node
+		for _, child := range body.Children {
+			if child.ExprStmt != nil {
+				// Execute expression statement
+				stmts = append(stmts, &ast.ExprStmt{
+					X: g.generateCallOrSelect(child.ExprStmt.Expr),
+				})
+			} else {
+				// Keep for UI tree
+				uiChildren = append(uiChildren, child)
+			}
+		}
+
+		// Generate the UI tree from non-statement children
 		var uiExpr ast.Expr
-		if len(body.Children) == 0 {
+		if len(uiChildren) == 0 {
 			uiExpr = &ast.CallExpr{
 				Fun: &ast.SelectorExpr{
 					X:   ast.NewIdent("runtime"),
 					Sel: ast.NewIdent("Div"),
 				},
 			}
-		} else if len(body.Children) == 1 {
-			uiExpr = g.generateNode(body.Children[0])
+		} else if len(uiChildren) == 1 {
+			uiExpr = g.generateNode(uiChildren[0])
 		} else {
 			// Multiple children - use Fragment
-			args := make([]ast.Expr, len(body.Children))
-			for i, child := range body.Children {
+			args := make([]ast.Expr, len(uiChildren))
+			for i, child := range uiChildren {
 				args[i] = g.generateNode(child)
 			}
 			uiExpr = &ast.CallExpr{

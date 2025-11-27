@@ -48,22 +48,31 @@ type Type struct {
 	FuncResults []*Type
 }
 
-// Body represents a component body with optional variable declarations and UI tree
+// Body represents a component body with optional variable declarations, assignments, and UI tree
 type Body struct {
-	Pos      lexer.Position
-	VarDecls []*VarDecl `"{" @@*`
-	Children []*Node    `@@* "}"`
+	Pos         lexer.Position
+	VarDecls    []*VarDecl    `"{" @@*`
+	Assignments []*Assignment `@@*`
+	Children    []*Node       `@@* "}"`
 }
 
 // Node represents any node in the component tree
 type Node struct {
 	Pos         lexer.Position
-	Element     *Element     `@@`
-	Text        *TextNode    `| @@`
+	Text        *TextNode    `@@`
 	Template    *Template    `| @@`
 	IfExpr      *IfExpr      `| @@`
 	ForLoop     *ForLoop     `| @@`
 	ChannelRecv *ChannelRecv `| @@`
+	Element     *Element     `| @@`
+	ExprStmt    *ExprStmt    `| @@`
+}
+
+// ExprStmt represents an expression statement (function call without braces)
+// This is now handled as part of VarDecls since they both use assignments
+type ExprStmt struct {
+	Pos  lexer.Position
+	Expr *CallOrSelect `@@`
 }
 
 // Element represents an element like Div, Input, Button

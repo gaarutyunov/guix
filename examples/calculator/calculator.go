@@ -11,14 +11,21 @@
 //go:generate guix generate -p .
 package main
 
-// NewCalculatorStateChannel creates and initializes a calculator state channel
-func NewCalculatorStateChannel() chan CalculatorState {
-	ch := make(chan CalculatorState, 10)
+// CalculatorState holds the state of the calculator
+type CalculatorState struct {
+	Display          string
+	PreviousValue    float64
+	Operator         string
+	WaitingForOperand bool
+}
+
+// InitCalculatorState initializes a calculator state channel with default state
+func InitCalculatorState(ch chan CalculatorState) bool {
 	ch <- CalculatorState{
 		Display:          "0",
 		PreviousValue:    0,
 		Operator:         "",
 		WaitingForOperand: false,
 	}
-	return ch
+	return true
 }
