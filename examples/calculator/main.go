@@ -4,8 +4,22 @@
 package main
 
 import (
+	"fmt"
+	"syscall/js"
+
 	"github.com/gaarutyunov/guix/pkg/runtime"
 )
+
+var console = js.Global().Get("console")
+
+func log(args ...interface{}) {
+	// Convert all args to strings to avoid js.ValueOf errors
+	jsArgs := make([]interface{}, len(args))
+	for i, arg := range args {
+		jsArgs[i] = fmt.Sprint(arg)
+	}
+	console.Call("log", jsArgs...)
+}
 
 func main() {
 	log("MAIN: Starting calculator example")

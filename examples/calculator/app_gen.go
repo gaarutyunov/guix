@@ -24,12 +24,14 @@ func NewApp() *App {
 	return c
 }
 func (c *App) BindApp(app *runtime.App) {
+	log("App: BindApp called")
 	c.app = app
 	if c.calculatorInstance != nil {
 		c.calculatorInstance.BindApp(app)
 	}
 }
 func (c *App) Render() *runtime.VNode {
+	log("App: Render called")
 	return func() *runtime.VNode {
 		return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Calculator")), c.calculatorInstance.Render(), runtime.Div(runtime.Class("info"), runtime.Text("Built with Guix")))
 	}()
