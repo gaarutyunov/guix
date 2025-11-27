@@ -1,0 +1,204 @@
+package main
+
+import "strconv"
+
+type CalculatorState struct {
+	Display          string
+	PreviousValue    float64
+	Operator         string
+	WaitingForOperand bool
+}
+
+func Calculator(stateChannel: chan CalculatorState) {
+	currentState := <-stateChannel
+
+	Div(Class("calculator")) {
+		Div(Class("display")) {
+			`{currentState.Display}`
+		}
+		Div(Class("buttons")) {
+			Div(Class("button-row")) {
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "7")
+				})) {
+					"7"
+				}
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "8")
+				})) {
+					"8"
+				}
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "9")
+				})) {
+					"9"
+				}
+				Button(Class("button operator"), OnClick(func(e: Event) {
+					handleOperator(stateChannel, currentState, "/")
+				})) {
+					"÷"
+				}
+			}
+			Div(Class("button-row")) {
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "4")
+				})) {
+					"4"
+				}
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "5")
+				})) {
+					"5"
+				}
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "6")
+				})) {
+					"6"
+				}
+				Button(Class("button operator"), OnClick(func(e: Event) {
+					handleOperator(stateChannel, currentState, "*")
+				})) {
+					"×"
+				}
+			}
+			Div(Class("button-row")) {
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "1")
+				})) {
+					"1"
+				}
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "2")
+				})) {
+					"2"
+				}
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "3")
+				})) {
+					"3"
+				}
+				Button(Class("button operator"), OnClick(func(e: Event) {
+					handleOperator(stateChannel, currentState, "-")
+				})) {
+					"−"
+				}
+			}
+			Div(Class("button-row")) {
+				Button(Class("button number"), OnClick(func(e: Event) {
+					handleNumber(stateChannel, currentState, "0")
+				})) {
+					"0"
+				}
+				Button(Class("button clear"), OnClick(func(e: Event) {
+					handleClear(stateChannel)
+				})) {
+					"C"
+				}
+				Button(Class("button equals"), OnClick(func(e: Event) {
+					handleEquals(stateChannel, currentState)
+				})) {
+					"="
+				}
+				Button(Class("button operator"), OnClick(func(e: Event) {
+					handleOperator(stateChannel, currentState, "+")
+				})) {
+					"+"
+				}
+			}
+		}
+	}
+}
+
+func handleNumber(stateChannel: chan CalculatorState, state: CalculatorState, digit: string) {
+	if state.WaitingForOperand {
+		state.Display = digit
+		state.WaitingForOperand = false
+	} else {
+		if state.Display == "0" {
+			state.Display = digit
+		} else {
+			state.Display = state.Display + digit
+		}
+	}
+
+	stateChannel <- state
+}
+
+func handleOperator(stateChannel: chan CalculatorState, state: CalculatorState, operator: string) {
+	displayValue, _ := strconv.ParseFloat(state.Display, 64)
+
+	if state.Operator != "" && !state.WaitingForOperand {
+		// Perform the pending calculation
+		result := calculate(state.PreviousValue, displayValue, state.Operator)
+		state.Display = formatNumber(result)
+		state.PreviousValue = result
+	} else {
+		state.PreviousValue = displayValue
+	}
+
+	state.WaitingForOperand = true
+	state.Operator = operator
+
+	stateChannel <- state
+}
+
+func handleEquals(stateChannel: chan CalculatorState, state: CalculatorState) {
+	if state.Operator == "" {
+		stateChannel <- state
+		return
+	}
+
+	displayValue, _ := strconv.ParseFloat(state.Display, 64)
+	result := calculate(state.PreviousValue, displayValue, state.Operator)
+
+	state.Display = formatNumber(result)
+	state.Operator = ""
+	state.WaitingForOperand = true
+	state.PreviousValue = 0
+
+	stateChannel <- state
+}
+
+func handleClear(stateChannel: chan CalculatorState) {
+	stateChannel <- CalculatorState{
+		Display:          "0",
+		PreviousValue:    0,
+		Operator:         "",
+		WaitingForOperand: false,
+	}
+}
+
+func calculate(a: float64, b: float64, operator: string) float64 {
+	switch operator {
+	case "+":
+		return a + b
+	case "-":
+		return a - b
+	case "*":
+		return a * b
+	case "/":
+		if b != 0 {
+			return a / b
+		}
+		return 0
+	default:
+		return b
+	}
+}
+
+func formatNumber(num: float64) string {
+	// Remove trailing zeros and decimal point if not needed
+	str := strconv.FormatFloat(num, 'f', 10, 64)
+
+	// Remove trailing zeros
+	for len(str) > 0 && str[len(str)-1] == '0' {
+		str = str[:len(str)-1]
+	}
+
+	// Remove trailing decimal point
+	if len(str) > 0 && str[len(str)-1] == '.' {
+		str = str[:len(str)-1]
+	}
+
+	return str
+}
