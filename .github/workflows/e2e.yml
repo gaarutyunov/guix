@@ -65,3 +65,54 @@ jobs:
           name: playwright-results
           path: examples/counter/test-results/
           retention-days: 7
+
+  chromedp:
+    name: Calculator E2E Tests (chromedp)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install Chrome
+        run: |
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Build CLI
+        run: go build -o guix ./cmd/guix
+
+      - name: Generate and build calculator example
+        run: |
+          ./guix generate -p examples/calculator
+          cd examples/calculator
+          # Copy wasm_exec.js from Go installation
+          GOROOT="$(go env GOROOT)"
+          if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/lib/wasm/wasm_exec.js" .
+          elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/misc/wasm/wasm_exec.js" .
+          else
+            echo "wasm_exec.js not found in GOROOT, downloading from GitHub"
+            curl -o wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
+          fi
+          GOOS=js GOARCH=wasm go build -o calculator.wasm .
+          echo "Files after build:"
+          ls -lah *.{html,js,wasm} 2>/dev/null || ls -lah
+
+      - name: Run chromedp E2E tests
+        working-directory: examples/calculator
+        run: go test -v -tags=e2e -timeout=120s
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calculator-e2e-logs
+          path: examples/calculator/*.log
+          retention-days: 7
