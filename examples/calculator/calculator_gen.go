@@ -72,39 +72,38 @@ func (c *Calculator) startStateChannelListener() {
 func (c *Calculator) Render() *runtime.VNode {
 	log("Calculator: Render called")
 	return func() *runtime.VNode {
-		currentState := c.currentStateChannel
-		return runtime.Div(runtime.Class("calculator"), runtime.Div(runtime.Class("display"), runtime.Text(fmt.Sprint(currentState.Display))), runtime.Div(runtime.Class("buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "7")
+		return runtime.Div(runtime.Class("calculator"), runtime.Div(runtime.Class("display"), runtime.Text(fmt.Sprint(c.currentStateChannel.Display))), runtime.Div(runtime.Class("buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
+			handleNumber(c.StateChannel, c.currentStateChannel, "7")
 		}), runtime.Text("7")), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "8")
+			handleNumber(c.StateChannel, c.currentStateChannel, "8")
 		}), runtime.Text("8")), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "9")
+			handleNumber(c.StateChannel, c.currentStateChannel, "9")
 		}), runtime.Text("9")), runtime.Button(runtime.Class("button operator"), runtime.OnClick(func(e runtime.Event) {
-			handleOperator(c.StateChannel, currentState, "/")
+			handleOperator(c.StateChannel, c.currentStateChannel, "/")
 		}), runtime.Text("÷"))), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "4")
+			handleNumber(c.StateChannel, c.currentStateChannel, "4")
 		}), runtime.Text("4")), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "5")
+			handleNumber(c.StateChannel, c.currentStateChannel, "5")
 		}), runtime.Text("5")), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "6")
+			handleNumber(c.StateChannel, c.currentStateChannel, "6")
 		}), runtime.Text("6")), runtime.Button(runtime.Class("button operator"), runtime.OnClick(func(e runtime.Event) {
-			handleOperator(c.StateChannel, currentState, "*")
+			handleOperator(c.StateChannel, c.currentStateChannel, "*")
 		}), runtime.Text("×"))), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "1")
+			handleNumber(c.StateChannel, c.currentStateChannel, "1")
 		}), runtime.Text("1")), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "2")
+			handleNumber(c.StateChannel, c.currentStateChannel, "2")
 		}), runtime.Text("2")), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "3")
+			handleNumber(c.StateChannel, c.currentStateChannel, "3")
 		}), runtime.Text("3")), runtime.Button(runtime.Class("button operator"), runtime.OnClick(func(e runtime.Event) {
-			handleOperator(c.StateChannel, currentState, "-")
+			handleOperator(c.StateChannel, c.currentStateChannel, "-")
 		}), runtime.Text("−"))), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
-			handleNumber(c.StateChannel, currentState, "0")
+			handleNumber(c.StateChannel, c.currentStateChannel, "0")
 		}), runtime.Text("0")), runtime.Button(runtime.Class("button clear"), runtime.OnClick(func(e runtime.Event) {
 			handleClear(c.StateChannel)
 		}), runtime.Text("C")), runtime.Button(runtime.Class("button equals"), runtime.OnClick(func(e runtime.Event) {
-			handleEquals(c.StateChannel, currentState)
+			handleEquals(c.StateChannel, c.currentStateChannel)
 		}), runtime.Text("=")), runtime.Button(runtime.Class("button operator"), runtime.OnClick(func(e runtime.Event) {
-			handleOperator(c.StateChannel, currentState, "+")
+			handleOperator(c.StateChannel, c.currentStateChannel, "+")
 		}), runtime.Text("+")))))
 	}()
 }

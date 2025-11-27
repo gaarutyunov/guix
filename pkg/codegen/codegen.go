@@ -29,6 +29,7 @@ type Generator struct {
 	currentCompBody     *guixast.Body                            // Current component body being generated
 	currentComp         *guixast.Component                       // Current component being generated
 	componentParams     map[string]bool                          // Track current component's parameter names
+	channelReceiveVars  map[string]string                        // Map local var names to channel names (e.g., "currentState" -> "StateChannel")
 	verbose             bool                                     // Generate verbose logging statements
 }
 
@@ -989,14 +990,20 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl {
 	// Set up context for hoisted variable tracking
 	g.hoistedVars = make(map[string]bool)
+	g.channelReceiveVars = make(map[string]string)
 	g.currentCompBody = comp.Body
 
-	// Collect hoisted variable names
+	// Collect hoisted variable names and channel receive variables
 	if comp.Body != nil {
 		for _, varDecl := range comp.Body.VarDecls {
-			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 &&
-				g.inferTypeFromExpr(varDecl.Values[0]) != nil {
-				g.hoistedVars[varDecl.Names[0]] = true
+			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 {
+				if g.inferTypeFromExpr(varDecl.Values[0]) != nil {
+					g.hoistedVars[varDecl.Names[0]] = true
+				} else if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
+					// Track channel receive: currentState := <-stateChannel
+					channelName := varDecl.Values[0].Left.ChannelOp.Channel
+					g.channelReceiveVars[varDecl.Names[0]] = capitalize(channelName)
+				}
 			}
 		}
 	}
@@ -1087,8 +1094,13 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 			canHoist := len(varDecl.Names) == 1 && len(varDecl.Values) == 1 &&
 				g.inferTypeFromExpr(varDecl.Values[0]) != nil
 
-			if canHoist {
-				// Hoisted field - skip initialization in Render (already done in constructor)
+			// Check if this is a channel receive variable (skip - will be accessed via c.current<ChannelName>)
+			isChannelReceive := len(varDecl.Names) == 1 &&
+				g.channelReceiveVars != nil &&
+				g.channelReceiveVars[varDecl.Names[0]] != ""
+
+			if canHoist || isChannelReceive {
+				// Hoisted field or channel receive - skip initialization in Render
 				continue
 			} else {
 				// Local variable(s) - generate: name := value or n, err := value
@@ -1546,6 +1558,15 @@ func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
 	}
 
 	if primary.Ident != "" {
+		// Check if it's a channel receive variable (e.g., currentState -> c.currentStateChannel)
+		if g.channelReceiveVars != nil {
+			if channelName, ok := g.channelReceiveVars[primary.Ident]; ok {
+				return &ast.SelectorExpr{
+					X:   ast.NewIdent("c"),
+					Sel: ast.NewIdent("current" + channelName),
+				}
+			}
+		}
 		// Check if it's a hoisted variable (stored as-is in component struct)
 		if g.hoistedVars != nil && g.hoistedVars[primary.Ident] {
 			return &ast.SelectorExpr{
@@ -1710,7 +1731,22 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 	}
 
 	// Build the base selector expression from base and fields
-	var expr ast.Expr = ast.NewIdent(cos.Base)
+	// Check if base is a channel receive variable that needs to be replaced
+	var expr ast.Expr
+	if g.channelReceiveVars != nil {
+		if channelName, ok := g.channelReceiveVars[cos.Base]; ok {
+			// Replace base with c.current<ChannelName>
+			expr = &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent("current" + channelName),
+			}
+		} else {
+			expr = ast.NewIdent(cos.Base)
+		}
+	} else {
+		expr = ast.NewIdent(cos.Base)
+	}
+
 	for _, field := range cos.Fields {
 		expr = &ast.SelectorExpr{
 			X:   expr,
