@@ -9,7 +9,7 @@ func TestParseSimpleComponent(t *testing.T) {
 	source := `
 package main
 
-func Button(label: string) {
+func Button(label string) (Component) {
 	Div {
 	}
 }
@@ -51,9 +51,9 @@ func TestParseTemplate(t *testing.T) {
 	source := `
 package main
 
-func Counter(count: int) {
+func Counter(count int) (Component) {
 	Div {
-		` + "`Counter: {count}`" + `
+		` + "`Counter {count}`" + `
 	}
 }
 `
@@ -81,7 +81,7 @@ func TestParseChannelParameter(t *testing.T) {
 	source := `
 package main
 
-func Counter(counterChannel: <-chan int) {
+func Counter(counterChannel <-chan int) (Component) {
 	Div {
 	}
 }
@@ -118,7 +118,7 @@ func TestParseMakeCall(t *testing.T) {
 	source := `
 package main
 
-func App() {
+func App() (Component) {
 	ch := make(chan int, 10)
 
 	Div {
@@ -158,11 +158,11 @@ func App() {
 		t.Fatal("Expected one variable value")
 	}
 
-	if varDecl.Values[0].MakeCall == nil {
+	if varDecl.Values[0].Left.MakeCall == nil {
 		t.Fatal("Expected make() call")
 	}
 
-	makeCall := varDecl.Values[0].MakeCall
+	makeCall := varDecl.Values[0].Left.MakeCall
 	if makeCall.ChanType == nil {
 		t.Fatal("Expected channel type in make() call")
 	}
@@ -180,7 +180,7 @@ func TestParseMakeCallWithoutSize(t *testing.T) {
 	source := `
 package main
 
-func App() {
+func App() (Component) {
 	ch := make(chan string)
 
 	Div {
@@ -201,11 +201,11 @@ func App() {
 	comp := file.Components[0]
 	varDecl := comp.Body.VarDecls[0]
 
-	if len(varDecl.Values) != 1 || varDecl.Values[0].MakeCall == nil {
+	if len(varDecl.Values) != 1 || varDecl.Values[0].Left.MakeCall == nil {
 		t.Fatal("Expected make() call")
 	}
 
-	makeCall := varDecl.Values[0].MakeCall
+	makeCall := varDecl.Values[0].Left.MakeCall
 	if makeCall.ChanType.Name != "string" {
 		t.Errorf("Expected chan type 'string', got %s", makeCall.ChanType.Name)
 	}
@@ -219,7 +219,7 @@ func TestParseSelector(t *testing.T) {
 	source := `
 package main
 
-func Handler(e: Event) {
+func Handler(e Event) (Component) {
 	value := e.Target.Value
 
 	Div {
@@ -255,11 +255,11 @@ func Handler(e: Event) {
 		t.Fatal("Expected variable value")
 	}
 
-	if varDecl.Values[0].CallOrSel == nil {
+	if varDecl.Values[0].Left.CallOrSel == nil {
 		t.Fatal("Expected call or selector expression")
 	}
 
-	callOrSel := varDecl.Values[0].CallOrSel
+	callOrSel := varDecl.Values[0].Left.CallOrSel
 	if callOrSel.Base != "e" {
 		t.Errorf("Expected base 'e', got %s", callOrSel.Base)
 	}
@@ -285,7 +285,7 @@ func TestParseSelectorSingleField(t *testing.T) {
 	source := `
 package main
 
-func Widget(obj: Object) {
+func Widget(obj Object) (Component) {
 	name := obj.Name
 
 	Div {
@@ -306,11 +306,11 @@ func Widget(obj: Object) {
 	comp := file.Components[0]
 	varDecl := comp.Body.VarDecls[0]
 
-	if len(varDecl.Values) != 1 || varDecl.Values[0].CallOrSel == nil {
+	if len(varDecl.Values) != 1 || varDecl.Values[0].Left.CallOrSel == nil {
 		t.Fatal("Expected call or selector expression")
 	}
 
-	callOrSel := varDecl.Values[0].CallOrSel
+	callOrSel := varDecl.Values[0].Left.CallOrSel
 	if callOrSel.Base != "obj" {
 		t.Errorf("Expected base 'obj', got %s", callOrSel.Base)
 	}
@@ -333,7 +333,7 @@ func TestParseMethodCall(t *testing.T) {
 	source := `
 package main
 
-func Parser() {
+func Parser() (Component) {
 	result := strconv.Atoi("123")
 
 	Div {
@@ -358,11 +358,11 @@ func Parser() {
 		t.Fatal("Expected one value")
 	}
 
-	if varDecl.Values[0].CallOrSel == nil {
+	if varDecl.Values[0].Left.CallOrSel == nil {
 		t.Fatal("Expected call or selector expression")
 	}
 
-	callOrSel := varDecl.Values[0].CallOrSel
+	callOrSel := varDecl.Values[0].Left.CallOrSel
 	if callOrSel.Base != "strconv" {
 		t.Errorf("Expected base 'strconv', got %s", callOrSel.Base)
 	}
@@ -385,7 +385,7 @@ func TestParseMultipleAssignment(t *testing.T) {
 	source := `
 package main
 
-func Handler() {
+func Handler() (Component) {
 	n, err := strconv.Atoi("42")
 
 	Div {
@@ -424,12 +424,12 @@ func Handler() {
 		t.Fatalf("Expected 1 value, got %d", len(varDecl.Values))
 	}
 
-	if varDecl.Values[0].CallOrSel == nil {
+	if varDecl.Values[0].Left.CallOrSel == nil {
 		t.Fatal("Expected call or selector expression")
 	}
 
 	// Verify it's a call (has args)
-	if varDecl.Values[0].CallOrSel.Args == nil {
+	if varDecl.Values[0].Left.CallOrSel.Args == nil {
 		t.Fatal("Expected function call (with args)")
 	}
 }

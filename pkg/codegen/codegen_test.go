@@ -17,7 +17,7 @@ func TestGenerateSimpleComponent(t *testing.T) {
 			name: "simple component with string parameter",
 			source: `package main
 
-func Button(label: string) {
+func Button(label string) (Component) {
 	Div {
 		Span {
 			` + "`{label}`" + `
@@ -40,7 +40,7 @@ func Button(label: string) {
 			name: "component with channel parameter",
 			source: `package main
 
-func Counter(counterChannel: chan int) {
+func Counter(counterChannel chan int) (Component) {
 	Div(Class("counter-display")) {
 		Span(Class("counter-value")) {
 			` + "`Counter: {<-counterChannel}`" + `
@@ -66,7 +66,7 @@ func Counter(counterChannel: chan int) {
 			name: "component with multiple channels",
 			source: `package main
 
-func Dashboard(dataChannel: chan string, statusChannel: chan int) {
+func Dashboard(dataChannel chan string, statusChannel chan int) (Component) {
 	Div {
 		Span {
 			` + "`Data: {<-dataChannel}`" + `
@@ -102,7 +102,7 @@ func Dashboard(dataChannel: chan string, statusChannel: chan int) {
 			name: "component with mixed parameters",
 			source: `package main
 
-func UserCard(name: string, updateChannel: chan string, age: int) {
+func UserCard(name string, updateChannel chan string, age int) (Component) {
 	Div(Class("user-card")) {
 		H1 {
 			` + "`{name}`" + `
@@ -137,7 +137,7 @@ func UserCard(name: string, updateChannel: chan string, age: int) {
 			name: "component with complex HTML structure",
 			source: `package main
 
-func Card(title: string, content: string) {
+func Card(title string, content string) (Component) {
 	Div(Class("card")) {
 		Div(Class("card-header")) {
 			H2(Class("card-title")) {
@@ -174,7 +174,7 @@ func Card(title: string, content: string) {
 			name: "component without parameters",
 			source: `package main
 
-func Header() {
+func Header() (Component) {
 	Div(Class("header")) {
 		H1 {
 			"My App"
@@ -228,7 +228,7 @@ func Header() {
 func TestGenerateChannelListener(t *testing.T) {
 	source := `package main
 
-func Watcher(eventChannel: chan string) {
+func Watcher(eventChannel chan string) (Component) {
 	Div {
 		` + "`Event: {<-eventChannel}`" + `
 	}
@@ -271,13 +271,13 @@ func Watcher(eventChannel: chan string) {
 func TestGenerateMultipleComponents(t *testing.T) {
 	source := `package main
 
-func Header(title: string) {
+func Header(title string) (Component) {
 	H1 {
 		` + "`{title}`" + `
 	}
 }
 
-func Footer(copyright: string) {
+func Footer(copyright string) (Component) {
 	Div(Class("footer")) {
 		P {
 			` + "`{copyright}`" + `
@@ -324,12 +324,12 @@ func TestGenerateComponentWithMultipleChannelsAndParameters(t *testing.T) {
 	source := `package main
 
 func ComplexWidget(
-	title: string,
-	dataStream: chan string,
-	count: int,
-	statusStream: chan int,
-	enabled: bool
-) {
+	title string,
+	dataStream chan string,
+	count int,
+	statusStream chan int,
+	enabled bool
+) (Component) {
 	Div(Class("widget")) {
 		H1 {
 			` + "`{title}`" + `
@@ -436,7 +436,7 @@ func ComplexWidget(
 func TestGenerateImports(t *testing.T) {
 	source := `package main
 
-func Simple() {
+func Simple() (Component) {
 	Div {
 		"Hello"
 	}
@@ -486,7 +486,7 @@ func Simple() {
 func TestGenerateImportsWithTemplateInterpolation(t *testing.T) {
 	source := `package main
 
-func Display(count: int) {
+func Display(count int) (Component) {
 	Div {
 		` + "`Count: {count}`" + `
 	}
@@ -524,7 +524,7 @@ func Display(count: int) {
 func TestGenerateInterfaceMethods(t *testing.T) {
 	source := `package main
 
-func Widget(value: string) {
+func Widget(value string) (Component) {
 	Div {
 		` + "`{value}`" + `
 	}
@@ -566,7 +566,7 @@ func Widget(value: string) {
 func TestGenerateMakeCall(t *testing.T) {
 	source := `package main
 
-func App() {
+func App() (Component) {
 	counter := make(chan int, 10)
 
 	Div {
@@ -610,7 +610,7 @@ func App() {
 func TestGenerateMakeCallWithoutSize(t *testing.T) {
 	source := `package main
 
-func Watcher() {
+func Watcher() (Component) {
 	events := make(chan string)
 
 	Div {
@@ -650,7 +650,7 @@ func Watcher() {
 func TestGenerateCompleteAppWithMake(t *testing.T) {
 	source := `package main
 
-func App() {
+func App() (Component) {
 	dataChannel := make(chan string, 5)
 	statusChannel := make(chan int)
 
@@ -708,7 +708,7 @@ func App() {
 func TestGenerateSelector(t *testing.T) {
 	source := `package main
 
-func Handler(e: Event) {
+func Handler(e Event) (Component) {
 	value := e.Target.Value
 
 	Div {
@@ -748,7 +748,7 @@ func Handler(e: Event) {
 func TestGenerateSelectorSingleField(t *testing.T) {
 	source := `package main
 
-func Widget(obj: Object) {
+func Widget(obj Object) (Component) {
 	name := obj.Name
 
 	Div {
@@ -783,7 +783,7 @@ func Widget(obj: Object) {
 func TestGenerateSelectorInFunctionCall(t *testing.T) {
 	source := `package main
 
-func Logger(req: Request) {
+func Logger(req Request) (Component) {
 	msg := req.User.Name
 
 	Div {
@@ -818,7 +818,7 @@ func Logger(req: Request) {
 func TestGenerateMethodCall(t *testing.T) {
 	source := `package main
 
-func Parser() {
+func Parser() (Component) {
 	result := strconv.Atoi("123")
 
 	Div {
@@ -858,7 +858,7 @@ func Parser() {
 func TestGenerateMultipleAssignment(t *testing.T) {
 	source := `package main
 
-func Handler() {
+func Handler() (Component) {
 	n, err := strconv.Atoi("42")
 
 	Div {
@@ -893,7 +893,7 @@ func Handler() {
 func TestGenerateCompleteAppWithMethodCallsAndSelectors(t *testing.T) {
 	source := `package main
 
-func App() {
+func App() (Component) {
 	counter := make(chan int, 10)
 
 	Div(Class("app-container")) {
@@ -901,7 +901,7 @@ func App() {
 			"Counter Example"
 		}
 		Input(
-			OnInput(func(e: Event) {
+			OnInput(func(e Event) {
 				value := e.Target.Value
 				counter <- 42
 			})
