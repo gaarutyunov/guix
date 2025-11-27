@@ -924,8 +924,16 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 			}
 		}
 
-		// Add statements
+		// Add statements (but skip initialization statements for hoisted variables)
 		for _, stmt := range body.Statements {
+			// Skip channel sends to hoisted variables - those are initialization
+			// and should only happen in the constructor, not every render
+			if stmt.Assignment != nil && stmt.Assignment.Op == "<-" {
+				if g.hoistedVars != nil && g.hoistedVars[stmt.Assignment.Left] {
+					// Skip this - it's an initialization statement
+					continue
+				}
+			}
 			stmts = append(stmts, g.generateBodyStatement(stmt))
 		}
 
