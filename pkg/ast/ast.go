@@ -10,7 +10,28 @@ type File struct {
 	Pos        lexer.Position
 	Package    string       `"package" @Ident`
 	Imports    []*Import    `@@*`
+	Types      []*TypeDef   `@@*`
 	Components []*Component `@@*`
+}
+
+// TypeDef represents a type definition
+type TypeDef struct {
+	Pos    lexer.Position
+	Name   string        `"type" @Ident`
+	Struct *StructType   `@@`
+}
+
+// StructType represents a struct type definition
+type StructType struct {
+	Pos    lexer.Position
+	Fields []*StructField `"struct" "{" @@* "}"`
+}
+
+// StructField represents a field in a struct
+type StructField struct {
+	Pos  lexer.Position
+	Name string `@Ident`
+	Type *Type  `@@`
 }
 
 // Import represents an import statement
@@ -50,12 +71,22 @@ type Type struct {
 	FuncResults []*Type
 }
 
-// Body represents a component body with optional variable declarations, assignments, and UI tree
+// Body represents a component body with optional variable declarations, statements, and UI tree
 type Body struct {
-	Pos         lexer.Position
-	VarDecls    []*VarDecl    `"{" @@*`
-	Assignments []*Assignment `@@*`
-	Children    []*Node       `@@* "}"`
+	Pos        lexer.Position
+	VarDecls   []*VarDecl       `"{" @@*`
+	Statements []*BodyStatement `@@*`
+	Children   []*Node          `@@* "}"`
+}
+
+// BodyStatement represents a statement in a component body
+type BodyStatement struct {
+	Pos        lexer.Position
+	VarDecl    *VarDecl    `@@`
+	Assignment *Assignment `| @@`
+	Return     *Return     `| @@`
+	If         *IfStmt     `| @@`
+	For        *ForLoop    `| @@`
 }
 
 // Node represents any node in the component tree
@@ -93,15 +124,54 @@ type Prop struct {
 	Value *Expr  `"(" @@ ")"`
 }
 
-// Expr represents an expression (simplified to avoid recursion)
+// Expr represents an expression with optional binary operations
 type Expr struct {
-	Pos       lexer.Position
-	Literal   *Literal      `@@`
-	MakeCall  *MakeCall     `| @@`
-	CallOrSel *CallOrSelect `| @@`
-	FuncLit   *FuncLit      `| @@`
-	ChannelOp *ChannelOp    `| @@`
-	Ident     string        `| @Ident`
+	Pos     lexer.Position
+	Left    *Primary      `@@`
+	BinOps  []*BinaryOp   `@@*`
+}
+
+// BinaryOp represents a binary operation (operator and right operand)
+type BinaryOp struct {
+	Pos   lexer.Position
+	Op    string   `@("==" | "!=" | "<=" | ">=" | "<" | ">" | "&&" | "||" | "+" | "-" | "*" | "/")`
+	Right *Primary `@@`
+}
+
+// Primary represents a primary expression (operand in binary expressions)
+type Primary struct {
+	Pos          lexer.Position
+	Unary        *UnaryExpr     `  @@`
+	Literal      *Literal       `| @@`
+	CompositeLit *CompositeLit  `| @@`
+	MakeCall     *MakeCall      `| @@`
+	CallOrSel    *CallOrSelect  `| @@`
+	FuncLit      *FuncLit       `| @@`
+	ChannelOp    *ChannelOp     `| @@`
+	Paren        *Expr          `| "(" @@ ")"`
+	Ident        string         `| @Ident`
+}
+
+// CompositeLit represents a composite literal (struct initialization)
+// Example: CalculatorState{Display: "0", PreviousValue: 0}
+type CompositeLit struct {
+	Pos      lexer.Position
+	Type     string         `@Ident`
+	Elements []*KeyValue    `"{" (@@ ("," @@)*)? ","? "}"`
+}
+
+// KeyValue represents a key-value pair in a composite literal
+type KeyValue struct {
+	Pos   lexer.Position
+	Key   string `@Ident ":"`
+	Value *Expr  `@@`
+}
+
+// UnaryExpr represents a unary expression (e.g., !x, -x)
+type UnaryExpr struct {
+	Pos   lexer.Position
+	Op    string   `@("!" | "-" | "+")`
+	Right *Primary `@@`
 }
 
 // Literal represents a literal value
@@ -167,18 +237,19 @@ type Statement struct {
 	Pos        lexer.Position
 	VarDecl    *VarDecl    `@@`
 	Assignment *Assignment `| @@`
-	Expr       *Expr       `| @@`
 	Return     *Return     `| @@`
 	If         *IfStmt     `| @@`
 	For        *ForLoop    `| @@`
+	Expr       *Expr       `| @@`
 }
 
 // Assignment represents an assignment statement
 type Assignment struct {
-	Pos   lexer.Position
-	Left  string `@Ident`
-	Op    string `@("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=")`
-	Right *Expr  `@@`
+	Pos          lexer.Position
+	Left         string   `@Ident`
+	LeftSelector []string `("." @Ident)*`
+	Op           string   `@("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=")`
+	Right        *Expr    `@@`
 }
 
 // Return represents a return statement

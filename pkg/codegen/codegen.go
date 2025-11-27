@@ -72,6 +72,11 @@ func (g *Generator) Generate(file *guixast.File) ([]byte, error) {
 	// Add imports
 	goFile.Decls = append(goFile.Decls, g.generateImports(file))
 
+	// Generate type definitions
+	for _, typeDef := range file.Types {
+		goFile.Decls = append(goFile.Decls, g.generateTypeDef(typeDef))
+	}
+
 	// Generate code for each component/function
 	for _, comp := range file.Components {
 		var decls []ast.Decl
@@ -152,6 +157,43 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 	}
 }
 
+// generateTypeDef generates code for a type definition
+func (g *Generator) generateTypeDef(typeDef *guixast.TypeDef) *ast.GenDecl {
+	if typeDef.Struct != nil {
+		// Generate struct type
+		fields := make([]*ast.Field, len(typeDef.Struct.Fields))
+		for i, field := range typeDef.Struct.Fields {
+			fields[i] = &ast.Field{
+				Names: []*ast.Ident{ast.NewIdent(field.Name)},
+				Type:  g.typeToAST(field.Type),
+			}
+		}
+
+		return &ast.GenDecl{
+			Tok: token.TYPE,
+			Specs: []ast.Spec{
+				&ast.TypeSpec{
+					Name: ast.NewIdent(typeDef.Name),
+					Type: &ast.StructType{
+						Fields: &ast.FieldList{List: fields},
+					},
+				},
+			},
+		}
+	}
+
+	// Default: empty type (shouldn't happen)
+	return &ast.GenDecl{
+		Tok: token.TYPE,
+		Specs: []ast.Spec{
+			&ast.TypeSpec{
+				Name: ast.NewIdent(typeDef.Name),
+				Type: ast.NewIdent("interface{}"),
+			},
+		},
+	}
+}
+
 // generateFunction generates code for a regular helper function (not a UI component)
 func (g *Generator) generateFunction(comp *guixast.Component) *ast.FuncDecl {
 	// Set up context
@@ -217,20 +259,9 @@ func (g *Generator) generateFunctionBodyStmts(body *guixast.Body) []ast.Stmt {
 		})
 	}
 
-	// Add assignments
-	for _, assignment := range body.Assignments {
-		if assignment.Op == "<-" {
-			stmts = append(stmts, &ast.SendStmt{
-				Chan:  ast.NewIdent(assignment.Left),
-				Value: g.generateExpr(assignment.Right),
-			})
-		} else {
-			stmts = append(stmts, &ast.AssignStmt{
-				Lhs: []ast.Expr{ast.NewIdent(assignment.Left)},
-				Tok: g.assignOpToToken(assignment.Op),
-				Rhs: []ast.Expr{g.generateExpr(assignment.Right)},
-			})
-		}
+	// Add statements
+	for _, stmt := range body.Statements {
+		stmts = append(stmts, g.generateBodyStatement(stmt))
 	}
 
 	// Process children as statements (should be minimal for regular functions)
@@ -588,15 +619,15 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 
 // inferTypeFromExpr infers the Go AST type from a Guix expression
 func (g *Generator) inferTypeFromExpr(expr *guixast.Expr) ast.Expr {
-	if expr == nil {
+	if expr == nil || expr.Left == nil {
 		return nil
 	}
 
 	// Handle make(chan Type, size)
-	if expr.MakeCall != nil {
+	if expr.Left.MakeCall != nil {
 		return &ast.ChanType{
 			Dir:   ast.SEND | ast.RECV,
-			Value: g.typeToAST(expr.MakeCall.ChanType),
+			Value: g.typeToAST(expr.Left.MakeCall.ChanType),
 		}
 	}
 
@@ -825,8 +856,8 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 		}
 	}
 
-	// If there are variable declarations, assignments, or expression statements, wrap everything in an IIFE
-	if len(body.VarDecls) > 0 || len(body.Assignments) > 0 || hasExprStmts {
+	// If there are variable declarations, statements, or expression statements, wrap everything in an IIFE
+	if len(body.VarDecls) > 0 || len(body.Statements) > 0 || hasExprStmts {
 		stmts := make([]ast.Stmt, 0)
 
 		// Add variable declarations
@@ -862,32 +893,9 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 			}
 		}
 
-		// Add assignments (including function calls assigned to _)
-		for _, assignment := range body.Assignments {
-			// Handle channel send operation
-			if assignment.Op == "<-" {
-				// Check if channel is a hoisted variable
-				var chanExpr ast.Expr
-				if g.hoistedVars != nil && g.hoistedVars[assignment.Left] {
-					chanExpr = &ast.SelectorExpr{
-						X:   ast.NewIdent("c"),
-						Sel: ast.NewIdent(assignment.Left),
-					}
-				} else {
-					chanExpr = ast.NewIdent(assignment.Left)
-				}
-
-				stmts = append(stmts, &ast.SendStmt{
-					Chan:  chanExpr,
-					Value: g.generateExpr(assignment.Right),
-				})
-			} else {
-				stmts = append(stmts, &ast.AssignStmt{
-					Lhs: []ast.Expr{ast.NewIdent(assignment.Left)},
-					Tok: g.assignOpToToken(assignment.Op),
-					Rhs: []ast.Expr{g.generateExpr(assignment.Right)},
-				})
-			}
+		// Add statements
+		for _, stmt := range body.Statements {
+			stmts = append(stmts, g.generateBodyStatement(stmt))
 		}
 
 		// Add expression statements (function calls)
@@ -1250,49 +1258,161 @@ func (g *Generator) generateTemplate(tmpl *guixast.Template) ast.Expr {
 
 // generateExpr generates code for an expression
 func (g *Generator) generateExpr(expr *guixast.Expr) ast.Expr {
-	if expr.Literal != nil {
-		return g.generateLiteral(expr.Literal)
+	if expr == nil {
+		return ast.NewIdent("nil")
 	}
 
-	if expr.MakeCall != nil {
-		return g.generateMakeCall(expr.MakeCall)
+	// Generate the left (primary) expression
+	left := g.generatePrimary(expr.Left)
+
+	// If there are no binary operations, return the left expression as-is
+	if len(expr.BinOps) == 0 {
+		return left
 	}
 
-	if expr.CallOrSel != nil {
-		return g.generateCallOrSelect(expr.CallOrSel)
+	// Build binary expression chain (left-associative)
+	result := left
+	for _, binOp := range expr.BinOps {
+		right := g.generatePrimary(binOp.Right)
+		result = &ast.BinaryExpr{
+			X:  result,
+			Op: g.binaryOpToToken(binOp.Op),
+			Y:  right,
+		}
 	}
 
-	if expr.Ident != "" {
+	return result
+}
+
+// generatePrimary generates code for a primary expression
+func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
+	if primary == nil {
+		return ast.NewIdent("nil")
+	}
+
+	if primary.Unary != nil {
+		return &ast.UnaryExpr{
+			Op: g.unaryOpToToken(primary.Unary.Op),
+			X:  g.generatePrimary(primary.Unary.Right),
+		}
+	}
+
+	if primary.Literal != nil {
+		return g.generateLiteral(primary.Literal)
+	}
+
+	if primary.CompositeLit != nil {
+		return g.generateCompositeLit(primary.CompositeLit)
+	}
+
+	if primary.MakeCall != nil {
+		return g.generateMakeCall(primary.MakeCall)
+	}
+
+	if primary.CallOrSel != nil {
+		return g.generateCallOrSelect(primary.CallOrSel)
+	}
+
+	if primary.Paren != nil {
+		// Parenthesized expression
+		return &ast.ParenExpr{
+			X: g.generateExpr(primary.Paren),
+		}
+	}
+
+	if primary.Ident != "" {
 		// Check if it's a hoisted variable (stored as-is in component struct)
-		if g.hoistedVars != nil && g.hoistedVars[expr.Ident] {
+		if g.hoistedVars != nil && g.hoistedVars[primary.Ident] {
 			return &ast.SelectorExpr{
 				X:   ast.NewIdent("c"),
-				Sel: ast.NewIdent(expr.Ident), // Use exact name, not capitalized
+				Sel: ast.NewIdent(primary.Ident), // Use exact name, not capitalized
 			}
 		}
 		// Otherwise it's a component parameter field (capitalized) or local var
 		// For now, assume it's a field - local vars are handled differently
 		return &ast.SelectorExpr{
 			X:   ast.NewIdent("c"),
-			Sel: ast.NewIdent(capitalize(expr.Ident)),
+			Sel: ast.NewIdent(capitalize(primary.Ident)),
 		}
 	}
 
-	if expr.FuncLit != nil {
-		return g.generateFuncLit(expr.FuncLit)
+	if primary.FuncLit != nil {
+		return g.generateFuncLit(primary.FuncLit)
 	}
 
-	if expr.ChannelOp != nil {
+	if primary.ChannelOp != nil {
 		// Instead of reading from the channel (which would block),
 		// use the current value field that's updated by the channel listener
 		return &ast.SelectorExpr{
 			X:   ast.NewIdent("c"),
-			Sel: ast.NewIdent("current" + capitalize(expr.ChannelOp.Channel)),
+			Sel: ast.NewIdent("current" + capitalize(primary.ChannelOp.Channel)),
 		}
 	}
 
 	// Default: identifier
 	return ast.NewIdent("nil")
+}
+
+// unaryOpToToken converts a unary operator string to a token
+func (g *Generator) unaryOpToToken(op string) token.Token {
+	switch op {
+	case "!":
+		return token.NOT
+	case "-":
+		return token.SUB
+	case "+":
+		return token.ADD
+	default:
+		return token.NOT // Default fallback
+	}
+}
+
+// binaryOpToToken converts a binary operator string to a token
+func (g *Generator) binaryOpToToken(op string) token.Token {
+	switch op {
+	case "+":
+		return token.ADD
+	case "-":
+		return token.SUB
+	case "*":
+		return token.MUL
+	case "/":
+		return token.QUO
+	case "==":
+		return token.EQL
+	case "!=":
+		return token.NEQ
+	case "<":
+		return token.LSS
+	case "<=":
+		return token.LEQ
+	case ">":
+		return token.GTR
+	case ">=":
+		return token.GEQ
+	case "&&":
+		return token.LAND
+	case "||":
+		return token.LOR
+	default:
+		return token.ADD // Default fallback
+	}
+}
+
+// generateCompositeLit generates code for a composite literal (struct initialization)
+func (g *Generator) generateCompositeLit(lit *guixast.CompositeLit) ast.Expr {
+	elts := make([]ast.Expr, len(lit.Elements))
+	for i, elem := range lit.Elements {
+		elts[i] = &ast.KeyValueExpr{
+			Key:   ast.NewIdent(elem.Key),
+			Value: g.generateExpr(elem.Value),
+		}
+	}
+
+	return &ast.CompositeLit{
+		Type: ast.NewIdent(lit.Type),
+		Elts: elts,
+	}
 }
 
 // generateLiteral generates code for a literal
@@ -1416,20 +1536,38 @@ func (g *Generator) generateFuncBody(body *guixast.FuncBody) *ast.BlockStmt {
 	return &ast.BlockStmt{List: stmts}
 }
 
-// generateStatement generates code for a statement
-func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
+// generateBodyStatement generates code for a body statement
+func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt {
+	if stmt.VarDecl != nil {
+		lhs := make([]ast.Expr, len(stmt.VarDecl.Names))
+		for i, name := range stmt.VarDecl.Names {
+			lhs[i] = ast.NewIdent(name)
+		}
+
+		rhs := make([]ast.Expr, len(stmt.VarDecl.Values))
+		for i, val := range stmt.VarDecl.Values {
+			rhs[i] = g.generateExpr(val)
+		}
+
+		return &ast.AssignStmt{
+			Lhs: lhs,
+			Tok: token.DEFINE,
+			Rhs: rhs,
+		}
+	}
+
 	if stmt.Assignment != nil {
 		// Handle channel send operation
 		if stmt.Assignment.Op == "<-" {
-			// Check if channel is a hoisted variable
+			// Check if channel is a hoisted variable (only for simple identifiers)
 			var chanExpr ast.Expr
-			if g.hoistedVars != nil && g.hoistedVars[stmt.Assignment.Left] {
+			if len(stmt.Assignment.LeftSelector) == 0 && g.hoistedVars != nil && g.hoistedVars[stmt.Assignment.Left] {
 				chanExpr = &ast.SelectorExpr{
 					X:   ast.NewIdent("c"),
 					Sel: ast.NewIdent(stmt.Assignment.Left),
 				}
 			} else {
-				chanExpr = ast.NewIdent(stmt.Assignment.Left)
+				chanExpr = g.generateAssignmentLHS(stmt.Assignment)
 			}
 
 			return &ast.SendStmt{
@@ -1439,7 +1577,76 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 		}
 
 		return &ast.AssignStmt{
-			Lhs: []ast.Expr{ast.NewIdent(stmt.Assignment.Left)},
+			Lhs: []ast.Expr{g.generateAssignmentLHS(stmt.Assignment)},
+			Tok: g.assignOpToToken(stmt.Assignment.Op),
+			Rhs: []ast.Expr{g.generateExpr(stmt.Assignment.Right)},
+		}
+	}
+
+	if stmt.Return != nil {
+		if len(stmt.Return.Values) == 0 {
+			return &ast.ReturnStmt{}
+		}
+
+		results := make([]ast.Expr, len(stmt.Return.Values))
+		for i, val := range stmt.Return.Values {
+			results[i] = g.generateExpr(val)
+		}
+		return &ast.ReturnStmt{
+			Results: results,
+		}
+	}
+
+	if stmt.If != nil {
+		// Generate if statement
+		ifStmt := &ast.IfStmt{
+			Cond: g.generateExpr(stmt.If.Cond),
+			Body: g.generateFuncBody(stmt.If.Body),
+		}
+		if stmt.If.Else != nil {
+			if stmt.If.Else.IfStmt != nil {
+				ifStmt.Else = g.generateBodyStatement(&guixast.BodyStatement{
+					If: stmt.If.Else.IfStmt,
+				})
+			} else if stmt.If.Else.Body != nil {
+				ifStmt.Else = g.generateFuncBody(stmt.If.Else.Body)
+			}
+		}
+		return ifStmt
+	}
+
+	if stmt.For != nil {
+		// TODO: Generate for loop statement
+		return &ast.EmptyStmt{}
+	}
+
+	return &ast.EmptyStmt{}
+}
+
+// generateStatement generates code for a statement
+func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
+	if stmt.Assignment != nil {
+		// Handle channel send operation
+		if stmt.Assignment.Op == "<-" {
+			// Check if channel is a hoisted variable (only for simple identifiers)
+			var chanExpr ast.Expr
+			if len(stmt.Assignment.LeftSelector) == 0 && g.hoistedVars != nil && g.hoistedVars[stmt.Assignment.Left] {
+				chanExpr = &ast.SelectorExpr{
+					X:   ast.NewIdent("c"),
+					Sel: ast.NewIdent(stmt.Assignment.Left),
+				}
+			} else {
+				chanExpr = g.generateAssignmentLHS(stmt.Assignment)
+			}
+
+			return &ast.SendStmt{
+				Chan:  chanExpr,
+				Value: g.generateExpr(stmt.Assignment.Right),
+			}
+		}
+
+		return &ast.AssignStmt{
+			Lhs: []ast.Expr{g.generateAssignmentLHS(stmt.Assignment)},
 			Tok: g.assignOpToToken(stmt.Assignment.Op),
 			Rhs: []ast.Expr{g.generateExpr(stmt.Assignment.Right)},
 		}
@@ -1522,6 +1729,24 @@ func (g *Generator) typeToAST(t *guixast.Type) ast.Expr {
 	}
 
 	return base
+}
+
+// generateAssignmentLHS generates the left-hand side expression for an assignment
+func (g *Generator) generateAssignmentLHS(assignment *guixast.Assignment) ast.Expr {
+	if len(assignment.LeftSelector) == 0 {
+		// Simple identifier
+		return ast.NewIdent(assignment.Left)
+	}
+
+	// Build selector expression chain
+	var expr ast.Expr = ast.NewIdent(assignment.Left)
+	for _, field := range assignment.LeftSelector {
+		expr = &ast.SelectorExpr{
+			X:   expr,
+			Sel: ast.NewIdent(field),
+		}
+	}
+	return expr
 }
 
 // assignOpToToken converts assignment operator string to token

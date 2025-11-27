@@ -1,5 +1,15 @@
 package main
 
+import "fmt"
+import "strconv"
+
+type CalculatorState struct {
+	Display string
+	PreviousValue float64
+	Operator string
+	WaitingForOperand bool
+}
+
 func Calculator(stateChannel: chan CalculatorState) (Component) {
 	currentState := <-stateChannel
 
@@ -98,4 +108,94 @@ func Calculator(stateChannel: chan CalculatorState) (Component) {
 			}
 		}
 	}
+}
+
+func handleNumber(stateChannel: chan CalculatorState, state: CalculatorState, digit: string) {
+	if state.WaitingForOperand {
+		state.Display = digit
+		state.WaitingForOperand = false
+	} else {
+		if state.Display == "0" {
+			state.Display = digit
+		} else {
+			state.Display = state.Display + digit
+		}
+	}
+
+	stateChannel <- state
+}
+
+func handleOperator(stateChannel: chan CalculatorState, state: CalculatorState, operator: string) {
+	displayValue, _ := strconv.ParseFloat(state.Display, 64)
+
+	if state.Operator != "" && !state.WaitingForOperand {
+		result := calculate(state.PreviousValue, displayValue, state.Operator)
+		state.Display = formatNumber(result)
+		state.PreviousValue = result
+	} else {
+		state.PreviousValue = displayValue
+	}
+
+	state.WaitingForOperand = true
+	state.Operator = operator
+
+	stateChannel <- state
+}
+
+func handleEquals(stateChannel: chan CalculatorState, state: CalculatorState) {
+	if state.Operator == "" {
+		stateChannel <- state
+	} else {
+		displayValue, _ := strconv.ParseFloat(state.Display, 64)
+		result := calculate(state.PreviousValue, displayValue, state.Operator)
+
+		state.Display = formatNumber(result)
+		state.Operator = ""
+		state.WaitingForOperand = true
+		state.PreviousValue = 0
+
+		stateChannel <- state
+	}
+}
+
+func handleClear(stateChannel: chan CalculatorState) {
+	stateChannel <- CalculatorState{
+		Display: "0",
+		PreviousValue: 0,
+		Operator: "",
+		WaitingForOperand: false,
+	}
+}
+
+func calculate(a: float64, b: float64, operator: string) (float64) {
+	result := b
+	if operator == "+" {
+		result = a + b
+	} else if operator == "-" {
+		result = a - b
+	} else if operator == "*" {
+		result = a * b
+	} else if operator == "/" {
+		if b != 0 {
+			result = a / b
+		} else {
+			result = 0
+		}
+	}
+	return result
+}
+
+func formatNumber(num: float64) (string) {
+	return fmt.Sprintf("%g", num)
+}
+
+func NewCalculatorStateChannel() (chan CalculatorState) {
+	ch := make(chan CalculatorState, 10)
+	ch <- CalculatorState{
+		Display: "0",
+		PreviousValue: 0,
+		Operator: "",
+		WaitingForOperand: false,
+	}
+	return ch
 }
