@@ -262,6 +262,29 @@ The parser (`pkg/parser`) implements:
 - Support for Go-like expressions and statements
 - Channel type syntax (`<-chan T`, `chan T`)
 
+## Tech Stack
+
+Guix is built with the following core dependencies:
+
+### Parser & Code Generation
+- **[participle/v2](https://github.com/alecthomas/participle)** - LL(k) parser for the `.gx` syntax
+- **go/ast** - Go's AST package for code generation
+- **go/format** - Automatic formatting of generated Go code
+
+### CLI & Tooling
+- **[urfave/cli/v2](https://github.com/urfave/cli)** - Command-line interface framework
+- **[fsnotify](https://github.com/fsnotify/fsnotify)** - File system notifications for watch mode
+
+### Runtime
+- **syscall/js** - WebAssembly JavaScript interop
+- **sync** - Goroutine synchronization primitives
+- **context** - Cancellation and timeout handling
+
+### Development Tools
+- Standard Go toolchain (go 1.24+)
+- WebAssembly target support (`GOOS=js GOARCH=wasm`)
+- Optional: TinyGo for smaller binary sizes
+
 ## Examples
 
 ### Counter
@@ -397,6 +420,8 @@ Guix draws inspiration from:
 - **templ** - Template parsing and code generation techniques
 - **React** - Component model and virtual DOM concepts
 - **Elm** - Functional architecture and type safety
+- **Yew** - Rust WebAssembly framework with `html!` macro for declarative UI
+- **Dioxus** - Rust UI framework with `rsx!` macro for component composition
 
 ## Roadmap
 
