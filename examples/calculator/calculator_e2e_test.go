@@ -1,4 +1,5 @@
-// +build e2e
+//go:build e2e && !wasm
+// +build e2e,!wasm
 
 package main
 
