@@ -396,10 +396,10 @@ type IfExpr struct {
 // ForLoop represents a for loop (either range-based or C-style)
 type ForLoop struct {
 	Pos   lexer.Position
-	// Range-based for loop: for key, val in range
+	// Range-based for loop: for key, val := range expr
 	Key   string `"for" (@Ident ",")?`
 	Val   string `(@Ident`
-	Range *Expr  `"in" @@`
+	Range *Expr  `":=" "range" @@`
 	Body  *Body  `@@)`
 	// C-style for loop: for init; cond; post { body }
 	Init *VarDecl `| "for" (@@`
