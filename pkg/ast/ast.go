@@ -55,10 +55,10 @@ type Component struct {
 
 // Parameter represents a component parameter with name and type
 type Parameter struct {
-	Pos       lexer.Position
-	Name      string `@Ident`
+	Pos        lexer.Position
+	Name       string `@Ident`
 	IsVariadic bool   `@"..."?`
-	Type      *Type  `@@`
+	Type       *Type  `@@`
 }
 
 // Type represents a type specification
