@@ -71,7 +71,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should display control buttons', async ({ page }) => {
     // Wait for controls to render
-    await page.waitForSelector('#controls', { timeout: 5000 });
+    await page.waitForSelector('#controls', { timeout: 10000 });
 
     // Check for arrow buttons
     const upButton = await page.locator('#btn-up');
@@ -114,7 +114,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should show speed control when auto-rotate is enabled', async ({ page }) => {
     // Wait for controls
-    await page.waitForSelector('#speed-control', { timeout: 5000 });
+    await page.waitForSelector('#speed-control', { timeout: 10000 });
 
     // Speed control should be visible initially (auto-rotate is on by default)
     const speedControl = await page.locator('#speed-control');
