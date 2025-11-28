@@ -11,6 +11,7 @@
 - 🎯 **WebAssembly** - Compiles to WASM for native browser performance
 - 🛠️ **Developer Tools** - Watch mode, incremental compilation, and hot reload
 - 🎨 **Template Interpolation** - Backtick strings with expression interpolation
+- 🎮 **WebGPU Support** - First-class 3D graphics with scene graphs, PBR materials, and lighting
 
 ## Quick Start
 
@@ -242,6 +243,9 @@ The runtime (`pkg/runtime`) provides:
 - **DOM Manipulation**: syscall/js wrappers for DOM operations
 - **Scheduler**: requestAnimationFrame batching for performance
 - **Event System**: Memory-safe event handler management
+- **WebGPU**: 3D graphics with scene graphs, shaders, buffers, and pipelines
+- **Math**: 3D vectors, matrices, and transformations
+- **Geometries**: Built-in primitives (box, sphere, plane)
 
 ### Code Generator
 
@@ -346,6 +350,73 @@ cd examples/counter
 python3 -m http.server 8080
 # Open http://localhost:8080
 ```
+
+### WebGPU Rotating Cube
+
+See `examples/webgpu-cube/` for a complete 3D rendering example demonstrating:
+
+- WebGPU initialization and canvas setup
+- 3D scene graph with meshes, cameras, and lights
+- PBR (physically-based rendering) materials
+- Real-time rotation and user controls
+- Keyboard and mouse interaction
+- Render loop with requestAnimationFrame
+
+**Quick example**:
+
+```go
+// Create scene with a rotating cube
+scene := runtime.Scene(
+    runtime.Background(0.1, 0.1, 0.15, 1.0),
+)
+
+// Add cube mesh
+cube := runtime.Mesh(
+    runtime.GeometryProp(runtime.NewBoxGeometry(2, 2, 2)),
+    runtime.MaterialProp(runtime.StandardMaterial(
+        runtime.Color(0.91, 0.27, 0.38, 1.0),
+        runtime.Metalness(0.3),
+        runtime.Roughness(0.4),
+    )),
+)
+
+// Add camera
+camera := runtime.PerspectiveCamera(
+    runtime.FOV(runtime.DegreesToRadians(60)),
+    runtime.Position(0, 2, 6),
+    runtime.LookAtPos(0, 0, 0),
+)
+
+// Add lights
+ambient := runtime.AmbientLight(runtime.Intensity(0.4))
+directional := runtime.DirectionalLight(
+    runtime.Position(5, 10, 7),
+    runtime.Intensity(0.8),
+)
+
+scene.Children = append(scene.Children, cube, camera, ambient, directional)
+
+// Create renderer and start render loop
+renderer, _ := runtime.NewSceneRenderer(canvas, scene)
+canvas.SetRenderFunc(func(c *runtime.GPUCanvas, delta float64) {
+    renderer.Render()
+})
+canvas.Start()
+```
+
+To run:
+
+```bash
+cd examples/webgpu-cube
+cp $(go env GOROOT)/misc/wasm/wasm_exec.js .
+GOOS=js GOARCH=wasm go build -o main.wasm
+python3 -m http.server 8080
+# Open http://localhost:8080
+```
+
+**Requirements**: Chrome 113+, Edge 113+, or Safari Technology Preview with WebGPU support.
+
+For detailed WebGPU documentation, see [docs/WEBGPU.md](docs/WEBGPU.md).
 
 ## Binary Size Optimization
 
