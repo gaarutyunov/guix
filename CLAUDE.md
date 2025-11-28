@@ -165,6 +165,68 @@ For WebGPU-related code:
 - Verify WebGPU functionality in supported browsers
 - Test example applications end-to-end
 
+### End-to-End (E2E) Tests
+
+End-to-end tests use Playwright to test examples in real browsers:
+
+```bash
+# Navigate to example directory
+cd examples/webgpu-cube
+
+# Install dependencies
+npm install
+
+# Install Playwright browsers
+npx playwright install --with-deps chromium
+
+# Run tests
+npx playwright test
+
+# Run tests in headed mode (visible browser)
+npx playwright test --headed
+
+# Run tests in debug mode
+npx playwright test --debug
+```
+
+**WebGPU E2E Testing Requirements:**
+
+For WebGPU tests to run in CI environments (GitHub Actions), Chrome must be launched with specific flags:
+
+- `--enable-unsafe-webgpu` - Enable WebGPU API
+- `--use-angle=swiftshader` - Use software rendering (no GPU required)
+- `--disable-vulkan-surface` - Disable Vulkan for CI compatibility
+- `--no-sandbox` - Required for containerized environments
+
+These flags are configured in `playwright.config.ts` for each example.
+
+**Writing E2E Tests:**
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test('should render canvas', async ({ page }) => {
+  await page.goto('http://localhost:8080');
+
+  // Wait for canvas to be created
+  await page.waitForSelector('canvas', { timeout: 5000 });
+
+  // Check canvas is visible
+  const canvas = await page.locator('canvas');
+  await expect(canvas).toBeVisible();
+});
+```
+
+**Test Coverage:**
+
+E2E tests should verify:
+- Page loads without errors
+- WebGPU initialization succeeds
+- Canvas element is created and visible
+- Controls respond to user interaction
+- Keyboard shortcuts work correctly
+- No error messages are displayed
+
 ## Documentation
 
 ### Code Documentation
@@ -202,11 +264,20 @@ The continuous integration system will run:
 
 1. `gofmt -d .` (check formatting)
 2. `go vet ./...` (linting)
-3. `go test ./...` (tests)
+3. `go test ./...` (unit tests)
 4. `go build ./...` (build verification)
 5. `GOOS=js GOARCH=wasm go build ./pkg/runtime/...` (WASM build)
+6. Playwright E2E tests for all examples (counter, calculator, webgpu-cube)
 
 All checks must pass for the build to succeed.
+
+**WebGPU E2E Tests in CI:**
+
+The WebGPU cube example runs E2E tests with:
+- Headless Chrome with software rendering (SwiftShader)
+- WebGPU enabled via `--enable-unsafe-webgpu` flag
+- Tests verify initialization, rendering, and user interactions
+- Screenshots are captured for visual regression testing
 
 ## Error Recovery
 
@@ -225,6 +296,8 @@ If the build fails:
 - [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
 - [WebGPU Specification](https://www.w3.org/TR/webgpu/)
 - [syscall/js Package](https://pkg.go.dev/syscall/js)
+- [Playwright Documentation](https://playwright.dev/docs/intro)
+- [Playwright for E2E Testing](https://playwright.dev/docs/writing-tests)
 
 ---
 
