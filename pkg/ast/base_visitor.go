@@ -120,6 +120,9 @@ func (v *BaseVisitor) VisitStatement(node *Statement) interface{} {
 	if node.VarDecl != nil {
 		node.VarDecl.Accept(v)
 	}
+	if node.ExprStmt != nil {
+		node.ExprStmt.Accept(v)
+	}
 	if node.Assignment != nil {
 		node.Assignment.Accept(v)
 	}
@@ -134,6 +137,18 @@ func (v *BaseVisitor) VisitStatement(node *Statement) interface{} {
 	}
 	if node.Expr != nil {
 		node.Expr.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitExpressionStmt(node *ExpressionStmt) interface{} {
+	// Visit args if present (function call)
+	for _, arg := range node.Args {
+		arg.Accept(v)
+	}
+	// Visit right side if present (assignment)
+	if node.Right != nil {
+		node.Right.Accept(v)
 	}
 	return nil
 }

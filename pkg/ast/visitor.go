@@ -20,6 +20,7 @@ type Visitor interface {
 	VisitBody(*Body) interface{}
 	VisitBodyStatement(*BodyStatement) interface{}
 	VisitStatement(*Statement) interface{}
+	VisitExpressionStmt(*ExpressionStmt) interface{}
 	VisitVarDecl(*VarDecl) interface{}
 	VisitAssignment(*Assignment) interface{}
 	VisitReturn(*Return) interface{}

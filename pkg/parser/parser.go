@@ -44,7 +44,7 @@ func New() (*Parser, error) {
 	p, err := participle.Build[ast.File](
 		participle.Lexer(guixLexer),
 		participle.Elide("Comment", "Whitespace"),
-		participle.UseLookahead(2),
+		participle.UseLookahead(10), // Increased for better disambiguation
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build parser: %w", err)

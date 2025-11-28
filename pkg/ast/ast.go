@@ -235,15 +235,30 @@ type FuncBody struct {
 // Statement represents a statement in a function body
 type Statement struct {
 	Pos        lexer.Position
-	VarDecl    *VarDecl    `@@`
-	Assignment *Assignment `| @@`
-	Return     *Return     `| @@`
-	If         *IfStmt     `| @@`
-	For        *ForLoop    `| @@`
-	Expr       *Expr       `| @@`
+	ExprStmt   *ExpressionStmt   `@@`  // Try this first to support function calls
+	VarDecl    *VarDecl          `| @@`
+	Return     *Return           `| @@`
+	If         *IfStmt           `| @@`
+	For        *ForLoop          `| @@`
+	Assignment *Assignment       `| @@` // Deprecated: kept for backward compatibility
+	Expr       *Expr             `| @@` // Deprecated: kept for backward compatibility
 }
 
-// Assignment represents an assignment statement
+// ExpressionStmt represents a unified expression statement that handles both
+// function calls and assignments. This eliminates parser ambiguity.
+// If Op is empty, it's an expression (function call).
+// If Op is present, it's an assignment.
+type ExpressionStmt struct {
+	Pos    lexer.Position
+	Base   string   `@Ident`
+	Fields []string `("." @Ident)*`
+	Args   []*Expr  `( "(" (@@ ("," @@)*)? ")" )?`  // Optional args for function call
+	Op     string   `( @("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=") )?`  // Optional operator for assignment
+	Right  *Expr    `( @@ )?`  // Right side for assignment
+}
+
+// Assignment represents an assignment statement (DEPRECATED - use ExpressionStmt)
+// Kept for backward compatibility during migration
 type Assignment struct {
 	Pos          lexer.Position
 	Left         string   `@Ident`
@@ -351,11 +366,12 @@ func (n *Parameter) Accept(v Visitor) interface{}   { return v.VisitParameter(n)
 func (n *Type) Accept(v Visitor) interface{}        { return v.VisitType(n) }
 
 // Body and statements
-func (n *Body) Accept(v Visitor) interface{}          { return v.VisitBody(n) }
-func (n *BodyStatement) Accept(v Visitor) interface{} { return v.VisitBodyStatement(n) }
-func (n *Statement) Accept(v Visitor) interface{}     { return v.VisitStatement(n) }
-func (n *VarDecl) Accept(v Visitor) interface{}       { return v.VisitVarDecl(n) }
-func (n *Assignment) Accept(v Visitor) interface{}    { return v.VisitAssignment(n) }
+func (n *Body) Accept(v Visitor) interface{}           { return v.VisitBody(n) }
+func (n *BodyStatement) Accept(v Visitor) interface{}  { return v.VisitBodyStatement(n) }
+func (n *Statement) Accept(v Visitor) interface{}      { return v.VisitStatement(n) }
+func (n *ExpressionStmt) Accept(v Visitor) interface{} { return v.VisitExpressionStmt(n) }
+func (n *VarDecl) Accept(v Visitor) interface{}        { return v.VisitVarDecl(n) }
+func (n *Assignment) Accept(v Visitor) interface{}     { return v.VisitAssignment(n) }
 func (n *Return) Accept(v Visitor) interface{}        { return v.VisitReturn(n) }
 func (n *IfStmt) Accept(v Visitor) interface{}        { return v.VisitIfStmt(n) }
 func (n *Else) Accept(v Visitor) interface{}          { return v.VisitElse(n) }

@@ -1903,6 +1903,61 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 
 // generateStatement generates code for a statement
 func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
+	// Handle unified ExpressionStmt (supports both assignments and function calls)
+	if stmt.ExprStmt != nil {
+		// Build base expression (identifier or selector)
+		var baseExpr ast.Expr = ast.NewIdent(stmt.ExprStmt.Base)
+		for _, field := range stmt.ExprStmt.Fields {
+			baseExpr = &ast.SelectorExpr{
+				X:   baseExpr,
+				Sel: ast.NewIdent(field),
+			}
+		}
+
+		// Check if hoisted variable needs c. prefix
+		if len(stmt.ExprStmt.Fields) == 0 && g.hoistedVars != nil && g.hoistedVars[stmt.ExprStmt.Base] {
+			baseExpr = &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(stmt.ExprStmt.Base),
+			}
+		}
+
+		// If Args present, it's a function call
+		if stmt.ExprStmt.Args != nil {
+			args := make([]ast.Expr, len(stmt.ExprStmt.Args))
+			for i, arg := range stmt.ExprStmt.Args {
+				args[i] = g.generateExpr(arg)
+			}
+			return &ast.ExprStmt{
+				X: &ast.CallExpr{
+					Fun:  baseExpr,
+					Args: args,
+				},
+			}
+		}
+
+		// If Op is present, it's an assignment
+		if stmt.ExprStmt.Op != "" {
+			// Handle channel send operation
+			if stmt.ExprStmt.Op == "<-" {
+				return &ast.SendStmt{
+					Chan:  baseExpr,
+					Value: g.generateExpr(stmt.ExprStmt.Right),
+				}
+			}
+
+			// Regular assignment
+			return &ast.AssignStmt{
+				Lhs: []ast.Expr{baseExpr},
+				Tok: g.assignOpToToken(stmt.ExprStmt.Op),
+				Rhs: []ast.Expr{g.generateExpr(stmt.ExprStmt.Right)},
+			}
+		}
+
+		// Neither args nor op - just identifier (shouldn't normally happen)
+		return &ast.ExprStmt{X: baseExpr}
+	}
+
 	if stmt.Assignment != nil {
 		// Handle channel send operation
 		if stmt.Assignment.Op == "<-" {
