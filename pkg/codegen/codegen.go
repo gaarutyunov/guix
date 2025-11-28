@@ -876,6 +876,19 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 						Value: g.generateExpr(stmt.Assignment.Right),
 					})
 				}
+			} else if stmt.AssignStmt != nil && stmt.AssignStmt.Op == "<-" {
+				// Generate channel send: c.varName <- value (new AssignmentStmt field)
+				lhs := stmt.AssignStmt.Base
+				if g.hoistedVars[lhs] {
+					// This is a hoisted variable, use c.varName
+					bodyStmts = append(bodyStmts, &ast.SendStmt{
+						Chan: &ast.SelectorExpr{
+							X:   ast.NewIdent("c"),
+							Sel: ast.NewIdent(lhs),
+						},
+						Value: g.generateExpr(stmt.AssignStmt.Right),
+					})
+				}
 			} else if stmt.Assignment != nil && (stmt.Assignment.Op == ":=" || stmt.Assignment.Op == "=") {
 				// Check if this is a channel receive assignment: varName := <-channelName
 				if stmt.Assignment.Right != nil && stmt.Assignment.Right.Left != nil &&
@@ -1161,6 +1174,13 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 			// and should only happen in the constructor, not every render
 			if stmt.Assignment != nil && stmt.Assignment.Op == "<-" {
 				if g.hoistedVars != nil && g.hoistedVars[stmt.Assignment.Left] {
+					// Skip this - it's an initialization statement
+					continue
+				}
+			}
+			// Also check new AssignmentStmt field
+			if stmt.AssignStmt != nil && stmt.AssignStmt.Op == "<-" {
+				if g.hoistedVars != nil && g.hoistedVars[stmt.AssignStmt.Base] {
 					// Skip this - it's an initialization statement
 					continue
 				}
