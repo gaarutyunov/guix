@@ -1,0 +1,137 @@
+# GoReleaser configuration for guix
+# Documentation: https://goreleaser.com
+
+# Main configuration
+project_name: guix
+
+# Before hooks
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+# Build configuration
+builds:
+  - id: guix
+    main: ./cmd/guix
+    binary: guix
+
+    env:
+      - CGO_ENABLED=0
+
+    goos:
+      - linux
+      - darwin
+      - windows
+
+    goarch:
+      - amd64
+      - arm64
+
+    # Skip combinations that are not needed or don't work
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+
+    flags:
+      - -trimpath
+
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+# Archive configuration
+archives:
+  - id: guix
+    builds:
+      - guix
+
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+    format_overrides:
+      - goos: windows
+        format: zip
+
+    files:
+      - LICENSE
+      - README.md
+      - docs/*
+
+# Checksum configuration
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+# Snapshot configuration (for local builds)
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+# Changelog configuration
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Performance Improvements
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+
+# GitHub release configuration
+release:
+  github:
+    owner: gaarutyunov
+    name: guix
+
+  draft: false
+  prerelease: auto
+
+  name_template: "{{ .ProjectName }} {{ .Version }}"
+
+  header: |
+    ## Guix {{ .Version }}
+
+    **Full Changelog**: https://github.com/gaarutyunov/guix/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+  footer: |
+    ## Installation
+
+    ### Using Go install
+    ```bash
+    go install github.com/gaarutyunov/guix/cmd/guix@{{ .Tag }}
+    ```
+
+    ### Using binaries
+    Download the appropriate binary for your platform from the assets below.
+
+# Source archive
+source:
+  enabled: true
+  name_template: "{{ .ProjectName }}_{{ .Version }}_source"
+  format: tar.gz
+
+# Announcement (optional - uncomment if needed)
+# announce:
+#   twitter:
+#     enabled: false
+#   discord:
+#     enabled: false
