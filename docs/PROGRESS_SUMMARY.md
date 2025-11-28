@@ -51,19 +51,26 @@ Successfully completed Phases 1-3 of the visitor pattern refactoring (non-breaki
 - Foundation for future analysis passes
 
 ### ✅ Phase 3: Generator Implements Visitor
-**Status:** Complete and tested
-**Commits:** [db5f526]
+**Status:** Complete and tested (bug fixed)
+**Commits:** [db5f526], [a2d26f0]
 
 **Deliverables:**
 - Modified `pkg/codegen/codegen.go`:
   - Generator embeds `guixast.BaseVisitor`
   - Added `generatedDecls` field for visitor-based generation
   - Zero breaking changes to existing API
+  - Fixed: AssignmentStmt initialization handling (a2d26f0)
+
+**Bug Fix (a2d26f0):**
+- **Issue:** Channel sends to hoisted variables were placed in Render() instead of constructor
+- **Root Cause:** New AssignmentStmt field wasn't handled in skip logic and constructor
+- **Fix:** Added AssignmentStmt handling to match existing Assignment logic
+- **Impact:** App component now correctly initializes once instead of on every render
 
 **Verification:**
-- ✅ All 16 codegen tests pass
+- ✅ All 37 tests pass
 - ✅ Calculator example builds successfully
-- ✅ Generated WASM code identical to previous version
+- ✅ Generated code places initialization in NewApp(), not Render()
 - ✅ No changes required in user code
 
 **Benefits Achieved:**
@@ -71,6 +78,7 @@ Successfully completed Phases 1-3 of the visitor pattern refactoring (non-breaki
 - Enables composition with other visitors
 - Foundation for visitor-based code generation
 - 100% backward compatible
+- Correct initialization behavior
 
 ## Phase 4: Grammar Investigation
 
