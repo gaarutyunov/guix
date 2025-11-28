@@ -171,7 +171,7 @@ func App() (Component) {
 		t.Errorf("Expected chan type 'int', got %s", makeCall.ChanType.Name)
 	}
 
-	if makeCall.Size == nil {
+	if makeCall.ChanSize == nil {
 		t.Fatal("Expected size argument in make() call")
 	}
 }
@@ -210,7 +210,7 @@ func App() (Component) {
 		t.Errorf("Expected chan type 'string', got %s", makeCall.ChanType.Name)
 	}
 
-	if makeCall.Size != nil {
+	if makeCall.ChanSize != nil {
 		t.Error("Expected no size argument in make() call")
 	}
 }

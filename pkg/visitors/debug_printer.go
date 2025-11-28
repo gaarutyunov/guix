@@ -468,14 +468,34 @@ func (d *DebugPrinter) VisitCallOrSelect(node *ast.CallOrSelect) interface{} {
 
 // VisitMakeCall prints a make call
 func (d *DebugPrinter) VisitMakeCall(node *ast.MakeCall) interface{} {
-	d.print("Make: chan %s", d.typeString(node.ChanType))
-	if node.Size != nil {
-		d.indent++
-		d.print("Size:")
-		d.indent++
-		node.Size.Accept(d)
-		d.indent--
-		d.indent--
+	if node.ChanType != nil {
+		d.print("Make: chan %s", d.typeString(node.ChanType))
+		if node.ChanSize != nil {
+			d.indent++
+			d.print("Size:")
+			d.indent++
+			node.ChanSize.Accept(d)
+			d.indent--
+			d.indent--
+		}
+	} else if node.SliceType != nil {
+		d.print("Make: []%s", d.typeString(node.SliceType))
+		if node.SliceLen != nil {
+			d.indent++
+			d.print("Len:")
+			d.indent++
+			node.SliceLen.Accept(d)
+			d.indent--
+			d.indent--
+		}
+		if node.SliceCap != nil {
+			d.indent++
+			d.print("Cap:")
+			d.indent++
+			node.SliceCap.Accept(d)
+			d.indent--
+			d.indent--
+		}
 	}
 	return nil
 }
