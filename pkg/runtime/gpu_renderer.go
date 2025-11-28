@@ -32,10 +32,14 @@ type MeshInstance struct {
 
 // NewSceneRenderer creates a new scene renderer
 func NewSceneRenderer(canvas *GPUCanvas, scene *GPUNode) (*SceneRenderer, error) {
+	log("[Renderer] Creating scene renderer")
+
 	if canvas == nil {
+		logError("[Renderer] Canvas is nil")
 		return nil, fmt.Errorf("canvas is nil")
 	}
 	if scene == nil {
+		logError("[Renderer] Scene is nil")
 		return nil, fmt.Errorf("scene is nil")
 	}
 
@@ -47,29 +51,39 @@ func NewSceneRenderer(canvas *GPUCanvas, scene *GPUNode) (*SceneRenderer, error)
 	}
 
 	// Extract scene data
+	log("[Renderer] Building scene graph")
 	if err := renderer.buildScene(scene); err != nil {
+		logError(fmt.Sprintf("[Renderer] Failed to build scene: %v", err))
 		return nil, err
 	}
+	log(fmt.Sprintf("[Renderer] Scene built: %d meshes, %d lights", len(renderer.Meshes), len(renderer.Lights)))
 
 	// Create depth texture
+	log("[Renderer] Creating depth texture")
 	depthTexture, err := canvas.CreateDepthTexture()
 	if err != nil {
+		logError(fmt.Sprintf("[Renderer] Failed to create depth texture: %v", err))
 		return nil, fmt.Errorf("failed to create depth texture: %w", err)
 	}
 	renderer.DepthTexture = depthTexture
 
 	// Create uniform buffer for MVP matrix
+	log("[Renderer] Creating uniform buffer")
 	uniformBuffer, err := CreateUniformBuffer(canvas.GPUContext, 256, "mvp-uniforms")
 	if err != nil {
+		logError(fmt.Sprintf("[Renderer] Failed to create uniform buffer: %v", err))
 		return nil, fmt.Errorf("failed to create uniform buffer: %w", err)
 	}
 	renderer.UniformBuffer = uniformBuffer
 
 	// Create render pipeline
+	log("[Renderer] Creating render pipeline")
 	if err := renderer.createPipeline(); err != nil {
+		logError(fmt.Sprintf("[Renderer] Failed to create pipeline: %v", err))
 		return nil, err
 	}
 
+	log("[Renderer] Scene renderer created successfully")
 	return renderer, nil
 }
 

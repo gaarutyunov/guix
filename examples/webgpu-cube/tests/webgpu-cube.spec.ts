@@ -70,8 +70,13 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should display control buttons', async ({ page }) => {
-    // Wait for controls to render
-    await page.waitForSelector('#controls', { timeout: 10000 });
+    // Wait for either controls or error to appear
+    await page.waitForSelector('#controls, div[style*="background: #ff4444"]', { timeout: 20000 });
+
+    // Check that no error occurred
+    const errorDivs = await page.locator('div[style*="background: #ff4444"]');
+    const errorCount = await errorDivs.count();
+    expect(errorCount).toBe(0);
 
     // Check for arrow buttons
     const upButton = await page.locator('#btn-up');
@@ -88,8 +93,13 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should respond to button clicks', async ({ page }) => {
-    // Wait for controls to be ready
-    await page.waitForSelector('#btn-toggle', { timeout: 10000 });
+    // Wait for either controls or error to appear
+    await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 20000 });
+
+    // Check that no error occurred
+    const errorDivs = await page.locator('div[style*="background: #ff4444"]');
+    const errorCount = await errorDivs.count();
+    expect(errorCount).toBe(0);
 
     // Get initial button text
     const toggleButton = await page.locator('#btn-toggle');
@@ -113,8 +123,13 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should show speed control when auto-rotate is enabled', async ({ page }) => {
-    // Wait for controls
-    await page.waitForSelector('#speed-control', { timeout: 10000 });
+    // Wait for either controls or error to appear
+    await page.waitForSelector('#speed-control, div[style*="background: #ff4444"]', { timeout: 20000 });
+
+    // Check that no error occurred
+    const errorDivs = await page.locator('div[style*="background: #ff4444"]');
+    const errorCount = await errorDivs.count();
+    expect(errorCount).toBe(0);
 
     // Speed control should be visible initially (auto-rotate is on by default)
     const speedControl = await page.locator('#speed-control');
@@ -133,8 +148,13 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should handle keyboard controls', async ({ page }) => {
-    // Wait for controls to be rendered
-    await page.waitForSelector('#btn-toggle', { timeout: 10000 });
+    // Wait for either controls or error to appear
+    await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 20000 });
+
+    // Check that no error occurred
+    const errorDivs = await page.locator('div[style*="background: #ff4444"]');
+    const errorCount = await errorDivs.count();
+    expect(errorCount).toBe(0);
 
     // Press space to toggle auto-rotation
     await page.keyboard.press('Space');

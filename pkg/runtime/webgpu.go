@@ -74,9 +74,13 @@ func IsWebGPUSupported() bool {
 // InitWebGPU initializes the WebGPU context
 // This must be called before any GPU operations
 func InitWebGPU() (*GPUContext, error) {
+	log("[WebGPU] Starting initialization")
+
 	if !IsWebGPUSupported() {
+		logError("[WebGPU] WebGPU is not supported in this browser")
 		return nil, fmt.Errorf("WebGPU is not supported in this browser")
 	}
+	log("[WebGPU] WebGPU support detected")
 
 	navigator := js.Global().Get("navigator")
 	gpu := navigator.Get("gpu")
@@ -86,19 +90,24 @@ func InitWebGPU() (*GPUContext, error) {
 	}
 
 	// Request adapter (async operation)
+	log("[WebGPU] Requesting GPU adapter...")
 	adapterPromise := gpu.Call("requestAdapter")
 
 	// Wait for adapter promise to resolve
 	adapter, err := awaitPromise(adapterPromise)
 	if err != nil {
+		logError(fmt.Sprintf("[WebGPU] Failed to request GPU adapter: %v", err))
 		return nil, fmt.Errorf("failed to request GPU adapter: %w", err)
 	}
 	if !adapter.Truthy() {
+		logError("[WebGPU] GPU adapter is null")
 		return nil, fmt.Errorf("GPU adapter is null - WebGPU may not be available")
 	}
+	log("[WebGPU] GPU adapter acquired")
 	ctx.Adapter = adapter
 
 	// Request device (async operation)
+	log("[WebGPU] Requesting GPU device...")
 	deviceDescriptor := map[string]interface{}{
 		"label": "Guix WebGPU Device",
 	}
@@ -106,18 +115,24 @@ func InitWebGPU() (*GPUContext, error) {
 
 	device, err := awaitPromise(devicePromise)
 	if err != nil {
+		logError(fmt.Sprintf("[WebGPU] Failed to request GPU device: %v", err))
 		return nil, fmt.Errorf("failed to request GPU device: %w", err)
 	}
 	if !device.Truthy() {
+		logError("[WebGPU] GPU device is null")
 		return nil, fmt.Errorf("GPU device is null")
 	}
+	log("[WebGPU] GPU device acquired")
 	ctx.Device = device
 
 	// Get the queue
+	log("[WebGPU] Getting GPU queue...")
 	ctx.Queue = device.Get("queue")
 	if !ctx.Queue.Truthy() {
+		logError("[WebGPU] GPU queue is null")
 		return nil, fmt.Errorf("GPU queue is null")
 	}
+	log("[WebGPU] GPU queue acquired")
 
 	// Set up device error handling
 	device.Call("addEventListener", "uncapturederror", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -132,6 +147,7 @@ func InitWebGPU() (*GPUContext, error) {
 
 	// Store global context
 	GlobalGPUContext = ctx
+	log("[WebGPU] Initialization complete")
 
 	return ctx, nil
 }

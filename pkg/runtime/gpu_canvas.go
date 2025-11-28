@@ -45,16 +45,21 @@ func DefaultGPUCanvasConfig() GPUCanvasConfig {
 
 // CreateGPUCanvas creates a new GPU-enabled canvas element
 func CreateGPUCanvas(config GPUCanvasConfig) (*GPUCanvas, error) {
+	log("[Canvas] Creating GPU canvas")
+
 	// Get or initialize GPU context
 	gpuCtx, err := GetOrInitGPUContext()
 	if err != nil {
+		logError(fmt.Sprintf("[Canvas] Failed to get GPU context: %v", err))
 		return nil, fmt.Errorf("failed to initialize WebGPU: %w", err)
 	}
 
 	// Create canvas element
+	log("[Canvas] Creating canvas element")
 	document := js.Global().Get("document")
 	canvas := document.Call("createElement", "canvas")
 	if !canvas.Truthy() {
+		logError("[Canvas] Failed to create canvas element")
 		return nil, fmt.Errorf("failed to create canvas element")
 	}
 
@@ -63,17 +68,22 @@ func CreateGPUCanvas(config GPUCanvasConfig) (*GPUCanvas, error) {
 	canvas.Set("height", config.Height)
 	canvas.Get("style").Set("width", fmt.Sprintf("%dpx", config.Width))
 	canvas.Get("style").Set("height", fmt.Sprintf("%dpx", config.Height))
+	log(fmt.Sprintf("[Canvas] Canvas size set to %dx%d", config.Width, config.Height))
 
 	// Get WebGPU context
+	log("[Canvas] Getting WebGPU context from canvas")
 	gpuCanvasCtx := canvas.Call("getContext", "webgpu")
 	if !gpuCanvasCtx.Truthy() {
+		logError("[Canvas] Failed to get webgpu context")
 		return nil, fmt.Errorf("failed to get webgpu context from canvas")
 	}
 
 	// Get preferred format
 	format := GetPreferredCanvasFormat()
+	log(fmt.Sprintf("[Canvas] Using format: %s", format))
 
 	// Configure the canvas context
+	log("[Canvas] Configuring canvas context")
 	configObj := map[string]interface{}{
 		"device":    gpuCtx.Device,
 		"format":    format,
@@ -93,6 +103,7 @@ func CreateGPUCanvas(config GPUCanvasConfig) (*GPUCanvas, error) {
 		LastTime:   0,
 	}
 
+	log("[Canvas] GPU canvas created successfully")
 	return gpuCanvas, nil
 }
 
@@ -107,6 +118,7 @@ func (gc *GPUCanvas) Start() {
 		return
 	}
 
+	log("[Canvas] Starting render loop")
 	gc.Running = true
 	gc.startRenderLoop()
 }
@@ -298,13 +310,16 @@ func (gc *GPUCanvas) Resize(width, height int) error {
 
 // Mount attaches the canvas to a DOM element
 func (gc *GPUCanvas) Mount(selector string) error {
+	log(fmt.Sprintf("[Canvas] Mounting canvas to selector: %s", selector))
 	document := js.Global().Get("document")
 	container := document.Call("querySelector", selector)
 	if !container.Truthy() {
+		logError(fmt.Sprintf("[Canvas] Container element not found: %s", selector))
 		return fmt.Errorf("container element not found: %s", selector)
 	}
 
 	container.Call("appendChild", gc.Canvas)
+	log("[Canvas] Canvas mounted successfully")
 	return nil
 }
 
