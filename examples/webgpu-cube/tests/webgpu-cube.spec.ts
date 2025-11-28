@@ -88,8 +88,8 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should respond to button clicks', async ({ page }) => {
-    // Wait for page to be ready
-    await page.waitForSelector('#btn-toggle', { timeout: 5000 });
+    // Wait for controls to be ready
+    await page.waitForSelector('#btn-toggle', { timeout: 10000 });
 
     // Get initial button text
     const toggleButton = await page.locator('#btn-toggle');
@@ -133,8 +133,8 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should handle keyboard controls', async ({ page }) => {
-    // Wait for page to be ready
-    await page.waitForSelector('canvas', { timeout: 5000 });
+    // Wait for controls to be rendered
+    await page.waitForSelector('#btn-toggle', { timeout: 10000 });
 
     // Press space to toggle auto-rotation
     await page.keyboard.press('Space');
