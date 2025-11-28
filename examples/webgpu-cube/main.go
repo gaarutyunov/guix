@@ -16,10 +16,13 @@ var (
 )
 
 func main() {
-	fmt.Println("WebGPU Rotating Cube Example")
+	fmt.Println("[Go] WASM module started")
+	fmt.Println("[Go] WebGPU Rotating Cube Example")
+	fmt.Println("[Go] Waiting for DOM to be ready...")
 
 	// Wait for DOM to be ready before initializing
 	runtime.WaitForDOMReady(func() {
+		fmt.Println("[Go] DOM is ready, starting initialization")
 		// Check WebGPU support
 		if !runtime.IsWebGPUSupported() {
 			fmt.Println("WebGPU is not supported in this browser")
@@ -80,7 +83,9 @@ func main() {
 		fmt.Println("Scene renderer created")
 
 		// Set up controls
+		fmt.Println("[Go] Setting up UI controls...")
 		setupControls(renderer)
+		fmt.Println("[Go] UI controls created")
 
 		// Set render function
 		canvas.SetRenderFunc(func(c *runtime.GPUCanvas, delta float64) {

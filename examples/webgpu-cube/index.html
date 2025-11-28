@@ -103,8 +103,12 @@
 
     <script src="wasm_exec.js"></script>
     <script>
+        console.log('[HTML] Checking WebGPU support...');
+        console.log('[HTML] navigator.gpu:', navigator.gpu);
+
         // Check for WebGPU support
         if (!navigator.gpu) {
+            console.error('[HTML] WebGPU not supported - navigator.gpu is not available');
             document.getElementById('app').innerHTML = `
                 <div style="padding: 20px; background: #ff4444; color: white; border-radius: 8px;">
                     <h2>WebGPU Not Supported</h2>
@@ -118,14 +122,17 @@
                 </div>
             `;
         } else {
+            console.log('[HTML] WebGPU is supported, loading WASM...');
             // Load WASM
             const go = new Go();
+            console.log('[HTML] Fetching main.wasm...');
             WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
                 .then((result) => {
+                    console.log('[HTML] WASM loaded successfully, starting Go runtime...');
                     go.run(result.instance);
                 })
                 .catch((err) => {
-                    console.error("Failed to load WASM:", err);
+                    console.error("[HTML] Failed to load WASM:", err);
                     document.getElementById('app').innerHTML = `
                         <div style="padding: 20px; background: #ff4444; color: white; border-radius: 8px;">
                             <h2>Error Loading Application</h2>

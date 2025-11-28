@@ -6,6 +6,35 @@ test.describe('WebGPU Rotating Cube', () => {
     await page.goto('http://localhost:8080');
   });
 
+  test('should show initialization logs', async ({ page }) => {
+    // Collect all console messages
+    const consoleMessages: string[] = [];
+    page.on('console', msg => {
+      consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
+    });
+
+    // Wait for page to load
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(5000);
+
+    // Print all console messages for debugging
+    console.log('=== Console Messages ===');
+    consoleMessages.forEach(msg => console.log(msg));
+    console.log('========================');
+
+    // Check for HTML initialization
+    const hasHTMLCheck = consoleMessages.some(msg =>
+      msg.includes('[HTML] Checking WebGPU support')
+    );
+    expect(hasHTMLCheck).toBeTruthy();
+
+    // If we got past HTML check, we should see WASM start
+    const hasGoStart = consoleMessages.some(msg =>
+      msg.includes('[Go] WASM module started')
+    );
+    console.log('Has Go start message:', hasGoStart);
+  });
+
   test('should load without errors', async ({ page }) => {
     // Wait for the page to load
     await page.waitForLoadState('networkidle');
