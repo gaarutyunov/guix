@@ -108,7 +108,7 @@ test.describe('Calculator Example', () => {
     await page.goto('/');
     await page.waitForSelector('.calculator', { timeout: 10000 });
 
-    // Test 3+2-3 (should show 5 after +, then 2 after -)
+    // Test 3+2-3 (should show 2 after entering sequence)
     await page.click('button:has-text("3")');
     await page.waitForTimeout(100);
 
@@ -116,19 +116,32 @@ test.describe('Calculator Example', () => {
     await page.waitForTimeout(100);
 
     await page.click('button:has-text("2")');
-    await page.waitForTimeout(300);
-
-    // After pressing 2, should show 5 (immediate calculation)
-    let display = await page.textContent('.display');
-    expect(display).toBe('5');
-
-    await page.click('button:has-text("−")');
     await page.waitForTimeout(100);
 
-    await page.click('button:has-text("3")');
+    // After pressing 2, display should still show "2" (number just entered)
+    let display = await page.textContent('.display');
+    expect(display).toBe('2');
+
+    // Now press minus - this triggers calculation of 3+2=5
+    await page.click('button:has-text("−")');
     await page.waitForTimeout(300);
 
-    // After pressing 3, should show 2 (5-3=2)
+    // After pressing minus, should show 5 (calculation triggered)
+    display = await page.textContent('.display');
+    expect(display).toBe('5');
+
+    await page.click('button:has-text("3")');
+    await page.waitForTimeout(100);
+
+    // After pressing 3, display should show "3" (number just entered)
+    display = await page.textContent('.display');
+    expect(display).toBe('3');
+
+    // Press equals to complete: 5-3=2
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    // After pressing equals, should show 2 (5-3=2)
     display = await page.textContent('.display');
     expect(display).toBe('2');
   });
