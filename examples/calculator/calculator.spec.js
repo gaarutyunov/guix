@@ -261,4 +261,99 @@ test.describe('Calculator Example', () => {
     const info = await page.textContent('.info');
     expect(info).toContain('Built with Guix');
   });
+
+  test('should respect operator precedence - multiplication before addition', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.calculator', { timeout: 10000 });
+
+    // Calculate 1 + 2 * 3 (should be 7, not 9)
+    await page.click('button:has-text("1")');
+    await page.click('button:has-text("+")');
+    await page.click('button:has-text("2")');
+    await page.click('button:has-text("×")');
+    await page.click('button:has-text("3")');
+
+    await page.waitForTimeout(100);
+    let display = await page.textContent('.display');
+    expect(display).toBe('1 + 2 * 3');
+
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    display = await page.textContent('.display');
+    expect(display).toBe('7');
+  });
+
+  test('should respect operator precedence - division before subtraction', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.calculator', { timeout: 10000 });
+
+    // Calculate 10 - 8 / 2 (should be 6, not 1)
+    await page.click('button:has-text("1")');
+    await page.click('button:has-text("0")');
+    await page.click('button:has-text("−")');
+    await page.click('button:has-text("8")');
+    await page.click('button:has-text("÷")');
+    await page.click('button:has-text("2")');
+
+    await page.waitForTimeout(100);
+    let display = await page.textContent('.display');
+    expect(display).toBe('10 - 8 / 2');
+
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    display = await page.textContent('.display');
+    expect(display).toBe('6');
+  });
+
+  test('should handle complex expression with mixed operators', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.calculator', { timeout: 10000 });
+
+    // Calculate 2 + 3 * 4 + 5 (should be 19)
+    await page.click('button:has-text("2")');
+    await page.click('button:has-text("+")');
+    await page.click('button:has-text("3")');
+    await page.click('button:has-text("×")');
+    await page.click('button:has-text("4")');
+    await page.click('button:has-text("+")');
+    await page.click('button:has-text("5")');
+
+    await page.waitForTimeout(100);
+    let display = await page.textContent('.display');
+    expect(display).toBe('2 + 3 * 4 + 5');
+
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    display = await page.textContent('.display');
+    expect(display).toBe('19');
+  });
+
+  test('should handle expression with multiplication and division', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.calculator', { timeout: 10000 });
+
+    // Calculate 5 * 2 + 3 * 4 - 1 (should be 21)
+    await page.click('button:has-text("5")');
+    await page.click('button:has-text("×")');
+    await page.click('button:has-text("2")');
+    await page.click('button:has-text("+")');
+    await page.click('button:has-text("3")');
+    await page.click('button:has-text("×")');
+    await page.click('button:has-text("4")');
+    await page.click('button:has-text("−")');
+    await page.click('button:has-text("1")');
+
+    await page.waitForTimeout(100);
+    let display = await page.textContent('.display');
+    expect(display).toBe('5 * 2 + 3 * 4 - 1');
+
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    display = await page.textContent('.display');
+    expect(display).toBe('21');
+  });
 });
