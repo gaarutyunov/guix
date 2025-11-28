@@ -9,25 +9,25 @@ import (
 
 // SceneRenderer manages rendering of a 3D scene
 type SceneRenderer struct {
-	Canvas          *GPUCanvas
-	Scene           *GPUNode
-	ActiveCamera    *Camera
-	Pipeline        *RenderPipeline
-	UniformBuffer   *GPUBuffer
-	DepthTexture    js.Value
-	Meshes          []*MeshInstance
-	Lights          []*Light
-	AmbientLight    *Light
+	Canvas        *GPUCanvas
+	Scene         *GPUNode
+	ActiveCamera  *Camera
+	Pipeline      *RenderPipeline
+	UniformBuffer *GPUBuffer
+	DepthTexture  js.Value
+	Meshes        []*MeshInstance
+	Lights        []*Light
+	AmbientLight  *Light
 }
 
 // MeshInstance represents an instantiated mesh with buffers
 type MeshInstance struct {
-	Transform     Transform
-	Geometry      Geometry
-	Material      *Material
-	VertexBuffer  *GPUBuffer
-	IndexBuffer   *GPUBuffer
-	IndexCount    int
+	Transform    Transform
+	Geometry     Geometry
+	Material     *Material
+	VertexBuffer *GPUBuffer
+	IndexBuffer  *GPUBuffer
+	IndexCount   int
 }
 
 // NewSceneRenderer creates a new scene renderer
@@ -40,10 +40,10 @@ func NewSceneRenderer(canvas *GPUCanvas, scene *GPUNode) (*SceneRenderer, error)
 	}
 
 	renderer := &SceneRenderer{
-		Canvas:  canvas,
-		Scene:   scene,
-		Meshes:  make([]*MeshInstance, 0),
-		Lights:  make([]*Light, 0),
+		Canvas: canvas,
+		Scene:  scene,
+		Meshes: make([]*MeshInstance, 0),
+		Lights: make([]*Light, 0),
 	}
 
 	// Extract scene data
@@ -174,7 +174,7 @@ func (sr *SceneRenderer) createPipeline() error {
 
 	// Create vertex buffer layout
 	vertexBufferLayout := CreateVertexBufferLayout(24, []VertexAttribute{
-		{Format: VertexFormatFloat32x3, Offset: 0, ShaderLocation: 0}, // position
+		{Format: VertexFormatFloat32x3, Offset: 0, ShaderLocation: 0},  // position
 		{Format: VertexFormatFloat32x3, Offset: 12, ShaderLocation: 1}, // normal
 	})
 

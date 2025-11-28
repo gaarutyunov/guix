@@ -4,15 +4,15 @@ package main
 
 import (
 	"fmt"
-	"syscall/js"
 	"github.com/gaarutyunov/guix/pkg/runtime"
+	"syscall/js"
 )
 
 var (
-	rotationX float32 = 0
-	rotationY float32 = 0
-	autoRotate bool = true
-	speed float32 = 1.0
+	rotationX  float32 = 0
+	rotationY  float32 = 0
+	autoRotate bool    = true
+	speed      float32 = 1.0
 )
 
 func main() {

@@ -23,9 +23,9 @@ type ShaderStage struct {
 
 // VertexBufferLayout describes the layout of vertex data
 type VertexBufferLayout struct {
-	ArrayStride    int
-	StepMode       string // "vertex" or "instance"
-	Attributes     []VertexAttribute
+	ArrayStride int
+	StepMode    string // "vertex" or "instance"
+	Attributes  []VertexAttribute
 }
 
 // VertexAttribute describes a single vertex attribute
@@ -42,10 +42,10 @@ type BindGroupLayout struct {
 
 // BindGroupLayoutEntry describes a binding in a bind group
 type BindGroupLayoutEntry struct {
-	Binding    int
-	Visibility int // GPUShaderStage flags
-	Type       string // "buffer", "sampler", "texture", "storage-texture"
-	BufferType string // "uniform", "storage", "read-only-storage"
+	Binding          int
+	Visibility       int    // GPUShaderStage flags
+	Type             string // "buffer", "sampler", "texture", "storage-texture"
+	BufferType       string // "uniform", "storage", "read-only-storage"
 	HasDynamicOffset bool
 	MinBindingSize   int
 }

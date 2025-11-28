@@ -14,10 +14,10 @@ type GPUCanvas struct {
 	GPUContext    *GPUContext // Shared GPU context
 	Width         int
 	Height        int
-	Format        string      // Texture format (e.g., "bgra8unorm")
-	FrameCallback js.Func     // Animation frame callback
+	Format        string                    // Texture format (e.g., "bgra8unorm")
+	FrameCallback js.Func                   // Animation frame callback
 	RenderFunc    func(*GPUCanvas, float64) // User render function
-	AnimationID   js.Value    // requestAnimationFrame ID
+	AnimationID   js.Value                  // requestAnimationFrame ID
 	Running       bool
 	FrameCount    int
 	LastTime      float64
@@ -25,11 +25,11 @@ type GPUCanvas struct {
 
 // GPUCanvasConfig holds configuration for creating a GPU canvas
 type GPUCanvasConfig struct {
-	Width         int
-	Height        int
+	Width            int
+	Height           int
 	DevicePixelRatio float64
-	AlphaMode     string // "opaque", "premultiplied"
-	FrameLoop     string // "always", "demand", "never"
+	AlphaMode        string // "opaque", "premultiplied"
+	FrameLoop        string // "always", "demand", "never"
 }
 
 // DefaultGPUCanvasConfig returns default canvas configuration
@@ -75,8 +75,8 @@ func CreateGPUCanvas(config GPUCanvasConfig) (*GPUCanvas, error) {
 
 	// Configure the canvas context
 	configObj := map[string]interface{}{
-		"device": gpuCtx.Device,
-		"format": format,
+		"device":    gpuCtx.Device,
+		"format":    format,
 		"alphaMode": config.AlphaMode,
 	}
 	gpuCanvasCtx.Call("configure", configObj)
@@ -198,8 +198,8 @@ func (gc *GPUCanvas) BeginRenderPass(encoder js.Value, clearColor [4]float32, lo
 
 	// Create color attachment descriptor
 	colorAttachment := map[string]interface{}{
-		"view": textureView,
-		"loadOp": loadOp,
+		"view":    textureView,
+		"loadOp":  loadOp,
 		"storeOp": "store",
 	}
 
@@ -246,16 +246,16 @@ func (gc *GPUCanvas) BeginRenderPassWithDepth(
 
 	// Create depth attachment
 	depthAttachment := map[string]interface{}{
-		"view": depthTexture.Call("createView"),
-		"depthLoadOp": depthLoadOp,
-		"depthStoreOp": "store",
+		"view":            depthTexture.Call("createView"),
+		"depthLoadOp":     depthLoadOp,
+		"depthStoreOp":    "store",
 		"depthClearValue": depthClearValue,
 	}
 
 	// Create color attachment
 	colorAttachment := map[string]interface{}{
-		"view": textureView,
-		"loadOp": "clear",
+		"view":    textureView,
+		"loadOp":  "clear",
 		"storeOp": "store",
 		"clearValue": map[string]interface{}{
 			"r": clearColor[0],
@@ -267,7 +267,7 @@ func (gc *GPUCanvas) BeginRenderPassWithDepth(
 
 	// Create render pass descriptor
 	renderPassDescriptor := map[string]interface{}{
-		"colorAttachments": []interface{}{colorAttachment},
+		"colorAttachments":       []interface{}{colorAttachment},
 		"depthStencilAttachment": depthAttachment,
 	}
 
@@ -287,8 +287,8 @@ func (gc *GPUCanvas) Resize(width, height int) error {
 
 	// Reconfigure GPU context
 	configObj := map[string]interface{}{
-		"device": gc.GPUContext.Device,
-		"format": gc.Format,
+		"device":    gc.GPUContext.Device,
+		"format":    gc.Format,
 		"alphaMode": "premultiplied",
 	}
 	gc.Context.Call("configure", configObj)

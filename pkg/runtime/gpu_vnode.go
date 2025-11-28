@@ -22,18 +22,18 @@ const (
 
 // GPUNode represents a GPU/3D scene graph node
 type GPUNode struct {
-	Type         GPUNodeType
-	Tag          string                 // Node type identifier
-	Properties   map[string]interface{} // Node properties
-	Transform    Transform              // 3D transformation
-	Children     []*GPUNode             // Child nodes
-	RenderFunc   func(*GPUCanvas, float64) // Custom render function
-	InitFunc     func(*GPUCanvas)       // Initialization function
-	Canvas       *GPUCanvas             // Canvas reference (for canvas nodes)
-	Material     *Material              // Material (for mesh nodes)
-	Geometry     Geometry               // Geometry (for mesh nodes)
-	Camera       *Camera                // Camera (for camera nodes)
-	Light        *Light                 // Light (for light nodes)
+	Type       GPUNodeType
+	Tag        string                    // Node type identifier
+	Properties map[string]interface{}    // Node properties
+	Transform  Transform                 // 3D transformation
+	Children   []*GPUNode                // Child nodes
+	RenderFunc func(*GPUCanvas, float64) // Custom render function
+	InitFunc   func(*GPUCanvas)          // Initialization function
+	Canvas     *GPUCanvas                // Canvas reference (for canvas nodes)
+	Material   *Material                 // Material (for mesh nodes)
+	Geometry   Geometry                  // Geometry (for mesh nodes)
+	Camera     *Camera                   // Camera (for camera nodes)
+	Light      *Light                    // Light (for light nodes)
 }
 
 // Geometry interface for different geometry types
@@ -44,11 +44,11 @@ type Geometry interface {
 
 // Material represents a material with color and properties
 type Material struct {
-	Color      Vec4    // RGBA color
-	Metalness  float32 // 0-1
-	Roughness  float32 // 0-1
-	Emissive   Vec3    // Emissive color
-	Shader     *CustomShader // Custom shader override
+	Color     Vec4          // RGBA color
+	Metalness float32       // 0-1
+	Roughness float32       // 0-1
+	Emissive  Vec3          // Emissive color
+	Shader    *CustomShader // Custom shader override
 }
 
 // CustomShader represents custom vertex/fragment shaders
@@ -242,7 +242,7 @@ func PerspectiveCamera(options ...interface{}) *GPUNode {
 		Tag:        "camera",
 		Properties: make(map[string]interface{}),
 		Transform:  NewTransform(),
-		Camera:     &Camera{
+		Camera: &Camera{
 			Position: Vec3{0, 0, 5},
 			Target:   Vec3{0, 0, 0},
 			Up:       Vec3{0, 1, 0},
