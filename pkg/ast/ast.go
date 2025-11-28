@@ -395,17 +395,17 @@ type IfExpr struct {
 
 // ForLoop represents a for loop (either range-based or C-style)
 type ForLoop struct {
-	Pos   lexer.Position
+	Pos lexer.Position
 	// Range-based for loop: for key, val := range expr
 	Key   string `"for" (@Ident ",")?`
 	Val   string `(@Ident`
 	Range *Expr  `":=" "range" @@`
 	Body  *Body  `@@)`
 	// C-style for loop: for init; cond; post { body }
-	Init *VarDecl `| "for" (@@`
-	Cond *Expr    `";" @@`
-	Post *AssignmentStmt `";" @@`
-	CBody *FuncBody `@@)`
+	Init  *VarDecl        `| "for" (@@`
+	Cond  *Expr           `";" @@`
+	Post  *AssignmentStmt `";" @@`
+	CBody *FuncBody       `@@)`
 }
 
 // ChannelRecv represents a channel receive operation
