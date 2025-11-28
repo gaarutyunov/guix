@@ -61,7 +61,7 @@ func MessageList(messages ...string) (Component) {
 		H2 {
 			"Messages"
 		}
-		for _, msg in messages {
+		for _, msg := range messages {
 			Div(Class("message-item")) {
 				`{msg}`
 			}
