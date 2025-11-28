@@ -166,6 +166,8 @@ func buildDisplay(state CalculatorState) string {
 		} else {
 			display = state.CurrentInput
 		}
+	} else if display != "" {
+		display = display + " "
 	}
 	if display == "" {
 		display = "0"
