@@ -183,10 +183,6 @@ func buildDisplay(state CalculatorState) (string) {
 		} else {
 			display = state.CurrentInput
 		}
-	} else if display != "" {
-		// Add trailing space if we have tokens but no current input
-		// This shows we're waiting for the next number after an operator
-		display = display + " "
 	}
 
 	// If display is empty, show "0"

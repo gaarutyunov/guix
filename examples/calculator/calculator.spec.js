@@ -37,7 +37,7 @@ test.describe('Calculator Example', () => {
     await page.click('button:has-text("+")');
     await page.waitForTimeout(100);
     display = await page.textContent('.display');
-    expect(display).toBe('2 + ');
+    expect(display).toBe('2 +');
 
     // Click 3
     await page.click('button:has-text("3")');
