@@ -39,6 +39,7 @@ type Visitor interface {
 	VisitPrimary(*Primary) interface{}
 	VisitUnaryExpr(*UnaryExpr) interface{}
 	VisitLiteral(*Literal) interface{}
+	VisitIndexExpr(*IndexExpr) interface{}
 	VisitCallOrSelect(*CallOrSelect) interface{}
 	VisitSelector(*Selector) interface{} // Deprecated but still in AST
 	VisitCall(*Call) interface{}         // Deprecated but still in AST

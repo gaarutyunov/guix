@@ -1,5 +1,9 @@
 package main
 
+import "fmt"
+import "strconv"
+import "strings"
+
 type CalculatorState struct {
 	Tokens         []string // Slice of tokens (e.g., ["2", "+", "3"])
 	CurrentInput   string   // Current number being typed
@@ -193,7 +197,68 @@ func buildDisplay(state CalculatorState) (string) {
 	return display
 }
 
-// Helper functions are in helpers.go
+// Helper functions
+
+// appendToken appends a token to a slice of tokens
+func appendToken(tokens []string, token string) ([]string) {
+	return append(tokens, token)
+}
+
+// tokensToString converts a slice of tokens to a display string
+func tokensToString(tokens []string) (string) {
+	return strings.Join(tokens, " ")
+}
+
+// calculateFromTokens evaluates a slice of tokens
+func calculateFromTokens(tokens []string) (float64) {
+	// Handle empty case
+	if len(tokens) == 0 {
+		return 0
+	}
+
+	// Parse first number
+	result := 0.0
+	_ = result
+	parsedResult, _ := strconv.ParseFloat(tokens[0], 64)
+	result = parsedResult
+
+	// Loop through operator-number pairs
+	for i := 1; i < len(tokens); i = i + 2 {
+		if i+1 < len(tokens) {
+			operator := tokens[i]
+			num := 0.0
+			parsedNum, _ := strconv.ParseFloat(tokens[i+1], 64)
+			num = parsedNum
+			result = calculate(result, num, operator)
+		}
+	}
+
+	return result
+}
+
+// calculate performs a single operation
+func calculate(a float64, b float64, operator string) (float64) {
+	result := b
+	if operator == "+" {
+		result = a + b
+	} else if operator == "-" {
+		result = a - b
+	} else if operator == "*" {
+		result = a * b
+	} else if operator == "/" {
+		if b != 0 {
+			result = a / b
+		} else {
+			result = 0
+		}
+	}
+	return result
+}
+
+// formatNumber formats a float64 for display
+func formatNumber(num float64) (string) {
+	return fmt.Sprintf("%g", num)
+}
 
 func NewCalculatorStateChannel() (chan CalculatorState) {
 	ch := make(chan CalculatorState, 10)

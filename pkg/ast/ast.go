@@ -151,11 +151,20 @@ type Primary struct {
 	Literal      *Literal      `| @@`
 	CompositeLit *CompositeLit `| @@`
 	MakeCall     *MakeCall     `| @@`
+	IndexExpr    *IndexExpr    `| @@`
 	CallOrSel    *CallOrSelect `| @@`
 	FuncLit      *FuncLit      `| @@`
 	ChannelOp    *ChannelOp    `| @@`
 	Paren        *Expr         `| "(" @@ ")"`
 	Ident        string        `| @Ident`
+}
+
+// IndexExpr represents an indexing expression
+// Example: tokens[0] or tokens[i+1]
+type IndexExpr struct {
+	Pos   lexer.Position
+	Base  string `@Ident`
+	Index *Expr  `"[" @@ "]"`
 }
 
 // CompositeLit represents a composite literal (struct initialization)
@@ -384,13 +393,19 @@ type IfExpr struct {
 	FalseBody *Body `("else" @@)?`
 }
 
-// ForLoop represents a for loop
+// ForLoop represents a for loop (either range-based or C-style)
 type ForLoop struct {
 	Pos   lexer.Position
-	Key   string `"for" (@Ident ",")? `
-	Val   string `@Ident`
+	// Range-based for loop: for key, val in range
+	Key   string `"for" (@Ident ",")?`
+	Val   string `(@Ident`
 	Range *Expr  `"in" @@`
-	Body  *Body  `@@`
+	Body  *Body  `@@)`
+	// C-style for loop: for init; cond; post { body }
+	Init *VarDecl `| "for" (@@`
+	Cond *Expr    `";" @@`
+	Post *AssignmentStmt `";" @@`
+	CBody *FuncBody `@@)`
 }
 
 // ChannelRecv represents a channel receive operation
@@ -446,6 +461,7 @@ func (n *BinaryOp) Accept(v Visitor) interface{}     { return v.VisitBinaryOp(n)
 func (n *Primary) Accept(v Visitor) interface{}      { return v.VisitPrimary(n) }
 func (n *UnaryExpr) Accept(v Visitor) interface{}    { return v.VisitUnaryExpr(n) }
 func (n *Literal) Accept(v Visitor) interface{}      { return v.VisitLiteral(n) }
+func (n *IndexExpr) Accept(v Visitor) interface{}    { return v.VisitIndexExpr(n) }
 func (n *CallOrSelect) Accept(v Visitor) interface{} { return v.VisitCallOrSelect(n) }
 func (n *Selector) Accept(v Visitor) interface{}     { return v.VisitSelector(n) }
 func (n *Call) Accept(v Visitor) interface{}         { return v.VisitCall(n) }

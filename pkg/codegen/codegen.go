@@ -1599,6 +1599,10 @@ func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
 		return g.generateMakeCall(primary.MakeCall)
 	}
 
+	if primary.IndexExpr != nil {
+		return g.generateIndexExpr(primary.IndexExpr)
+	}
+
 	if primary.CallOrSel != nil {
 		return g.generateCallOrSelect(primary.CallOrSel)
 	}
@@ -1764,6 +1768,14 @@ func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {
 
 // generateCallOrSelect generates code for a call or selector expression
 // If Args is present, generates a call. Otherwise, generates a selector.
+// generateIndexExpr generates an index expression
+func (g *Generator) generateIndexExpr(idx *guixast.IndexExpr) ast.Expr {
+	return &ast.IndexExpr{
+		X:     ast.NewIdent(idx.Base),
+		Index: g.generateExpr(idx.Index),
+	}
+}
+
 func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 	// Check if this is a simple identifier (no fields, no args)
 	if len(cos.Fields) == 0 && len(cos.Args) == 0 {
@@ -2010,11 +2022,113 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 	}
 
 	if stmt.For != nil {
-		// TODO: Generate for loop statement
-		return &ast.EmptyStmt{}
+		return g.generateForLoopStmt(stmt.For)
 	}
 
 	return &ast.EmptyStmt{}
+}
+
+// generateForLoopStmt generates a for loop statement
+func (g *Generator) generateForLoopStmt(forLoop *guixast.ForLoop) ast.Stmt {
+	// Check if it's a range-based for loop or C-style for loop
+	if forLoop.Range != nil {
+		// Range-based for loop: for key, val in range
+		var key, val ast.Expr
+		if forLoop.Key != "" {
+			key = ast.NewIdent(forLoop.Key)
+			val = ast.NewIdent(forLoop.Val)
+		} else {
+			key = ast.NewIdent("_")
+			val = ast.NewIdent(forLoop.Val)
+		}
+
+		// Generate range statement
+		return &ast.RangeStmt{
+			Key:   key,
+			Value: val,
+			Tok:   token.DEFINE,
+			X:     g.generateExpr(forLoop.Range),
+			Body:  g.generateBodyAsBlock(forLoop.Body),
+		}
+	} else {
+		// C-style for loop: for init; cond; post { body }
+		var init ast.Stmt
+		if forLoop.Init != nil {
+			// Generate initialization statement
+			lhs := make([]ast.Expr, len(forLoop.Init.Names))
+			for i, name := range forLoop.Init.Names {
+				lhs[i] = ast.NewIdent(name)
+			}
+			rhs := make([]ast.Expr, len(forLoop.Init.Values))
+			for i, val := range forLoop.Init.Values {
+				rhs[i] = g.generateExpr(val)
+			}
+			init = &ast.AssignStmt{
+				Lhs: lhs,
+				Tok: g.assignOpToToken(forLoop.Init.Op),
+				Rhs: rhs,
+			}
+		}
+
+		var cond ast.Expr
+		if forLoop.Cond != nil {
+			cond = g.generateExpr(forLoop.Cond)
+		}
+
+		var post ast.Stmt
+		if forLoop.Post != nil {
+			// Generate post statement
+			var baseExpr ast.Expr = ast.NewIdent(forLoop.Post.Base)
+			for _, field := range forLoop.Post.Fields {
+				baseExpr = &ast.SelectorExpr{
+					X:   baseExpr,
+					Sel: ast.NewIdent(field),
+				}
+			}
+			post = &ast.AssignStmt{
+				Lhs: []ast.Expr{baseExpr},
+				Tok: g.assignOpToToken(forLoop.Post.Op),
+				Rhs: []ast.Expr{g.generateExpr(forLoop.Post.Right)},
+			}
+		}
+
+		// Generate for statement
+		return &ast.ForStmt{
+			Init: init,
+			Cond: cond,
+			Post: post,
+			Body: g.generateFuncBody(forLoop.CBody),
+		}
+	}
+}
+
+// generateBodyAsBlock converts a Body to a BlockStmt
+func (g *Generator) generateBodyAsBlock(body *guixast.Body) *ast.BlockStmt {
+	stmts := make([]ast.Stmt, 0)
+
+	// Add variable declarations
+	for _, varDecl := range body.VarDecls {
+		lhs := make([]ast.Expr, len(varDecl.Names))
+		for i, name := range varDecl.Names {
+			lhs[i] = ast.NewIdent(name)
+		}
+		rhs := make([]ast.Expr, len(varDecl.Values))
+		for i, val := range varDecl.Values {
+			rhs[i] = g.generateExpr(val)
+		}
+		stmts = append(stmts, &ast.AssignStmt{
+			Lhs: lhs,
+			Tok: g.assignOpToToken(varDecl.Op),
+			Rhs: rhs,
+		})
+	}
+
+	// Add statements
+	for _, stmt := range body.Statements {
+		stmts = append(stmts, g.generateBodyStatement(stmt))
+	}
+
+	return &ast.BlockStmt{List: stmts}
 }
 
 // generateStatement generates code for a statement
@@ -2168,8 +2282,7 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 	}
 
 	if stmt.For != nil {
-		// TODO: Generate for loop statement
-		return &ast.EmptyStmt{}
+		return g.generateForLoopStmt(stmt.For)
 	}
 
 	return &ast.EmptyStmt{}

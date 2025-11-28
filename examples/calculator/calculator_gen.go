@@ -8,6 +8,8 @@ package main
 import (
 	"fmt"
 	"github.com/gaarutyunov/guix/pkg/runtime"
+	"strconv"
+	"strings"
 	"syscall/js"
 )
 
@@ -41,14 +43,11 @@ func NewCalculator(opts ...CalculatorOption) *Calculator {
 		opt(c)
 	}
 	if c.StateChannel != nil {
-		log("Calculator: About to read initial state from StateChannel")
 		c.currentStateChannel = <-c.StateChannel
-		log("Calculator: Received initial state from channel")
 	}
 	return c
 }
 func (c *Calculator) BindApp(app *runtime.App) {
-	log("Calculator: BindApp called")
 	c.app = app
 	if c.listenersStarted {
 		return
@@ -69,7 +68,6 @@ func (c *Calculator) startStateChannelListener() {
 	}()
 }
 func (c *Calculator) Render() *runtime.VNode {
-	log("Calculator: Render called")
 	return func() *runtime.VNode {
 		return runtime.Div(runtime.Class("calculator"), runtime.Div(runtime.Class("display"), runtime.Text(fmt.Sprint(buildDisplay(c.currentStateChannel)))), runtime.Div(runtime.Class("buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
 			handleNumber(c.StateChannel, c.currentStateChannel, "7")
@@ -171,6 +169,51 @@ func buildDisplay(state CalculatorState) string {
 		display = "0"
 	}
 	return display
+}
+func appendToken(tokens []string, token string) []string {
+	return append(tokens, token)
+}
+func tokensToString(tokens []string) string {
+	return strings.Join(tokens, " ")
+}
+func calculateFromTokens(tokens []string) float64 {
+	if len(tokens) == 0 {
+		return 0
+	}
+	result := 0.0
+	_ = result
+	parsedResult, _ := strconv.ParseFloat(tokens[0], 64)
+	result = parsedResult
+	for i := 1; i < len(tokens); i = i + 2 {
+		if i+1 < len(tokens) {
+			operator := tokens[i]
+			num := 0.0
+			parsedNum, _ := strconv.ParseFloat(tokens[i+1], 64)
+			num = parsedNum
+			result = calculate(result, num, operator)
+		}
+	}
+	return result
+}
+func calculate(a float64, b float64, operator string) float64 {
+	result := b
+	if operator == "+" {
+		result = a + b
+	} else if operator == "-" {
+		result = a - b
+	} else if operator == "*" {
+		result = a * b
+	} else if operator == "/" {
+		if b != 0 {
+			result = a / b
+		} else {
+			result = 0
+		}
+	}
+	return result
+}
+func formatNumber(num float64) string {
+	return fmt.Sprintf("%g", num)
 }
 func NewCalculatorStateChannel() chan CalculatorState {
 	ch := make(chan CalculatorState, 10)

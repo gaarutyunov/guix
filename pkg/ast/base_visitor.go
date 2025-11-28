@@ -211,11 +211,25 @@ func (v *BaseVisitor) VisitElse(node *Else) interface{} {
 }
 
 func (v *BaseVisitor) VisitForLoop(node *ForLoop) interface{} {
+	// Range-based for loop
 	if node.Range != nil {
 		node.Range.Accept(v)
 	}
 	if node.Body != nil {
 		node.Body.Accept(v)
+	}
+	// C-style for loop
+	if node.Init != nil {
+		node.Init.Accept(v)
+	}
+	if node.Cond != nil {
+		node.Cond.Accept(v)
+	}
+	if node.Post != nil {
+		node.Post.Accept(v)
+	}
+	if node.CBody != nil {
+		node.CBody.Accept(v)
 	}
 	return nil
 }
@@ -301,6 +315,9 @@ func (v *BaseVisitor) VisitPrimary(node *Primary) interface{} {
 	if node.MakeCall != nil {
 		node.MakeCall.Accept(v)
 	}
+	if node.IndexExpr != nil {
+		node.IndexExpr.Accept(v)
+	}
 	if node.CallOrSel != nil {
 		node.CallOrSel.Accept(v)
 	}
@@ -324,6 +341,13 @@ func (v *BaseVisitor) VisitUnaryExpr(node *UnaryExpr) interface{} {
 }
 
 func (v *BaseVisitor) VisitLiteral(node *Literal) interface{} {
+	return nil
+}
+
+func (v *BaseVisitor) VisitIndexExpr(node *IndexExpr) interface{} {
+	if node.Index != nil {
+		node.Index.Accept(v)
+	}
 	return nil
 }
 
