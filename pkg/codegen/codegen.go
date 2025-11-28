@@ -2212,6 +2212,14 @@ func (g *Generator) typeToAST(t *guixast.Type) ast.Expr {
 		}
 	}
 
+	// Handle slice types
+	if t.IsSlice {
+		base = &ast.ArrayType{
+			Len: nil, // nil Len means it's a slice, not an array
+			Elt: base,
+		}
+	}
+
 	if t.IsPointer {
 		base = &ast.StarExpr{X: base}
 	}

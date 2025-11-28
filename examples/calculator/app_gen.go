@@ -19,7 +19,7 @@ type App struct {
 func NewApp() *App {
 	c := &App{}
 	c.stateChannel = make(chan CalculatorState, 10)
-	c.stateChannel <- CalculatorState{Expression: "", CurrentInput: "", JustCalculated: false, LastResult: 0}
+	c.stateChannel <- CalculatorState{Tokens: nil, CurrentInput: "", JustCalculated: false, LastResult: 0}
 	c.calculatorInstance = NewCalculator(WithStateChannel(c.stateChannel))
 	return c
 }

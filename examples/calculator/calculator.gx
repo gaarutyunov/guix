@@ -1,10 +1,10 @@
 package main
 
 type CalculatorState struct {
-	Expression     string  // Space-separated tokens (e.g., "2 + 3")
-	CurrentInput   string  // Current number being typed
-	JustCalculated bool    // True if we just pressed "="
-	LastResult     float64 // Last calculated result
+	Tokens         []string // Slice of tokens (e.g., ["2", "+", "3"])
+	CurrentInput   string   // Current number being typed
+	JustCalculated bool     // True if we just pressed "="
+	LastResult     float64  // Last calculated result
 }
 
 func Calculator(stateChannel chan CalculatorState) (Component) {
@@ -110,7 +110,7 @@ func Calculator(stateChannel chan CalculatorState) (Component) {
 func handleNumber(stateChannel chan CalculatorState, state CalculatorState, digit string) {
 	// If we just calculated, start fresh
 	if state.JustCalculated {
-		state.Expression = ""
+		state.Tokens = nil
 		state.CurrentInput = digit
 		state.JustCalculated = false
 	} else {
@@ -124,16 +124,15 @@ func handleNumber(stateChannel chan CalculatorState, state CalculatorState, digi
 func handleOperator(stateChannel chan CalculatorState, state CalculatorState, operator string) {
 	// If we just calculated, use the last result to continue
 	if state.JustCalculated {
-		state.Expression = formatNumber(state.LastResult) + " " + operator
+		state.Tokens = nil
+		state.Tokens = appendToken(state.Tokens, formatNumber(state.LastResult))
+		state.Tokens = appendToken(state.Tokens, operator)
 		state.CurrentInput = ""
 		state.JustCalculated = false
 	} else if state.CurrentInput != "" {
-		// Add current input and operator to expression
-		if state.Expression != "" {
-			state.Expression = state.Expression + " " + state.CurrentInput + " " + operator
-		} else {
-			state.Expression = state.CurrentInput + " " + operator
-		}
+		// Add current input and operator to tokens
+		state.Tokens = appendToken(state.Tokens, state.CurrentInput)
+		state.Tokens = appendToken(state.Tokens, operator)
 		state.CurrentInput = ""
 	}
 
@@ -141,21 +140,17 @@ func handleOperator(stateChannel chan CalculatorState, state CalculatorState, op
 }
 
 func handleEquals(stateChannel chan CalculatorState, state CalculatorState) {
-	// Complete the expression with current input
-	fullExpr := state.Expression
+	// Complete the tokens with current input
+	fullTokens := state.Tokens
 	if state.CurrentInput != "" {
-		if fullExpr != "" {
-			fullExpr = fullExpr + " " + state.CurrentInput
-		} else {
-			fullExpr = state.CurrentInput
-		}
+		fullTokens = appendToken(fullTokens, state.CurrentInput)
 	}
 
-	// Calculate result from expression
-	result := calculateFromExpression(fullExpr)
+	// Calculate result from tokens
+	result := calculateFromTokens(fullTokens)
 
 	// Clear and store result
-	state.Expression = ""
+	state.Tokens = nil
 	state.CurrentInput = ""
 	state.LastResult = result
 	state.JustCalculated = true
@@ -165,7 +160,7 @@ func handleEquals(stateChannel chan CalculatorState, state CalculatorState) {
 
 func handleClear(stateChannel chan CalculatorState) {
 	stateChannel <- CalculatorState{
-		Expression:     "",
+		Tokens:         nil,
 		CurrentInput:   "",
 		JustCalculated: false,
 		LastResult:     0,
@@ -178,8 +173,8 @@ func buildDisplay(state CalculatorState) (string) {
 		return formatNumber(state.LastResult)
 	}
 
-	// Build display from expression and current input
-	display := state.Expression
+	// Build display from tokens and current input
+	display := tokensToString(state.Tokens)
 
 	// Add current input if any
 	if state.CurrentInput != "" {
@@ -198,12 +193,12 @@ func buildDisplay(state CalculatorState) (string) {
 	return display
 }
 
-// calculateFromExpression, calculate, and formatNumber are in helpers.go
+// Helper functions are in helpers.go
 
 func NewCalculatorStateChannel() (chan CalculatorState) {
 	ch := make(chan CalculatorState, 10)
 	ch <- CalculatorState{
-		Expression:     "",
+		Tokens:         nil,
 		CurrentInput:   "",
 		JustCalculated: false,
 		LastResult:     0,

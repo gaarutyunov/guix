@@ -3,7 +3,7 @@ package main
 func App() (Component) {
 	stateChannel := make(chan CalculatorState, 10)
 	stateChannel <- CalculatorState{
-		Expression:     "",
+		Tokens:         nil,
 		CurrentInput:   "",
 		JustCalculated: false,
 		LastResult:     0,

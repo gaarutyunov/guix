@@ -64,6 +64,7 @@ type Type struct {
 	Pos         lexer.Position
 	IsChannel   bool   `@("<-")?`
 	IsChan      bool   `@("chan")?`
+	IsSlice     bool   `@("[" "]")?`
 	Name        string `@Ident`
 	Generic     *Type  `("[" @@ "]")?`
 	IsPointer   bool   `@("*")?`

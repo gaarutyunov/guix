@@ -9,11 +9,23 @@ import (
 	"strings"
 )
 
-// calculateFromExpression parses and evaluates an expression string
-func calculateFromExpression(expr string) float64 {
-	// Split into tokens
-	tokens := strings.Fields(expr)
+// appendToken appends a token to a slice of tokens
+func appendToken(tokens []string, token string) []string {
+	return append(tokens, token)
+}
 
+// clearTokens returns an empty slice
+func clearTokens() []string {
+	return []string{}
+}
+
+// tokensToString converts a slice of tokens to a display string
+func tokensToString(tokens []string) string {
+	return strings.Join(tokens, " ")
+}
+
+// calculateFromTokens evaluates a slice of tokens
+func calculateFromTokens(tokens []string) float64 {
 	// Handle empty case
 	if len(tokens) == 0 {
 		return 0

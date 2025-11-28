@@ -12,7 +12,7 @@ import (
 )
 
 type CalculatorState struct {
-	Expression     string
+	Tokens         []string
 	CurrentInput   string
 	JustCalculated bool
 	LastResult     float64
@@ -118,7 +118,7 @@ func (c *Calculator) Update() {
 }
 func handleNumber(stateChannel chan CalculatorState, state CalculatorState, digit string) {
 	if state.JustCalculated {
-		state.Expression = ""
+		state.Tokens = nil
 		state.CurrentInput = digit
 		state.JustCalculated = false
 	} else {
@@ -128,43 +128,38 @@ func handleNumber(stateChannel chan CalculatorState, state CalculatorState, digi
 }
 func handleOperator(stateChannel chan CalculatorState, state CalculatorState, operator string) {
 	if state.JustCalculated {
-		state.Expression = formatNumber(state.LastResult) + " " + operator
+		state.Tokens = nil
+		state.Tokens = appendToken(state.Tokens, formatNumber(state.LastResult))
+		state.Tokens = appendToken(state.Tokens, operator)
 		state.CurrentInput = ""
 		state.JustCalculated = false
 	} else if state.CurrentInput != "" {
-		if state.Expression != "" {
-			state.Expression = state.Expression + " " + state.CurrentInput + " " + operator
-		} else {
-			state.Expression = state.CurrentInput + " " + operator
-		}
+		state.Tokens = appendToken(state.Tokens, state.CurrentInput)
+		state.Tokens = appendToken(state.Tokens, operator)
 		state.CurrentInput = ""
 	}
 	stateChannel <- state
 }
 func handleEquals(stateChannel chan CalculatorState, state CalculatorState) {
-	fullExpr := state.Expression
+	fullTokens := state.Tokens
 	if state.CurrentInput != "" {
-		if fullExpr != "" {
-			fullExpr = fullExpr + " " + state.CurrentInput
-		} else {
-			fullExpr = state.CurrentInput
-		}
+		fullTokens = appendToken(fullTokens, state.CurrentInput)
 	}
-	result := calculateFromExpression(fullExpr)
-	state.Expression = ""
+	result := calculateFromTokens(fullTokens)
+	state.Tokens = nil
 	state.CurrentInput = ""
 	state.LastResult = result
 	state.JustCalculated = true
 	stateChannel <- state
 }
 func handleClear(stateChannel chan CalculatorState) {
-	stateChannel <- CalculatorState{Expression: "", CurrentInput: "", JustCalculated: false, LastResult: 0}
+	stateChannel <- CalculatorState{Tokens: nil, CurrentInput: "", JustCalculated: false, LastResult: 0}
 }
 func buildDisplay(state CalculatorState) string {
 	if state.JustCalculated {
 		return formatNumber(state.LastResult)
 	}
-	display := state.Expression
+	display := tokensToString(state.Tokens)
 	if state.CurrentInput != "" {
 		if display != "" {
 			display = display + " " + state.CurrentInput
@@ -179,6 +174,6 @@ func buildDisplay(state CalculatorState) string {
 }
 func NewCalculatorStateChannel() chan CalculatorState {
 	ch := make(chan CalculatorState, 10)
-	ch <- CalculatorState{Expression: "", CurrentInput: "", JustCalculated: false, LastResult: 0}
+	ch <- CalculatorState{Tokens: nil, CurrentInput: "", JustCalculated: false, LastResult: 0}
 	return ch
 }
