@@ -46,3 +46,8 @@ playwright/.cache/
 # Coverage
 coverage.txt
 *.coverprofile
+
+# GoReleaser
+dist/
+*.tar.gz
+*.zip
