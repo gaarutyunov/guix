@@ -53,6 +53,57 @@ func (g *Generator) SetVerbose(verbose bool) {
 	g.verbose = verbose
 }
 
+// Visitor pattern implementation
+
+// VisitFile implements the visitor pattern for File nodes
+func (g *Generator) VisitFile(file *guixast.File) interface{} {
+	// First pass: collect component names
+	for _, comp := range file.Components {
+		if g.isComponentFunc(comp) {
+			g.components[comp.Name] = true
+		}
+	}
+
+	// Reset accumulated declarations
+	g.generatedDecls = nil
+
+	// Generate imports
+	g.generatedDecls = append(g.generatedDecls, g.generateImports(file))
+
+	// Visit type definitions
+	for _, typeDef := range file.Types {
+		typeDef.Accept(g)
+	}
+
+	// Visit components
+	for _, comp := range file.Components {
+		comp.Accept(g)
+	}
+
+	return nil
+}
+
+// VisitTypeDef implements the visitor pattern for TypeDef nodes
+func (g *Generator) VisitTypeDef(node *guixast.TypeDef) interface{} {
+	decl := g.generateTypeDef(node)
+	g.generatedDecls = append(g.generatedDecls, decl)
+	return nil
+}
+
+// VisitComponent implements the visitor pattern for Component nodes
+func (g *Generator) VisitComponent(comp *guixast.Component) interface{} {
+	var decls []ast.Decl
+	if g.isComponentFunc(comp) {
+		// Generate full component with struct, methods, etc.
+		decls = g.generateComponent(comp)
+	} else {
+		// Generate simple function
+		decls = []ast.Decl{g.generateFunction(comp)}
+	}
+	g.generatedDecls = append(g.generatedDecls, decls...)
+	return nil
+}
+
 // isComponentFunc checks if a function is a UI component (returns Component interface)
 // or just a regular helper function
 func (g *Generator) isComponentFunc(comp *guixast.Component) bool {
@@ -71,38 +122,15 @@ func (g *Generator) isComponentFunc(comp *guixast.Component) bool {
 	return false
 }
 
-// Generate generates Go code from a Guix file
+// Generate generates Go code from a Guix file using the visitor pattern
 func (g *Generator) Generate(file *guixast.File) ([]byte, error) {
-	// First pass: collect component names (only for actual components, not helper functions)
-	for _, comp := range file.Components {
-		if g.isComponentFunc(comp) {
-			g.components[comp.Name] = true
-		}
-	}
+	// Use visitor pattern to traverse AST and generate declarations
+	file.Accept(g)
 
+	// Build Go AST file from accumulated declarations
 	goFile := &ast.File{
-		Name: ast.NewIdent(file.Package),
-	}
-
-	// Add imports
-	goFile.Decls = append(goFile.Decls, g.generateImports(file))
-
-	// Generate type definitions
-	for _, typeDef := range file.Types {
-		goFile.Decls = append(goFile.Decls, g.generateTypeDef(typeDef))
-	}
-
-	// Generate code for each component/function
-	for _, comp := range file.Components {
-		var decls []ast.Decl
-		if g.isComponentFunc(comp) {
-			// Generate full component with struct, methods, etc.
-			decls = g.generateComponent(comp)
-		} else {
-			// Generate simple function
-			decls = []ast.Decl{g.generateFunction(comp)}
-		}
-		goFile.Decls = append(goFile.Decls, decls...)
+		Name:  ast.NewIdent(file.Package),
+		Decls: g.generatedDecls,
 	}
 
 	// Format and output
