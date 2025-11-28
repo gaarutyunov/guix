@@ -186,7 +186,7 @@ test.describe('Calculator Example', () => {
     await page.click('button:has-text("×")');
     await page.waitForTimeout(100);
     display = await page.textContent('.display');
-    expect(display).toBe('8 * ');
+    expect(display).toBe('8 *');
 
     await page.click('button:has-text("2")');
     await page.waitForTimeout(100);
