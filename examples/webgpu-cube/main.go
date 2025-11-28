@@ -23,7 +23,7 @@ func main() {
 
 	// Check WebGPU support
 	if !runtime.IsWebGPUSupported() {
-		runtime.LogError("WebGPU is not supported in this browser")
+		fmt.Println("WebGPU is not supported in this browser")
 		showError("WebGPU is not supported in this browser. Please use a browser with WebGPU support (Chrome 113+, Edge 113+)")
 		return
 	}
@@ -32,13 +32,13 @@ func main() {
 	fmt.Println("Initializing WebGPU...")
 	gpuCtx, err := runtime.InitWebGPU()
 	if err != nil {
-		runtime.LogError(fmt.Sprintf("Failed to initialize WebGPU: %v", err))
+		fmt.Println(fmt.Sprintf("Failed to initialize WebGPU: %v", err))
 		showError(fmt.Sprintf("Failed to initialize WebGPU: %v", err))
 		return
 	}
 
 	fmt.Println("WebGPU initialized successfully")
-	runtime.LogInfo("GPU Adapter: " + gpuCtx.Adapter.String())
+	fmt.Println("GPU Adapter: " + gpuCtx.Adapter.String())
 
 	// Create GPU canvas
 	config := runtime.GPUCanvasConfig{
@@ -51,7 +51,7 @@ func main() {
 
 	canvas, err := runtime.CreateGPUCanvas(config)
 	if err != nil {
-		runtime.LogError(fmt.Sprintf("Failed to create GPU canvas: %v", err))
+		fmt.Println(fmt.Sprintf("Failed to create GPU canvas: %v", err))
 		showError(fmt.Sprintf("Failed to create GPU canvas: %v", err))
 		return
 	}
@@ -60,7 +60,7 @@ func main() {
 
 	// Mount canvas to DOM
 	if err := canvas.Mount("#app"); err != nil {
-		runtime.LogError(fmt.Sprintf("Failed to mount canvas: %v", err))
+		fmt.Println(fmt.Sprintf("Failed to mount canvas: %v", err))
 		showError(fmt.Sprintf("Failed to mount canvas: %v", err))
 		return
 	}
@@ -73,7 +73,7 @@ func main() {
 	// Create renderer
 	renderer, err := runtime.NewSceneRenderer(canvas, scene)
 	if err != nil {
-		runtime.LogError(fmt.Sprintf("Failed to create renderer: %v", err))
+		fmt.Println(fmt.Sprintf("Failed to create renderer: %v", err))
 		showError(fmt.Sprintf("Failed to create renderer: %v", err))
 		return
 	}

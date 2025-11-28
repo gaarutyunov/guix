@@ -125,7 +125,7 @@ func InitWebGPU() (*GPUContext, error) {
 			event := args[0]
 			error := event.Get("error")
 			message := error.Get("message").String()
-			LogError(fmt.Sprintf("WebGPU uncaptured error: %s", message))
+			logError(fmt.Sprintf("WebGPU uncaptured error: %s", message))
 		}
 		return nil
 	}))
@@ -331,7 +331,7 @@ func (ctx *GPUContext) WriteBuffer(buffer js.Value, offset int, data []byte) err
 // Submit submits command buffers to the GPU queue
 func (ctx *GPUContext) Submit(commandBuffers ...js.Value) {
 	if ctx.Queue.IsUndefined() {
-		LogError("Cannot submit commands: GPU queue not initialized")
+		logError("Cannot submit commands: GPU queue not initialized")
 		return
 	}
 

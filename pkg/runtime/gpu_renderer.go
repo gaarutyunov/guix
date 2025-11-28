@@ -85,7 +85,7 @@ func (sr *SceneRenderer) buildScene(node *GPUNode) error {
 		if node.Geometry != nil {
 			mesh, err := sr.createMeshInstance(node)
 			if err != nil {
-				LogError(fmt.Sprintf("Failed to create mesh: %v", err))
+				logError(fmt.Sprintf("Failed to create mesh: %v", err))
 			} else {
 				sr.Meshes = append(sr.Meshes, mesh)
 			}
@@ -216,7 +216,7 @@ func (sr *SceneRenderer) createPipeline() error {
 // Render renders the scene
 func (sr *SceneRenderer) Render() {
 	if sr.ActiveCamera == nil {
-		LogError("No active camera in scene")
+		logError("No active camera in scene")
 		return
 	}
 
@@ -225,7 +225,7 @@ func (sr *SceneRenderer) Render() {
 	// Create command encoder
 	encoder, err := ctx.CreateCommandEncoder("scene-encoder")
 	if err != nil {
-		LogError(fmt.Sprintf("Failed to create encoder: %v", err))
+		logError(fmt.Sprintf("Failed to create encoder: %v", err))
 		return
 	}
 
@@ -247,7 +247,7 @@ func (sr *SceneRenderer) Render() {
 	)
 
 	if !renderPass.Truthy() {
-		LogError("Failed to begin render pass")
+		logError("Failed to begin render pass")
 		return
 	}
 
@@ -268,7 +268,7 @@ func (sr *SceneRenderer) Render() {
 
 		// Update uniform buffer
 		if err := sr.UniformBuffer.Write(ctx, 0, mvp.ToBytes()); err != nil {
-			LogError(fmt.Sprintf("Failed to write uniforms: %v", err))
+			logError(fmt.Sprintf("Failed to write uniforms: %v", err))
 			continue
 		}
 
@@ -284,7 +284,7 @@ func (sr *SceneRenderer) Render() {
 			"mesh-bind-group",
 		)
 		if err != nil {
-			LogError(fmt.Sprintf("Failed to create bind group: %v", err))
+			logError(fmt.Sprintf("Failed to create bind group: %v", err))
 			continue
 		}
 

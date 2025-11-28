@@ -171,71 +171,9 @@ func MaterialProp(mat *Material) GPUProp {
 }
 
 // GPU Node Builders
-
-// GPUCanvas creates a WebGPU canvas element
-func GPUCanvas(options ...interface{}) *VNode {
-	// Create a regular VNode that will contain a canvas element
-	node := &VNode{
-		Type:       ElementNode,
-		Tag:        "canvas",
-		Attributes: make(map[string]string),
-		Properties: make(map[string]interface{}),
-		Events:     make(map[string]EventHandler),
-	}
-
-	// Default properties
-	width := 800
-	height := 600
-	var initFunc func(*GPUCanvas)
-	var renderFunc func(*GPUCanvas, float64)
-
-	// Process options
-	for _, opt := range options {
-		switch o := opt.(type) {
-		case GPUProp:
-			switch o.Key {
-			case "width":
-				if w, ok := o.Value.(int); ok {
-					width = w
-				}
-			case "height":
-				if h, ok := o.Value.(int); ok {
-					height = h
-				}
-			case "onInit":
-				if fn, ok := o.Value.(func(*GPUCanvas)); ok {
-					initFunc = fn
-				}
-			case "onRender":
-				if fn, ok := o.Value.(func(*GPUCanvas, float64)); ok {
-					renderFunc = fn
-				}
-			}
-		case *VNode:
-			// GPU children (Scene, Mesh, etc.) - we'll handle these differently
-			node.Children = append(node.Children, o)
-		case *GPUNode:
-			// Convert GPUNode to VNode representation if needed
-			// For now, store as property
-			if node.Properties["gpuChildren"] == nil {
-				node.Properties["gpuChildren"] = []*GPUNode{}
-			}
-			children := node.Properties["gpuChildren"].([]*GPUNode)
-			node.Properties["gpuChildren"] = append(children, o)
-		}
-	}
-
-	// Store GPU-specific properties
-	node.Properties["gpuWidth"] = width
-	node.Properties["gpuHeight"] = height
-	node.Properties["gpuInitFunc"] = initFunc
-	node.Properties["gpuRenderFunc"] = renderFunc
-	node.Attributes["width"] = string(rune(width))
-	node.Attributes["height"] = string(rune(height))
-	node.Attributes["class"] = "guix-gpu-canvas"
-
-	return node
-}
+// Note: Declarative GPU canvas builders are currently unused.
+// The working implementation uses CreateGPUCanvas() directly.
+// These will be integrated with the .gx parser in future updates.
 
 // Scene creates a 3D scene node
 func Scene(options ...interface{}) *GPUNode {
@@ -561,51 +499,6 @@ func SphereGeometryNode(radius float32, widthSegments, heightSegments int) Geome
 	return NewSphereGeometry(radius, widthSegments, heightSegments)
 }
 
-// InitGPUCanvas initializes a GPU canvas from a VNode
-func InitGPUCanvas(node *VNode) (*GPUCanvas, error) {
-	width := 800
-	height := 600
-
-	if w, ok := node.Properties["gpuWidth"].(int); ok {
-		width = w
-	}
-	if h, ok := node.Properties["gpuHeight"].(int); ok {
-		height = h
-	}
-
-	config := GPUCanvasConfig{
-		Width:  width,
-		Height: height,
-		DevicePixelRatio: 1.0,
-		AlphaMode: "premultiplied",
-		FrameLoop: "always",
-	}
-
-	canvas, err := CreateGPUCanvas(config)
-	if err != nil {
-		return nil, err
-	}
-
-	// Run init function if provided
-	if initFunc, ok := node.Properties["gpuInitFunc"].(func(*GPUCanvas)); ok && initFunc != nil {
-		initFunc(canvas)
-	}
-
-	// Set render function if provided
-	if renderFunc, ok := node.Properties["gpuRenderFunc"].(func(*GPUCanvas, float64)); ok && renderFunc != nil {
-		canvas.SetRenderFunc(renderFunc)
-	}
-
-	return canvas, nil
-}
-
-// AttachGPUCanvas attaches a GPU canvas to a DOM node
-func AttachGPUCanvas(domNode js.Value, gpuCanvas *GPUCanvas) {
-	// Replace the placeholder canvas with the GPU canvas
-	if domNode.Truthy() && gpuCanvas.Canvas.Truthy() {
-		parent := domNode.Get("parentNode")
-		if parent.Truthy() {
-			parent.Call("replaceChild", gpuCanvas.Canvas, domNode)
-		}
-	}
-}
+// Note: InitGPUCanvas and AttachGPUCanvas are commented out as they're not currently used.
+// The working implementation uses CreateGPUCanvas() directly and canvas.Mount().
+// These will be integrated with the VNode system in future updates.

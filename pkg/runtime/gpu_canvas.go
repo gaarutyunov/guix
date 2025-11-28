@@ -163,7 +163,7 @@ func (gc *GPUCanvas) startRenderLoop() {
 // GetCurrentTexture returns the current texture to render to
 func (gc *GPUCanvas) GetCurrentTexture() js.Value {
 	if !gc.Context.Truthy() {
-		LogError("GPU canvas context not initialized")
+		logError("GPU canvas context not initialized")
 		return js.Undefined()
 	}
 	return gc.Context.Call("getCurrentTexture")
@@ -181,13 +181,13 @@ func (gc *GPUCanvas) GetCurrentTextureView() js.Value {
 // BeginRenderPass begins a render pass with the current texture as the color attachment
 func (gc *GPUCanvas) BeginRenderPass(encoder js.Value, clearColor [4]float32, loadOp string) js.Value {
 	if !encoder.Truthy() {
-		LogError("Command encoder is undefined")
+		logError("Command encoder is undefined")
 		return js.Undefined()
 	}
 
 	textureView := gc.GetCurrentTextureView()
 	if !textureView.Truthy() {
-		LogError("Failed to get current texture view")
+		logError("Failed to get current texture view")
 		return js.Undefined()
 	}
 
@@ -230,13 +230,13 @@ func (gc *GPUCanvas) BeginRenderPassWithDepth(
 	depthClearValue float32,
 ) js.Value {
 	if !encoder.Truthy() {
-		LogError("Command encoder is undefined")
+		logError("Command encoder is undefined")
 		return js.Undefined()
 	}
 
 	textureView := gc.GetCurrentTextureView()
 	if !textureView.Truthy() {
-		LogError("Failed to get current texture view")
+		logError("Failed to get current texture view")
 		return js.Undefined()
 	}
 
