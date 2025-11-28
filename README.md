@@ -71,11 +71,37 @@ func Button(label: string, onClick: func(Event)) {
 }
 ```
 
-### Props and Options
+### Parameter Passing Styles
 
-Components automatically generate props structs and option functions:
+Guix supports multiple ways to pass parameters to components:
+
+#### 1. Normal Parameters (Default)
+By default, components accept parameters directly:
 
 ```go
+func Button(label string, onClick func(Event)) (Component) {
+    Button(OnClick(onClick)) {
+        `{label}`
+    }
+}
+
+// Generated constructor:
+// func NewButton(label string, onClick func(Event)) *Button
+
+// Usage:
+btn := NewButton("Click Me", handleClick)
+```
+
+#### 2. Auto Props with @props Directive
+Use the `@props` directive to automatically generate props structs and option functions:
+
+```go
+@props func Button(label string, onClick func(Event)) (Component) {
+    Button(OnClick(onClick)) {
+        `{label}`
+    }
+}
+
 // Generated code:
 type ButtonProps struct {
     Label   string
@@ -87,12 +113,61 @@ type ButtonOption func(*Button)
 func WithLabel(v string) ButtonOption { ... }
 func WithOnClick(v func(Event)) ButtonOption { ... }
 
+// Generated constructor:
+// func NewButton(opts ...ButtonOption) *Button
+
 // Usage:
 btn := NewButton(
     WithLabel("Click Me"),
     WithOnClick(handleClick),
 )
 ```
+
+#### 3. Manual Props Struct
+Define your own props struct:
+
+```go
+type ButtonProps struct {
+    Label   string
+    OnClick func(Event)
+}
+
+func Button(props ButtonProps) (Component) {
+    Button(OnClick(props.OnClick)) {
+        `{props.Label}`
+    }
+}
+
+// Generated constructor:
+// func NewButton(props ButtonProps) *Button
+
+// Usage:
+btn := NewButton(ButtonProps{
+    Label:   "Click Me",
+    OnClick: handleClick,
+})
+```
+
+#### 4. Variadic Parameters
+Use Go's variadic syntax for variable-length arguments:
+
+```go
+func MessageList(messages ...string) (Component) {
+    Div {
+        for _, msg in messages {
+            P { `{msg}` }
+        }
+    }
+}
+
+// Generated constructor:
+// func NewMessageList(messages ...string) *MessageList
+
+// Usage:
+list := NewMessageList("Hello", "World", "From", "Guix")
+```
+
+See the [params example](examples/params/README.md) for detailed comparisons and use cases.
 
 ### Template Interpolation
 

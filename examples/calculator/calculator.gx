@@ -11,7 +11,7 @@ type CalculatorState struct {
 	LastResult     float64  // Last calculated result
 }
 
-func Calculator(stateChannel chan CalculatorState) (Component) {
+@props func Calculator(stateChannel chan CalculatorState) (Component) {
 	currentState := <-stateChannel
 
 	Div(Class("calculator")) {

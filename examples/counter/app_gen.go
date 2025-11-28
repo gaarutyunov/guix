@@ -24,14 +24,12 @@ func NewApp() *App {
 	return c
 }
 func (c *App) BindApp(app *runtime.App) {
-	log("App: BindApp called")
 	c.app = app
 	if c.counterInstance != nil {
 		c.counterInstance.BindApp(app)
 	}
 }
 func (c *App) Render() *runtime.VNode {
-	log("App: Render called")
 	return func() *runtime.VNode {
 		return runtime.Div(runtime.Class("app-container"), runtime.H1(runtime.Text("Counter Example")), c.counterInstance.Render(), runtime.Div(runtime.Class("input-group"), runtime.Input(runtime.Type("number"), runtime.Placeholder("Enter a number"), runtime.ID("counter-input"), runtime.OnInput(func(e runtime.Event) {
 			value := e.Target.Value

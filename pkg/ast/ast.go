@@ -45,18 +45,20 @@ type Import struct {
 // If Results is non-empty, it's a component function that returns Component interface
 // If Results is empty, it's a regular helper function
 type Component struct {
-	Pos     lexer.Position
-	Name    string       `"func" @Ident`
-	Params  []*Parameter `"(" (@@ ("," @@)*)? ")"`
-	Results []*Type      `("(" (@@ ("," @@)*)? ")")?`
-	Body    *Body        `@@`
+	Pos       lexer.Position
+	AutoProps bool         `@"@props"?`
+	Name      string       `"func" @Ident`
+	Params    []*Parameter `"(" (@@ ("," @@)*)? ")"`
+	Results   []*Type      `("(" (@@ ("," @@)*)? ")")?`
+	Body      *Body        `@@`
 }
 
 // Parameter represents a component parameter with name and type
 type Parameter struct {
-	Pos  lexer.Position
-	Name string `@Ident`
-	Type *Type  `@@`
+	Pos        lexer.Position
+	Name       string `@Ident`
+	IsVariadic bool   `@"..."?`
+	Type       *Type  `@@`
 }
 
 // Type represents a type specification
