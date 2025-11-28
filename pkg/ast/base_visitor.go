@@ -101,8 +101,8 @@ func (v *BaseVisitor) VisitBodyStatement(node *BodyStatement) interface{} {
 	if node.VarDecl != nil {
 		node.VarDecl.Accept(v)
 	}
-	if node.Assignment != nil {
-		node.Assignment.Accept(v)
+	if node.AssignStmt != nil {
+		node.AssignStmt.Accept(v)
 	}
 	if node.Return != nil {
 		node.Return.Accept(v)
@@ -112,19 +112,26 @@ func (v *BaseVisitor) VisitBodyStatement(node *BodyStatement) interface{} {
 	}
 	if node.For != nil {
 		node.For.Accept(v)
+	}
+	// Deprecated - kept for backward compatibility
+	if node.Assignment != nil {
+		node.Assignment.Accept(v)
+	}
+	if node.CallStmt != nil {
+		node.CallStmt.Accept(v)
 	}
 	return nil
 }
 
 func (v *BaseVisitor) VisitStatement(node *Statement) interface{} {
+	if node.CallStmt != nil {
+		node.CallStmt.Accept(v)
+	}
 	if node.VarDecl != nil {
 		node.VarDecl.Accept(v)
 	}
-	if node.ExprStmt != nil {
-		node.ExprStmt.Accept(v)
-	}
-	if node.Assignment != nil {
-		node.Assignment.Accept(v)
+	if node.AssignStmt != nil {
+		node.AssignStmt.Accept(v)
 	}
 	if node.Return != nil {
 		node.Return.Accept(v)
@@ -134,6 +141,10 @@ func (v *BaseVisitor) VisitStatement(node *Statement) interface{} {
 	}
 	if node.For != nil {
 		node.For.Accept(v)
+	}
+	// Deprecated - kept for backward compatibility
+	if node.Assignment != nil {
+		node.Assignment.Accept(v)
 	}
 	if node.Expr != nil {
 		node.Expr.Accept(v)
@@ -141,12 +152,14 @@ func (v *BaseVisitor) VisitStatement(node *Statement) interface{} {
 	return nil
 }
 
-func (v *BaseVisitor) VisitExpressionStmt(node *ExpressionStmt) interface{} {
-	// Visit args if present (function call)
+func (v *BaseVisitor) VisitCallStmt(node *CallStmt) interface{} {
 	for _, arg := range node.Args {
 		arg.Accept(v)
 	}
-	// Visit right side if present (assignment)
+	return nil
+}
+
+func (v *BaseVisitor) VisitAssignmentStmt(node *AssignmentStmt) interface{} {
 	if node.Right != nil {
 		node.Right.Accept(v)
 	}

@@ -2,6 +2,7 @@
 package ast
 
 import (
+	"github.com/alecthomas/participle/v2"
 	"github.com/alecthomas/participle/v2/lexer"
 )
 
@@ -80,13 +81,17 @@ type Body struct {
 }
 
 // BodyStatement represents a statement in a component body
+// CallStmt is last in ordered choice to avoid ambiguity with Element nodes
+// Parser validation will filter out runtime component names
 type BodyStatement struct {
 	Pos        lexer.Position
-	VarDecl    *VarDecl    `@@`
-	Assignment *Assignment `| @@`
-	Return     *Return     `| @@`
-	If         *IfStmt     `| @@`
-	For        *ForLoop    `| @@`
+	VarDecl    *VarDecl        `@@`
+	AssignStmt *AssignmentStmt `| @@`
+	Return     *Return         `| @@`
+	If         *IfStmt         `| @@`
+	For        *ForLoop        `| @@`
+	Assignment *Assignment     `| @@` // Deprecated
+	CallStmt   *CallStmt       `| @@` // Last to minimize conflicts with Elements
 }
 
 // Node represents any node in the component tree
@@ -235,8 +240,9 @@ type FuncBody struct {
 // Statement represents a statement in a function body
 type Statement struct {
 	Pos        lexer.Position
-	ExprStmt   *ExpressionStmt   `@@`  // Try this first to support function calls
+	CallStmt   *CallStmt         `@@`  // Function call statement
 	VarDecl    *VarDecl          `| @@`
+	AssignStmt *AssignmentStmt   `| @@`  // Assignment statement
 	Return     *Return           `| @@`
 	If         *IfStmt           `| @@`
 	For        *ForLoop          `| @@`
@@ -244,17 +250,68 @@ type Statement struct {
 	Expr       *Expr             `| @@` // Deprecated: kept for backward compatibility
 }
 
-// ExpressionStmt represents a unified expression statement that handles both
-// function calls and assignments. This eliminates parser ambiguity.
-// If Op is empty, it's an expression (function call).
-// If Op is present, it's an assignment.
-type ExpressionStmt struct {
+// RuntimeComponents is a set of known runtime component names that should not be parsed as CallStmt
+var RuntimeComponents = map[string]bool{
+	// HTML Elements
+	"Div": true, "Span": true, "Button": true, "Input": true, "Form": true,
+	"H1": true, "H2": true, "H3": true, "H4": true, "H5": true, "H6": true,
+	"P": true, "A": true, "Img": true, "Ul": true, "Li": true, "Ol": true,
+	"Table": true, "Tr": true, "Td": true, "Th": true, "Thead": true, "Tbody": true,
+	"Header": true, "Footer": true, "Nav": true, "Main": true, "Section": true, "Article": true,
+	"Aside": true, "Select": true, "Option": true, "Textarea": true, "Label": true,
+	// Runtime helpers
+	"Fragment": true, "Text": true, "El": true,
+	// Props and Attributes
+	"Class": true, "ID": true, "ClassAttr": true, "Href": true, "Src": true,
+	"Type": true, "Placeholder": true, "Value": true, "Disabled": true, "Checked": true,
+	"Name": true, "For": true, "Alt": true, "Title": true, "Style": true,
+	// Event Handlers
+	"OnClick": true, "OnInput": true, "OnChange": true, "OnSubmit": true,
+	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,
+	"OnMouseOver": true, "OnMouseOut": true, "OnMouseEnter": true, "OnMouseLeave": true,
+	"OnFocus": true, "OnBlur": true,
+}
+
+// NonRuntimeIdent is a custom type that only captures identifiers that are NOT runtime components
+type NonRuntimeIdent string
+
+// Capture implements participle's Capture interface to reject runtime component names
+func (n *NonRuntimeIdent) Capture(values []string) error {
+	if len(values) == 0 {
+		return nil
+	}
+	ident := values[0]
+	if RuntimeComponents[ident] {
+		// Reject this parse - it's a runtime component
+		return participle.NextMatch
+	}
+	*n = NonRuntimeIdent(ident)
+	return nil
+}
+
+// CallStmt represents a function call statement
+// This handles statements like: log(msg), console.Call("log", x)
+// Runtime component names (Div, Span, etc.) are excluded via NonRuntimeIdent
+type CallStmt struct {
+	Pos    lexer.Position
+	Base   NonRuntimeIdent `@Ident`
+	Fields []string        `("." @Ident)*`
+	Args   []*Expr         `"(" (@@ ("," @@)*)? ")"`  // Required parentheses
+}
+
+// IsRuntimeComponent returns true if the identifier is a known runtime component
+func (c *CallStmt) IsRuntimeComponent() bool {
+	return false // By design, CallStmt can never have runtime components now
+}
+
+// AssignmentStmt represents an assignment statement
+// This handles statements like: x = 5, state.Display = "test"
+type AssignmentStmt struct {
 	Pos    lexer.Position
 	Base   string   `@Ident`
 	Fields []string `("." @Ident)*`
-	Args   []*Expr  `( "(" (@@ ("," @@)*)? ")" )?`  // Optional args for function call
-	Op     string   `( @("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=") )?`  // Optional operator for assignment
-	Right  *Expr    `( @@ )?`  // Right side for assignment
+	Op     string   `@("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=")`  // Required operator
+	Right  *Expr    `@@`  // Required right side
 }
 
 // Assignment represents an assignment statement (DEPRECATED - use ExpressionStmt)
@@ -367,11 +424,12 @@ func (n *Type) Accept(v Visitor) interface{}        { return v.VisitType(n) }
 
 // Body and statements
 func (n *Body) Accept(v Visitor) interface{}           { return v.VisitBody(n) }
-func (n *BodyStatement) Accept(v Visitor) interface{}  { return v.VisitBodyStatement(n) }
-func (n *Statement) Accept(v Visitor) interface{}      { return v.VisitStatement(n) }
-func (n *ExpressionStmt) Accept(v Visitor) interface{} { return v.VisitExpressionStmt(n) }
-func (n *VarDecl) Accept(v Visitor) interface{}        { return v.VisitVarDecl(n) }
-func (n *Assignment) Accept(v Visitor) interface{}     { return v.VisitAssignment(n) }
+func (n *BodyStatement) Accept(v Visitor) interface{}   { return v.VisitBodyStatement(n) }
+func (n *Statement) Accept(v Visitor) interface{}       { return v.VisitStatement(n) }
+func (n *CallStmt) Accept(v Visitor) interface{}        { return v.VisitCallStmt(n) }
+func (n *AssignmentStmt) Accept(v Visitor) interface{}  { return v.VisitAssignmentStmt(n) }
+func (n *VarDecl) Accept(v Visitor) interface{}         { return v.VisitVarDecl(n) }
+func (n *Assignment) Accept(v Visitor) interface{}      { return v.VisitAssignment(n) }
 func (n *Return) Accept(v Visitor) interface{}        { return v.VisitReturn(n) }
 func (n *IfStmt) Accept(v Visitor) interface{}        { return v.VisitIfStmt(n) }
 func (n *Else) Accept(v Visitor) interface{}          { return v.VisitElse(n) }

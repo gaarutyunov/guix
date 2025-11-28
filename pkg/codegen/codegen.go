@@ -1816,6 +1816,74 @@ func (g *Generator) generateFuncBody(body *guixast.FuncBody) *ast.BlockStmt {
 
 // generateBodyStatement generates code for a body statement
 func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt {
+	// Handle CallStmt (function call statements)
+	if stmt.CallStmt != nil {
+		// Build base expression (identifier or selector)
+		var baseExpr ast.Expr = ast.NewIdent(string(stmt.CallStmt.Base))
+		for _, field := range stmt.CallStmt.Fields {
+			baseExpr = &ast.SelectorExpr{
+				X:   baseExpr,
+				Sel: ast.NewIdent(field),
+			}
+		}
+
+		// Check if hoisted variable needs c. prefix
+		if len(stmt.CallStmt.Fields) == 0 && g.hoistedVars != nil && g.hoistedVars[string(stmt.CallStmt.Base)] {
+			baseExpr = &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(string(stmt.CallStmt.Base)),
+			}
+		}
+
+		// Generate function call arguments
+		args := make([]ast.Expr, len(stmt.CallStmt.Args))
+		for i, arg := range stmt.CallStmt.Args {
+			args[i] = g.generateExpr(arg)
+		}
+
+		return &ast.ExprStmt{
+			X: &ast.CallExpr{
+				Fun:  baseExpr,
+				Args: args,
+			},
+		}
+	}
+
+	// Handle AssignmentStmt (assignment statements)
+	if stmt.AssignStmt != nil {
+		// Build base expression (identifier or selector)
+		var baseExpr ast.Expr = ast.NewIdent(stmt.AssignStmt.Base)
+		for _, field := range stmt.AssignStmt.Fields {
+			baseExpr = &ast.SelectorExpr{
+				X:   baseExpr,
+				Sel: ast.NewIdent(field),
+			}
+		}
+
+		// Check if hoisted variable needs c. prefix
+		if len(stmt.AssignStmt.Fields) == 0 && g.hoistedVars != nil && g.hoistedVars[stmt.AssignStmt.Base] {
+			baseExpr = &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(stmt.AssignStmt.Base),
+			}
+		}
+
+		// Handle channel send operation
+		if stmt.AssignStmt.Op == "<-" {
+			return &ast.SendStmt{
+				Chan:  baseExpr,
+				Value: g.generateExpr(stmt.AssignStmt.Right),
+			}
+		}
+
+		// Regular assignment
+		return &ast.AssignStmt{
+			Lhs: []ast.Expr{baseExpr},
+			Tok: g.assignOpToToken(stmt.AssignStmt.Op),
+			Rhs: []ast.Expr{g.generateExpr(stmt.AssignStmt.Right)},
+		}
+	}
+
 	if stmt.VarDecl != nil {
 		lhs := make([]ast.Expr, len(stmt.VarDecl.Names))
 		for i, name := range stmt.VarDecl.Names {
@@ -1903,11 +1971,11 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 
 // generateStatement generates code for a statement
 func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
-	// Handle unified ExpressionStmt (supports both assignments and function calls)
-	if stmt.ExprStmt != nil {
+	// Handle CallStmt (function call statements)
+	if stmt.CallStmt != nil {
 		// Build base expression (identifier or selector)
-		var baseExpr ast.Expr = ast.NewIdent(stmt.ExprStmt.Base)
-		for _, field := range stmt.ExprStmt.Fields {
+		var baseExpr ast.Expr = ast.NewIdent(string(stmt.CallStmt.Base))
+		for _, field := range stmt.CallStmt.Fields {
 			baseExpr = &ast.SelectorExpr{
 				X:   baseExpr,
 				Sel: ast.NewIdent(field),
@@ -1915,49 +1983,63 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 		}
 
 		// Check if hoisted variable needs c. prefix
-		if len(stmt.ExprStmt.Fields) == 0 && g.hoistedVars != nil && g.hoistedVars[stmt.ExprStmt.Base] {
+		if len(stmt.CallStmt.Fields) == 0 && g.hoistedVars != nil && g.hoistedVars[string(stmt.CallStmt.Base)] {
 			baseExpr = &ast.SelectorExpr{
 				X:   ast.NewIdent("c"),
-				Sel: ast.NewIdent(stmt.ExprStmt.Base),
+				Sel: ast.NewIdent(string(stmt.CallStmt.Base)),
 			}
 		}
 
-		// If Args present, it's a function call
-		if stmt.ExprStmt.Args != nil {
-			args := make([]ast.Expr, len(stmt.ExprStmt.Args))
-			for i, arg := range stmt.ExprStmt.Args {
-				args[i] = g.generateExpr(arg)
-			}
-			return &ast.ExprStmt{
-				X: &ast.CallExpr{
-					Fun:  baseExpr,
-					Args: args,
-				},
-			}
+		// Generate function call arguments
+		args := make([]ast.Expr, len(stmt.CallStmt.Args))
+		for i, arg := range stmt.CallStmt.Args {
+			args[i] = g.generateExpr(arg)
 		}
 
-		// If Op is present, it's an assignment
-		if stmt.ExprStmt.Op != "" {
-			// Handle channel send operation
-			if stmt.ExprStmt.Op == "<-" {
-				return &ast.SendStmt{
-					Chan:  baseExpr,
-					Value: g.generateExpr(stmt.ExprStmt.Right),
-				}
-			}
-
-			// Regular assignment
-			return &ast.AssignStmt{
-				Lhs: []ast.Expr{baseExpr},
-				Tok: g.assignOpToToken(stmt.ExprStmt.Op),
-				Rhs: []ast.Expr{g.generateExpr(stmt.ExprStmt.Right)},
-			}
+		return &ast.ExprStmt{
+			X: &ast.CallExpr{
+				Fun:  baseExpr,
+				Args: args,
+			},
 		}
-
-		// Neither args nor op - just identifier (shouldn't normally happen)
-		return &ast.ExprStmt{X: baseExpr}
 	}
 
+	// Handle AssignmentStmt (assignment statements)
+	if stmt.AssignStmt != nil {
+		// Build base expression (identifier or selector)
+		var baseExpr ast.Expr = ast.NewIdent(stmt.AssignStmt.Base)
+		for _, field := range stmt.AssignStmt.Fields {
+			baseExpr = &ast.SelectorExpr{
+				X:   baseExpr,
+				Sel: ast.NewIdent(field),
+			}
+		}
+
+		// Check if hoisted variable needs c. prefix
+		if len(stmt.AssignStmt.Fields) == 0 && g.hoistedVars != nil && g.hoistedVars[stmt.AssignStmt.Base] {
+			baseExpr = &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(stmt.AssignStmt.Base),
+			}
+		}
+
+		// Handle channel send operation
+		if stmt.AssignStmt.Op == "<-" {
+			return &ast.SendStmt{
+				Chan:  baseExpr,
+				Value: g.generateExpr(stmt.AssignStmt.Right),
+			}
+		}
+
+		// Regular assignment
+		return &ast.AssignStmt{
+			Lhs: []ast.Expr{baseExpr},
+			Tok: g.assignOpToToken(stmt.AssignStmt.Op),
+			Rhs: []ast.Expr{g.generateExpr(stmt.AssignStmt.Right)},
+		}
+	}
+
+	// DEPRECATED: Kept for backward compatibility with old AST nodes
 	if stmt.Assignment != nil {
 		// Handle channel send operation
 		if stmt.Assignment.Op == "<-" {
