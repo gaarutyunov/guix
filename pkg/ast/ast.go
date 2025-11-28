@@ -18,8 +18,8 @@ type File struct {
 // TypeDef represents a type definition
 type TypeDef struct {
 	Pos    lexer.Position
-	Name   string        `"type" @Ident`
-	Struct *StructType   `@@`
+	Name   string      `"type" @Ident`
+	Struct *StructType `@@`
 }
 
 // StructType represents a struct type definition
@@ -132,9 +132,9 @@ type Prop struct {
 
 // Expr represents an expression with optional binary operations
 type Expr struct {
-	Pos     lexer.Position
-	Left    *Primary      `@@`
-	BinOps  []*BinaryOp   `@@*`
+	Pos    lexer.Position
+	Left   *Primary    `@@`
+	BinOps []*BinaryOp `@@*`
 }
 
 // BinaryOp represents a binary operation (operator and right operand)
@@ -147,23 +147,23 @@ type BinaryOp struct {
 // Primary represents a primary expression (operand in binary expressions)
 type Primary struct {
 	Pos          lexer.Position
-	Unary        *UnaryExpr     `  @@`
-	Literal      *Literal       `| @@`
-	CompositeLit *CompositeLit  `| @@`
-	MakeCall     *MakeCall      `| @@`
-	CallOrSel    *CallOrSelect  `| @@`
-	FuncLit      *FuncLit       `| @@`
-	ChannelOp    *ChannelOp     `| @@`
-	Paren        *Expr          `| "(" @@ ")"`
-	Ident        string         `| @Ident`
+	Unary        *UnaryExpr    `  @@`
+	Literal      *Literal      `| @@`
+	CompositeLit *CompositeLit `| @@`
+	MakeCall     *MakeCall     `| @@`
+	CallOrSel    *CallOrSelect `| @@`
+	FuncLit      *FuncLit      `| @@`
+	ChannelOp    *ChannelOp    `| @@`
+	Paren        *Expr         `| "(" @@ ")"`
+	Ident        string        `| @Ident`
 }
 
 // CompositeLit represents a composite literal (struct initialization)
 // Example: CalculatorState{Display: "0", PreviousValue: 0}
 type CompositeLit struct {
 	Pos      lexer.Position
-	Type     string         `@Ident`
-	Elements []*KeyValue    `"{" (@@ ("," @@)*)? ","? "}"`
+	Type     string      `@Ident`
+	Elements []*KeyValue `"{" (@@ ("," @@)*)? ","? "}"`
 }
 
 // KeyValue represents a key-value pair in a composite literal
@@ -241,14 +241,14 @@ type FuncBody struct {
 // Statement represents a statement in a function body
 type Statement struct {
 	Pos        lexer.Position
-	CallStmt   *CallStmt         `@@`  // Function call statement
-	VarDecl    *VarDecl          `| @@`
-	AssignStmt *AssignmentStmt   `| @@`  // Assignment statement
-	Return     *Return           `| @@`
-	If         *IfStmt           `| @@`
-	For        *ForLoop          `| @@`
-	Assignment *Assignment       `| @@` // Deprecated: kept for backward compatibility
-	Expr       *Expr             `| @@` // Deprecated: kept for backward compatibility
+	CallStmt   *CallStmt       `@@` // Function call statement
+	VarDecl    *VarDecl        `| @@`
+	AssignStmt *AssignmentStmt `| @@` // Assignment statement
+	Return     *Return         `| @@`
+	If         *IfStmt         `| @@`
+	For        *ForLoop        `| @@`
+	Assignment *Assignment     `| @@` // Deprecated: kept for backward compatibility
+	Expr       *Expr           `| @@` // Deprecated: kept for backward compatibility
 }
 
 // RuntimeComponents is a set of known runtime component names that should not be parsed as CallStmt
@@ -297,7 +297,7 @@ type CallStmt struct {
 	Pos    lexer.Position
 	Base   NonRuntimeIdent `@Ident`
 	Fields []string        `("." @Ident)*`
-	Args   []*Expr         `"(" (@@ ("," @@)*)? ")"`  // Required parentheses
+	Args   []*Expr         `"(" (@@ ("," @@)*)? ")"` // Required parentheses
 }
 
 // IsRuntimeComponent returns true if the identifier is a known runtime component
@@ -311,8 +311,8 @@ type AssignmentStmt struct {
 	Pos    lexer.Position
 	Base   string   `@Ident`
 	Fields []string `("." @Ident)*`
-	Op     string   `@("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=")`  // Required operator
-	Right  *Expr    `@@`  // Required right side
+	Op     string   `@("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=")` // Required operator
+	Right  *Expr    `@@`                                               // Required right side
 }
 
 // Assignment represents an assignment statement (DEPRECATED - use ExpressionStmt)
@@ -425,35 +425,35 @@ func (n *Type) Accept(v Visitor) interface{}        { return v.VisitType(n) }
 
 // Body and statements
 func (n *Body) Accept(v Visitor) interface{}           { return v.VisitBody(n) }
-func (n *BodyStatement) Accept(v Visitor) interface{}   { return v.VisitBodyStatement(n) }
-func (n *Statement) Accept(v Visitor) interface{}       { return v.VisitStatement(n) }
-func (n *CallStmt) Accept(v Visitor) interface{}        { return v.VisitCallStmt(n) }
-func (n *AssignmentStmt) Accept(v Visitor) interface{}  { return v.VisitAssignmentStmt(n) }
-func (n *VarDecl) Accept(v Visitor) interface{}         { return v.VisitVarDecl(n) }
-func (n *Assignment) Accept(v Visitor) interface{}      { return v.VisitAssignment(n) }
-func (n *Return) Accept(v Visitor) interface{}        { return v.VisitReturn(n) }
-func (n *IfStmt) Accept(v Visitor) interface{}        { return v.VisitIfStmt(n) }
-func (n *Else) Accept(v Visitor) interface{}          { return v.VisitElse(n) }
-func (n *ForLoop) Accept(v Visitor) interface{}       { return v.VisitForLoop(n) }
+func (n *BodyStatement) Accept(v Visitor) interface{}  { return v.VisitBodyStatement(n) }
+func (n *Statement) Accept(v Visitor) interface{}      { return v.VisitStatement(n) }
+func (n *CallStmt) Accept(v Visitor) interface{}       { return v.VisitCallStmt(n) }
+func (n *AssignmentStmt) Accept(v Visitor) interface{} { return v.VisitAssignmentStmt(n) }
+func (n *VarDecl) Accept(v Visitor) interface{}        { return v.VisitVarDecl(n) }
+func (n *Assignment) Accept(v Visitor) interface{}     { return v.VisitAssignment(n) }
+func (n *Return) Accept(v Visitor) interface{}         { return v.VisitReturn(n) }
+func (n *IfStmt) Accept(v Visitor) interface{}         { return v.VisitIfStmt(n) }
+func (n *Else) Accept(v Visitor) interface{}           { return v.VisitElse(n) }
+func (n *ForLoop) Accept(v Visitor) interface{}        { return v.VisitForLoop(n) }
 
 // Nodes and expressions
-func (n *Node) Accept(v Visitor) interface{}           { return v.VisitNode(n) }
-func (n *Element) Accept(v Visitor) interface{}        { return v.VisitElement(n) }
-func (n *Prop) Accept(v Visitor) interface{}           { return v.VisitProp(n) }
-func (n *ExprStmt) Accept(v Visitor) interface{}       { return v.VisitExprStmt(n) }
-func (n *Expr) Accept(v Visitor) interface{}           { return v.VisitExpr(n) }
-func (n *BinaryOp) Accept(v Visitor) interface{}       { return v.VisitBinaryOp(n) }
-func (n *Primary) Accept(v Visitor) interface{}        { return v.VisitPrimary(n) }
-func (n *UnaryExpr) Accept(v Visitor) interface{}      { return v.VisitUnaryExpr(n) }
-func (n *Literal) Accept(v Visitor) interface{}        { return v.VisitLiteral(n) }
-func (n *CallOrSelect) Accept(v Visitor) interface{}   { return v.VisitCallOrSelect(n) }
-func (n *Selector) Accept(v Visitor) interface{}       { return v.VisitSelector(n) }
-func (n *Call) Accept(v Visitor) interface{}           { return v.VisitCall(n) }
-func (n *MakeCall) Accept(v Visitor) interface{}       { return v.VisitMakeCall(n) }
-func (n *FuncLit) Accept(v Visitor) interface{}        { return v.VisitFuncLit(n) }
-func (n *FuncBody) Accept(v Visitor) interface{}       { return v.VisitFuncBody(n) }
-func (n *CompositeLit) Accept(v Visitor) interface{}   { return v.VisitCompositeLit(n) }
-func (n *KeyValue) Accept(v Visitor) interface{}       { return v.VisitKeyValue(n) }
+func (n *Node) Accept(v Visitor) interface{}         { return v.VisitNode(n) }
+func (n *Element) Accept(v Visitor) interface{}      { return v.VisitElement(n) }
+func (n *Prop) Accept(v Visitor) interface{}         { return v.VisitProp(n) }
+func (n *ExprStmt) Accept(v Visitor) interface{}     { return v.VisitExprStmt(n) }
+func (n *Expr) Accept(v Visitor) interface{}         { return v.VisitExpr(n) }
+func (n *BinaryOp) Accept(v Visitor) interface{}     { return v.VisitBinaryOp(n) }
+func (n *Primary) Accept(v Visitor) interface{}      { return v.VisitPrimary(n) }
+func (n *UnaryExpr) Accept(v Visitor) interface{}    { return v.VisitUnaryExpr(n) }
+func (n *Literal) Accept(v Visitor) interface{}      { return v.VisitLiteral(n) }
+func (n *CallOrSelect) Accept(v Visitor) interface{} { return v.VisitCallOrSelect(n) }
+func (n *Selector) Accept(v Visitor) interface{}     { return v.VisitSelector(n) }
+func (n *Call) Accept(v Visitor) interface{}         { return v.VisitCall(n) }
+func (n *MakeCall) Accept(v Visitor) interface{}     { return v.VisitMakeCall(n) }
+func (n *FuncLit) Accept(v Visitor) interface{}      { return v.VisitFuncLit(n) }
+func (n *FuncBody) Accept(v Visitor) interface{}     { return v.VisitFuncBody(n) }
+func (n *CompositeLit) Accept(v Visitor) interface{} { return v.VisitCompositeLit(n) }
+func (n *KeyValue) Accept(v Visitor) interface{}     { return v.VisitKeyValue(n) }
 
 // Templates and special nodes
 func (n *TextNode) Accept(v Visitor) interface{}    { return v.VisitTextNode(n) }

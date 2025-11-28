@@ -245,8 +245,8 @@ func TestBaseVisitor_TraversesStatements(t *testing.T) {
 			Statements: []*BodyStatement{
 				{
 					Assignment: &Assignment{
-						Left:  "x",
-						Op:    "=",
+						Left: "x",
+						Op:   "=",
 						Right: &Expr{
 							Left: &Primary{
 								Literal: &Literal{Number: &numVal},
@@ -293,8 +293,8 @@ func TestBaseVisitor_TraversesIfStatements(t *testing.T) {
 			Statements: []*Statement{
 				{
 					Assignment: &Assignment{
-						Left:  "x",
-						Op:    "=",
+						Left: "x",
+						Op:   "=",
 						Right: &Expr{
 							Left: &Primary{
 								Literal: &Literal{Number: &numVal},

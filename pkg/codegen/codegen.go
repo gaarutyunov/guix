@@ -22,7 +22,7 @@ type childComponentInfo struct {
 // Generator generates Go code from Guix components
 // It implements the Visitor interface to traverse the Guix AST
 type Generator struct {
-	guixast.BaseVisitor                                          // Embed BaseVisitor for default implementations
+	guixast.BaseVisitor // Embed BaseVisitor for default implementations
 	fset                *token.FileSet
 	pkg                 string
 	components          map[string]bool                          // Track component names for this file
@@ -35,7 +35,7 @@ type Generator struct {
 	verbose             bool                                     // Generate verbose logging statements
 
 	// Result accumulation for visitor pattern
-	generatedDecls      []ast.Decl                               // Accumulated declarations during traversal
+	generatedDecls []ast.Decl // Accumulated declarations during traversal
 }
 
 // New creates a new code generator

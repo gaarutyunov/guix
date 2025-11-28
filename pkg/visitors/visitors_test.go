@@ -16,8 +16,8 @@ func TestSemanticAnalyzer_UndefinedVariable(t *testing.T) {
 			Statements: []*ast.BodyStatement{
 				{
 					Assignment: &ast.Assignment{
-						Left:  "x",
-						Op:    "=",
+						Left: "x",
+						Op:   "=",
 						Right: &ast.Expr{
 							Left: &ast.Primary{
 								Literal: &ast.Literal{Number: &numVal},
@@ -54,8 +54,8 @@ func TestSemanticAnalyzer_ValidAssignment(t *testing.T) {
 			Statements: []*ast.BodyStatement{
 				{
 					Assignment: &ast.Assignment{
-						Left:  "x",
-						Op:    ":=",
+						Left: "x",
+						Op:   ":=",
 						Right: &ast.Expr{
 							Left: &ast.Primary{
 								Literal: &ast.Literal{Number: &numVal},
@@ -65,8 +65,8 @@ func TestSemanticAnalyzer_ValidAssignment(t *testing.T) {
 				},
 				{
 					Assignment: &ast.Assignment{
-						Left:  "x",
-						Op:    "=",
+						Left: "x",
+						Op:   "=",
 						Right: &ast.Expr{
 							Left: &ast.Primary{
 								Literal: &ast.Literal{Number: &numVal},
@@ -97,8 +97,8 @@ func TestSemanticAnalyzer_ComponentParams(t *testing.T) {
 			Statements: []*ast.BodyStatement{
 				{
 					Assignment: &ast.Assignment{
-						Left:  "x",
-						Op:    "=",
+						Left: "x",
+						Op:   "=",
 						Right: &ast.Expr{
 							Left: &ast.Primary{
 								CallOrSel: &ast.CallOrSelect{
@@ -139,8 +139,8 @@ func TestSemanticAnalyzer_Scoping(t *testing.T) {
 							Statements: []*ast.Statement{
 								{
 									Assignment: &ast.Assignment{
-										Left:  "x",
-										Op:    ":=",
+										Left: "x",
+										Op:   ":=",
 										Right: &ast.Expr{
 											Left: &ast.Primary{
 												Literal: &ast.Literal{Number: &numVal},
@@ -155,8 +155,8 @@ func TestSemanticAnalyzer_Scoping(t *testing.T) {
 				{
 					// This should error - x not in scope
 					Assignment: &ast.Assignment{
-						Left:  "x",
-						Op:    "=",
+						Left: "x",
+						Op:   "=",
 						Right: &ast.Expr{
 							Left: &ast.Primary{
 								Literal: &ast.Literal{Number: &numVal},
@@ -225,8 +225,8 @@ func TestDebugPrinter_Assignment(t *testing.T) {
 	// Create an assignment
 	numVal := "42"
 	assignment := &ast.Assignment{
-		Left:  "x",
-		Op:    ":=",
+		Left: "x",
+		Op:   ":=",
 		Right: &ast.Expr{
 			Left: &ast.Primary{
 				Literal: &ast.Literal{Number: &numVal},
