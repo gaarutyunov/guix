@@ -18,95 +18,95 @@ var (
 func main() {
 	fmt.Println("WebGPU Rotating Cube Example")
 
-	// Wait for DOM to be ready
-	runtime.WaitForDOMReady()
-
-	// Check WebGPU support
-	if !runtime.IsWebGPUSupported() {
-		fmt.Println("WebGPU is not supported in this browser")
-		showError("WebGPU is not supported in this browser. Please use a browser with WebGPU support (Chrome 113+, Edge 113+)")
-		return
-	}
-
-	// Initialize WebGPU
-	fmt.Println("Initializing WebGPU...")
-	gpuCtx, err := runtime.InitWebGPU()
-	if err != nil {
-		fmt.Println(fmt.Sprintf("Failed to initialize WebGPU: %v", err))
-		showError(fmt.Sprintf("Failed to initialize WebGPU: %v", err))
-		return
-	}
-
-	fmt.Println("WebGPU initialized successfully")
-	fmt.Println("GPU Adapter: " + gpuCtx.Adapter.String())
-
-	// Create GPU canvas
-	config := runtime.GPUCanvasConfig{
-		Width:            600,
-		Height:           400,
-		DevicePixelRatio: 1.0,
-		AlphaMode:        "premultiplied",
-		FrameLoop:        "always",
-	}
-
-	canvas, err := runtime.CreateGPUCanvas(config)
-	if err != nil {
-		fmt.Println(fmt.Sprintf("Failed to create GPU canvas: %v", err))
-		showError(fmt.Sprintf("Failed to create GPU canvas: %v", err))
-		return
-	}
-
-	fmt.Println("GPU canvas created successfully")
-
-	// Mount canvas to DOM
-	if err := canvas.Mount("#app"); err != nil {
-		fmt.Println(fmt.Sprintf("Failed to mount canvas: %v", err))
-		showError(fmt.Sprintf("Failed to mount canvas: %v", err))
-		return
-	}
-
-	fmt.Println("Canvas mounted")
-
-	// Create scene
-	scene := createScene()
-
-	// Create renderer
-	renderer, err := runtime.NewSceneRenderer(canvas, scene)
-	if err != nil {
-		fmt.Println(fmt.Sprintf("Failed to create renderer: %v", err))
-		showError(fmt.Sprintf("Failed to create renderer: %v", err))
-		return
-	}
-
-	fmt.Println("Scene renderer created")
-
-	// Set up controls
-	setupControls(renderer)
-
-	// Set render function
-	canvas.SetRenderFunc(func(c *runtime.GPUCanvas, delta float64) {
-		if autoRotate {
-			rotationY += float32(delta) * 0.001 * speed
-			rotationX += float32(delta) * 0.0005 * speed
+	// Wait for DOM to be ready before initializing
+	runtime.WaitForDOMReady(func() {
+		// Check WebGPU support
+		if !runtime.IsWebGPUSupported() {
+			fmt.Println("WebGPU is not supported in this browser")
+			showError("WebGPU is not supported in this browser. Please use a browser with WebGPU support (Chrome 113+, Edge 113+)")
+			return
 		}
 
-		// Update mesh transform
-		if len(renderer.Meshes) > 0 {
-			transform := runtime.NewTransform()
-			transform.Position = runtime.Vec3{X: 0, Y: 0, Z: 0}
-			transform.Rotation = runtime.Vec3{X: rotationX, Y: rotationY, Z: 0}
-			transform.Scale = runtime.Vec3{X: 1, Y: 1, Z: 1}
-			renderer.UpdateMeshTransform(0, transform)
+		// Initialize WebGPU
+		fmt.Println("Initializing WebGPU...")
+		gpuCtx, err := runtime.InitWebGPU()
+		if err != nil {
+			fmt.Println(fmt.Sprintf("Failed to initialize WebGPU: %v", err))
+			showError(fmt.Sprintf("Failed to initialize WebGPU: %v", err))
+			return
 		}
 
-		// Render
-		renderer.Render()
+		fmt.Println("WebGPU initialized successfully")
+		fmt.Println("GPU Adapter: " + gpuCtx.Adapter.String())
+
+		// Create GPU canvas
+		config := runtime.GPUCanvasConfig{
+			Width:            600,
+			Height:           400,
+			DevicePixelRatio: 1.0,
+			AlphaMode:        "premultiplied",
+			FrameLoop:        "always",
+		}
+
+		canvas, err := runtime.CreateGPUCanvas(config)
+		if err != nil {
+			fmt.Println(fmt.Sprintf("Failed to create GPU canvas: %v", err))
+			showError(fmt.Sprintf("Failed to create GPU canvas: %v", err))
+			return
+		}
+
+		fmt.Println("GPU canvas created successfully")
+
+		// Mount canvas to DOM
+		if err := canvas.Mount("#app"); err != nil {
+			fmt.Println(fmt.Sprintf("Failed to mount canvas: %v", err))
+			showError(fmt.Sprintf("Failed to mount canvas: %v", err))
+			return
+		}
+
+		fmt.Println("Canvas mounted")
+
+		// Create scene
+		scene := createScene()
+
+		// Create renderer
+		renderer, err := runtime.NewSceneRenderer(canvas, scene)
+		if err != nil {
+			fmt.Println(fmt.Sprintf("Failed to create renderer: %v", err))
+			showError(fmt.Sprintf("Failed to create renderer: %v", err))
+			return
+		}
+
+		fmt.Println("Scene renderer created")
+
+		// Set up controls
+		setupControls(renderer)
+
+		// Set render function
+		canvas.SetRenderFunc(func(c *runtime.GPUCanvas, delta float64) {
+			if autoRotate {
+				rotationY += float32(delta) * 0.001 * speed
+				rotationX += float32(delta) * 0.0005 * speed
+			}
+
+			// Update mesh transform
+			if len(renderer.Meshes) > 0 {
+				transform := runtime.NewTransform()
+				transform.Position = runtime.Vec3{X: 0, Y: 0, Z: 0}
+				transform.Rotation = runtime.Vec3{X: rotationX, Y: rotationY, Z: 0}
+				transform.Scale = runtime.Vec3{X: 1, Y: 1, Z: 1}
+				renderer.UpdateMeshTransform(0, transform)
+			}
+
+			// Render
+			renderer.Render()
+		})
+
+		// Start render loop
+		canvas.Start()
+
+		fmt.Println("Render loop started")
 	})
-
-	// Start render loop
-	canvas.Start()
-
-	fmt.Println("Render loop started")
 
 	// Keep the program running
 	select {}
