@@ -40,6 +40,7 @@ type Visitor interface {
 	VisitUnaryExpr(*UnaryExpr) interface{}
 	VisitLiteral(*Literal) interface{}
 	VisitIndexExpr(*IndexExpr) interface{}
+	VisitSliceExpr(*SliceExpr) interface{}
 	VisitCallOrSelect(*CallOrSelect) interface{}
 	VisitSelector(*Selector) interface{} // Deprecated but still in AST
 	VisitCall(*Call) interface{}         // Deprecated but still in AST

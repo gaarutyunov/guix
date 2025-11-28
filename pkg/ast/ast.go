@@ -159,12 +159,20 @@ type Primary struct {
 	Ident        string        `| @Ident`
 }
 
-// IndexExpr represents an indexing expression
-// Example: tokens[0] or tokens[i+1]
+// IndexExpr represents an indexing or slicing expression
+// Example: tokens[0] or tokens[i+1] or tokens[start:end] or tokens[:end] or tokens[start:]
 type IndexExpr struct {
 	Pos   lexer.Position
-	Base  string `@Ident`
-	Index *Expr  `"[" @@ "]"`
+	Base  string     `@Ident`
+	Index *Expr      `"[" (@@`
+	Slice *SliceExpr `| @@) "]"`
+}
+
+// SliceExpr represents a slice expression [low:high]
+type SliceExpr struct {
+	Pos  lexer.Position
+	Low  *Expr `@@?`
+	High *Expr `":" @@?`
 }
 
 // CompositeLit represents a composite literal (struct initialization)
@@ -200,10 +208,11 @@ type Literal struct {
 // CallOrSelect represents either a selector (obj.field.field) or a call (func() or obj.method())
 // This unifies both to avoid grammar ambiguity
 type CallOrSelect struct {
-	Pos    lexer.Position
-	Base   string   `@Ident`
-	Fields []string `("." @Ident)*`
-	Args   []*Expr  `("(" (@@ ("," @@)*)? ")")?`
+	Pos      lexer.Position
+	Base     string   `@Ident`
+	Fields   []string `("." @Ident)*`
+	Args     []*Expr  `("(" (@@ ("," @@)*)? ")")?`
+	Variadic bool     `@("..." Punct)?` // Variadic call with ... operator
 }
 
 // Selector represents a selector expression - deprecated, use CallOrSelect
@@ -224,12 +233,15 @@ type Call struct {
 }
 
 // MakeCall represents a make() function call with type argument
-// Example: make(chan int, 10)
+// Example: make(chan int, 10) or make([]string, 0)
 type MakeCall struct {
-	Pos      lexer.Position
-	Func     string `@"make"`
-	ChanType *Type  `"(" "chan" @@`
-	Size     *Expr  `("," @@)? ")"`
+	Pos       lexer.Position
+	Func      string `@"make"`
+	ChanType  *Type  `"(" ("chan" @@`
+	ChanSize  *Expr  `("," @@)? ")"`
+	SliceType *Type  `| "[" "]" @@`
+	SliceLen  *Expr  `"," @@`
+	SliceCap  *Expr  `("," @@)? ")")`
 }
 
 // FuncLit represents a function literal
@@ -315,11 +327,12 @@ func (c *CallStmt) IsRuntimeComponent() bool {
 }
 
 // AssignmentStmt represents an assignment statement
-// This handles statements like: x = 5, state.Display = "test"
+// This handles statements like: x = 5, state.Display = "test", arr[i] = value
 type AssignmentStmt struct {
 	Pos    lexer.Position
 	Base   string   `@Ident`
 	Fields []string `("." @Ident)*`
+	Index  *Expr    `("[" @@ "]")?`                                    // Optional index for array/slice assignment
 	Op     string   `@("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=")` // Required operator
 	Right  *Expr    `@@`                                               // Required right side
 }
@@ -462,6 +475,7 @@ func (n *Primary) Accept(v Visitor) interface{}      { return v.VisitPrimary(n) 
 func (n *UnaryExpr) Accept(v Visitor) interface{}    { return v.VisitUnaryExpr(n) }
 func (n *Literal) Accept(v Visitor) interface{}      { return v.VisitLiteral(n) }
 func (n *IndexExpr) Accept(v Visitor) interface{}    { return v.VisitIndexExpr(n) }
+func (n *SliceExpr) Accept(v Visitor) interface{}    { return v.VisitSliceExpr(n) }
 func (n *CallOrSelect) Accept(v Visitor) interface{} { return v.VisitCallOrSelect(n) }
 func (n *Selector) Accept(v Visitor) interface{}     { return v.VisitSelector(n) }
 func (n *Call) Accept(v Visitor) interface{}         { return v.VisitCall(n) }

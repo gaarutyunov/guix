@@ -1747,17 +1747,35 @@ func (g *Generator) generateLiteral(lit *guixast.Literal) ast.Expr {
 // generateMakeCall generates code for a make() function call
 // Example: make(chan int, 10)
 func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {
-	args := []ast.Expr{
-		// First argument is the channel type
-		&ast.ChanType{
-			Dir:   ast.SEND | ast.RECV,
-			Value: g.typeToAST(makeCall.ChanType),
-		},
-	}
+	var args []ast.Expr
 
-	// Add size argument if present
-	if makeCall.Size != nil {
-		args = append(args, g.generateExpr(makeCall.Size))
+	if makeCall.ChanType != nil {
+		// Channel make: make(chan Type, size)
+		args = []ast.Expr{
+			&ast.ChanType{
+				Dir:   ast.SEND | ast.RECV,
+				Value: g.typeToAST(makeCall.ChanType),
+			},
+		}
+		// Add size argument if present
+		if makeCall.ChanSize != nil {
+			args = append(args, g.generateExpr(makeCall.ChanSize))
+		}
+	} else if makeCall.SliceType != nil {
+		// Slice make: make([]Type, len, cap)
+		args = []ast.Expr{
+			&ast.ArrayType{
+				Elt: g.typeToAST(makeCall.SliceType),
+			},
+		}
+		// Add length argument
+		if makeCall.SliceLen != nil {
+			args = append(args, g.generateExpr(makeCall.SliceLen))
+		}
+		// Add capacity argument if present
+		if makeCall.SliceCap != nil {
+			args = append(args, g.generateExpr(makeCall.SliceCap))
+		}
 	}
 
 	return &ast.CallExpr{
@@ -1768,12 +1786,30 @@ func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {
 
 // generateCallOrSelect generates code for a call or selector expression
 // If Args is present, generates a call. Otherwise, generates a selector.
-// generateIndexExpr generates an index expression
+// generateIndexExpr generates an index or slice expression
 func (g *Generator) generateIndexExpr(idx *guixast.IndexExpr) ast.Expr {
-	return &ast.IndexExpr{
-		X:     ast.NewIdent(idx.Base),
-		Index: g.generateExpr(idx.Index),
+	if idx.Index != nil {
+		// Regular indexing: arr[index]
+		return &ast.IndexExpr{
+			X:     ast.NewIdent(idx.Base),
+			Index: g.generateExpr(idx.Index),
+		}
+	} else if idx.Slice != nil {
+		// Slice expression: arr[low:high]
+		var low, high ast.Expr
+		if idx.Slice.Low != nil {
+			low = g.generateExpr(idx.Slice.Low)
+		}
+		if idx.Slice.High != nil {
+			high = g.generateExpr(idx.Slice.High)
+		}
+		return &ast.SliceExpr{
+			X:    ast.NewIdent(idx.Base),
+			Low:  low,
+			High: high,
+		}
 	}
+	return ast.NewIdent(idx.Base)
 }
 
 func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
@@ -1925,6 +1961,14 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 			baseExpr = &ast.SelectorExpr{
 				X:   ast.NewIdent("c"),
 				Sel: ast.NewIdent(stmt.AssignStmt.Base),
+			}
+		}
+
+		// Add index if present
+		if stmt.AssignStmt.Index != nil {
+			baseExpr = &ast.IndexExpr{
+				X:     baseExpr,
+				Index: g.generateExpr(stmt.AssignStmt.Index),
 			}
 		}
 
@@ -2182,6 +2226,14 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 			baseExpr = &ast.SelectorExpr{
 				X:   ast.NewIdent("c"),
 				Sel: ast.NewIdent(stmt.AssignStmt.Base),
+			}
+		}
+
+		// Add index if present
+		if stmt.AssignStmt.Index != nil {
+			baseExpr = &ast.IndexExpr{
+				X:     baseExpr,
+				Index: g.generateExpr(stmt.AssignStmt.Index),
 			}
 		}
 

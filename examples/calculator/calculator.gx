@@ -209,30 +209,99 @@ func tokensToString(tokens []string) (string) {
 	return strings.Join(tokens, " ")
 }
 
-// calculateFromTokens evaluates a slice of tokens
+// calculateFromTokens evaluates a slice of tokens with proper operator precedence
 func calculateFromTokens(tokens []string) (float64) {
 	// Handle empty case
 	if len(tokens) == 0 {
 		return 0
 	}
 
-	// Parse first number
-	result := 0.0
-	_ = result
-	parsedResult, _ := strconv.ParseFloat(tokens[0], 64)
-	result = parsedResult
+	// Handle single number
+	if len(tokens) == 1 {
+		result, _ := strconv.ParseFloat(tokens[0], 64)
+		return result
+	}
 
-	// Loop through operator-number pairs
-	for i := 1; i < len(tokens); i += 2 {
-		if i+1 < len(tokens) {
-			operator := tokens[i]
-			num := 0.0
-			parsedNum, _ := strconv.ParseFloat(tokens[i+1], 64)
-			num = parsedNum
-			result = calculate(result, num, operator)
+	// Make a copy of tokens to work with
+	workingTokens := make([]string, len(tokens))
+	copy(workingTokens, tokens)
+
+	// First pass: handle * and / (higher precedence)
+	for i := 1; i < len(workingTokens); i += 0 {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if (operator == "*") || (operator == "/") {
+				// Get left and right operands
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+
+				// Calculate result
+				result := calculate(left, right, operator)
+
+				// Replace the three tokens (num op num) with the result
+				resultStr := formatNumber(result)
+
+				// Build new slice manually
+				newLen := len(workingTokens) - 2
+				newTokens := make([]string, newLen)
+				// Copy tokens before the operation
+				for j := 0; j < (i-1); j += 1 {
+					newTokens[j] = workingTokens[j]
+				}
+				// Add result
+				newTokens[i-1] = resultStr
+				// Copy tokens after the operation
+				for j := i+2; j < len(workingTokens); j += 1 {
+					newTokens[j-2] = workingTokens[j]
+				}
+				workingTokens = newTokens
+			} else {
+				i = i + 2
+			}
+		} else {
+			i = i + 2
 		}
 	}
 
+	// Second pass: handle + and - (lower precedence)
+	for i := 1; i < len(workingTokens); i += 0 {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if (operator == "+") || (operator == "-") {
+				// Get left and right operands
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+
+				// Calculate result
+				result := calculate(left, right, operator)
+
+				// Replace the three tokens with the result
+				resultStr := formatNumber(result)
+
+				// Build new slice manually
+				newLen := len(workingTokens) - 2
+				newTokens := make([]string, newLen)
+				// Copy tokens before the operation
+				for j := 0; j < (i-1); j += 1 {
+					newTokens[j] = workingTokens[j]
+				}
+				// Add result
+				newTokens[i-1] = resultStr
+				// Copy tokens after the operation
+				for j := i+2; j < len(workingTokens); j += 1 {
+					newTokens[j-2] = workingTokens[j]
+				}
+				workingTokens = newTokens
+			} else {
+				i = i + 2
+			}
+		} else {
+			i = i + 2
+		}
+	}
+
+	// Parse final result
+	result, _ := strconv.ParseFloat(workingTokens[0], 64)
 	return result
 }
 

@@ -180,19 +180,63 @@ func calculateFromTokens(tokens []string) float64 {
 	if len(tokens) == 0 {
 		return 0
 	}
-	result := 0.0
-	_ = result
-	parsedResult, _ := strconv.ParseFloat(tokens[0], 64)
-	result = parsedResult
-	for i := 1; i < len(tokens); i += 2 {
-		if i+1 < len(tokens) {
-			operator := tokens[i]
-			num := 0.0
-			parsedNum, _ := strconv.ParseFloat(tokens[i+1], 64)
-			num = parsedNum
-			result = calculate(result, num, operator)
+	if len(tokens) == 1 {
+		result, _ := strconv.ParseFloat(tokens[0], 64)
+		return result
+	}
+	workingTokens := make([]string, len(tokens))
+	copy(workingTokens, tokens)
+	for i := 1; i < len(workingTokens); i += 0 {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if (operator == "*") || (operator == "/") {
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+				result := calculate(left, right, operator)
+				resultStr := formatNumber(result)
+				newLen := len(workingTokens) - 2
+				newTokens := make([]string, newLen)
+				for j := 0; j < (i - 1); j += 1 {
+					newTokens[j] = workingTokens[j]
+				}
+				newTokens[i-1] = resultStr
+				for j := i + 2; j < len(workingTokens); j += 1 {
+					newTokens[j-2] = workingTokens[j]
+				}
+				workingTokens = newTokens
+			} else {
+				i = i + 2
+			}
+		} else {
+			i = i + 2
 		}
 	}
+	for i := 1; i < len(workingTokens); i += 0 {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if (operator == "+") || (operator == "-") {
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+				result := calculate(left, right, operator)
+				resultStr := formatNumber(result)
+				newLen := len(workingTokens) - 2
+				newTokens := make([]string, newLen)
+				for j := 0; j < (i - 1); j += 1 {
+					newTokens[j] = workingTokens[j]
+				}
+				newTokens[i-1] = resultStr
+				for j := i + 2; j < len(workingTokens); j += 1 {
+					newTokens[j-2] = workingTokens[j]
+				}
+				workingTokens = newTokens
+			} else {
+				i = i + 2
+			}
+		} else {
+			i = i + 2
+		}
+	}
+	result, _ := strconv.ParseFloat(workingTokens[0], 64)
 	return result
 }
 func calculate(a float64, b float64, operator string) float64 {

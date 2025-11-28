@@ -30,8 +30,11 @@ jobs:
       - name: Build CLI
         run: go build -o guix ./cmd/guix
 
-      - name: Generate components
+      - name: Generate components for counter
         run: ./guix generate -p examples/counter
+
+      - name: Generate components for calculator
+        run: ./guix generate -p examples/calculator
 
       - name: Copy wasm_exec.js
         run: |
@@ -39,24 +42,35 @@ jobs:
           # Try lib/wasm first (Go 1.24+), then misc/wasm (older versions)
           if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
             cp "$GOROOT/lib/wasm/wasm_exec.js" examples/counter/
+            cp "$GOROOT/lib/wasm/wasm_exec.js" examples/calculator/
           elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
             cp "$GOROOT/misc/wasm/wasm_exec.js" examples/counter/
+            cp "$GOROOT/misc/wasm/wasm_exec.js" examples/calculator/
           else
             echo "wasm_exec.js not found in GOROOT, downloading from GitHub"
             curl -o examples/counter/wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
+            curl -o examples/calculator/wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
           fi
 
-      - name: Build WASM
+      - name: Build counter WASM
         working-directory: examples/counter
+        run: GOOS=js GOARCH=wasm go build -o main.wasm .
+
+      - name: Build calculator WASM
+        working-directory: examples/calculator
         run: GOOS=js GOARCH=wasm go build -o main.wasm .
 
       - name: Create Pages structure
         run: |
           mkdir -p _site
           mkdir -p _site/counter
+          mkdir -p _site/calculator
           cp examples/counter/index.html _site/counter/
           cp examples/counter/main.wasm _site/counter/
           cp examples/counter/wasm_exec.js _site/counter/
+          cp examples/calculator/index.html _site/calculator/
+          cp examples/calculator/main.wasm _site/calculator/
+          cp examples/calculator/wasm_exec.js _site/calculator/
 
           # Create index page with links to examples
           cat > _site/index.html << 'EOF'
@@ -132,6 +146,11 @@ jobs:
                       <li>
                           <a href="./counter/">
                               <strong>Counter</strong> - Basic component with props and template interpolation
+                          </a>
+                      </li>
+                      <li>
+                          <a href="./calculator/">
+                              <strong>Calculator</strong> - Interactive calculator with state management and event handlers
                           </a>
                       </li>
                   </ul>
