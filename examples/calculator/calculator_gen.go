@@ -184,7 +184,7 @@ func calculateFromTokens(tokens []string) float64 {
 	_ = result
 	parsedResult, _ := strconv.ParseFloat(tokens[0], 64)
 	result = parsedResult
-	for i := 1; i < len(tokens); i = i + 2 {
+	for i := 1; i < len(tokens); i += 2 {
 		if i+1 < len(tokens) {
 			operator := tokens[i]
 			num := 0.0
