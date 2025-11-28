@@ -23,80 +23,215 @@ test.describe('Calculator Example', () => {
     expect(display).toBe('0');
   });
 
-  test('should perform addition', async ({ page }) => {
+  test('should display expression as typed - simple addition', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.calculator', { timeout: 10000 });
 
-    // Click 3 + 2 =
-    await page.click('button:has-text("3")');
-    await page.click('button:has-text("+")');
+    // Click 2
     await page.click('button:has-text("2")');
+    await page.waitForTimeout(100);
+    let display = await page.textContent('.display');
+    expect(display).toBe('2');
+
+    // Click +
+    await page.click('button:has-text("+")');
+    await page.waitForTimeout(100);
+    display = await page.textContent('.display');
+    expect(display).toBe('2 + ');
+
+    // Click 3
+    await page.click('button:has-text("3")');
+    await page.waitForTimeout(100);
+    display = await page.textContent('.display');
+    expect(display).toBe('2 + 3');
+
+    // Click =
     await page.click('button:has-text("=")');
-
-    // Wait for update
     await page.waitForTimeout(300);
-
-    const display = await page.textContent('.display');
+    display = await page.textContent('.display');
     expect(display).toBe('5');
   });
 
-  test('should perform subtraction', async ({ page }) => {
+  test('should perform simple subtraction', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.calculator', { timeout: 10000 });
 
-    // Click 9 − 4 =
     await page.click('button:has-text("9")');
     await page.click('button:has-text("−")');
     await page.click('button:has-text("4")');
-    await page.click('button:has-text("=")');
+    await page.waitForTimeout(100);
 
+    // Verify expression is displayed
+    let display = await page.textContent('.display');
+    expect(display).toBe('9 - 4');
+
+    await page.click('button:has-text("=")');
     await page.waitForTimeout(300);
 
-    const display = await page.textContent('.display');
+    display = await page.textContent('.display');
     expect(display).toBe('5');
   });
 
-  test('should perform multiplication', async ({ page }) => {
+  test('should perform simple multiplication', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.calculator', { timeout: 10000 });
 
-    // Click 6 × 7 =
     await page.click('button:has-text("6")');
     await page.click('button:has-text("×")');
     await page.click('button:has-text("7")');
-    await page.click('button:has-text("=")');
 
+    // Verify expression is displayed
+    await page.waitForTimeout(100);
+    let display = await page.textContent('.display');
+    expect(display).toBe('6 * 7');
+
+    await page.click('button:has-text("=")');
     await page.waitForTimeout(300);
 
-    const display = await page.textContent('.display');
+    display = await page.textContent('.display');
     expect(display).toBe('42');
   });
 
-  test('should perform division', async ({ page }) => {
+  test('should perform simple division', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.calculator', { timeout: 10000 });
 
-    // Click 8 ÷ 2 =
     await page.click('button:has-text("8")');
     await page.click('button:has-text("÷")');
     await page.click('button:has-text("2")');
-    await page.click('button:has-text("=")');
 
+    // Verify expression is displayed
+    await page.waitForTimeout(100);
+    let display = await page.textContent('.display');
+    expect(display).toBe('8 / 2');
+
+    await page.click('button:has-text("=")');
     await page.waitForTimeout(300);
 
-    const display = await page.textContent('.display');
+    display = await page.textContent('.display');
     expect(display).toBe('4');
+  });
+
+  test('should handle multi-digit numbers', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.calculator', { timeout: 10000 });
+
+    // Enter 123
+    await page.click('button:has-text("1")');
+    await page.click('button:has-text("2")');
+    await page.click('button:has-text("3")');
+    await page.waitForTimeout(100);
+
+    let display = await page.textContent('.display');
+    expect(display).toBe('123');
+
+    await page.click('button:has-text("+")');
+
+    // Enter 456
+    await page.click('button:has-text("4")');
+    await page.click('button:has-text("5")');
+    await page.click('button:has-text("6")');
+    await page.waitForTimeout(100);
+
+    display = await page.textContent('.display');
+    expect(display).toBe('123 + 456');
+
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    display = await page.textContent('.display');
+    expect(display).toBe('579');
+  });
+
+  test('should handle complex expression with multiple operations', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.calculator', { timeout: 10000 });
+
+    // Calculate 10 + 5 - 3 + 2 (left-to-right = 14)
+    await page.click('button:has-text("1")');
+    await page.click('button:has-text("0")');
+    await page.click('button:has-text("+")');
+    await page.click('button:has-text("5")');
+    await page.click('button:has-text("−")');
+    await page.click('button:has-text("3")');
+    await page.click('button:has-text("+")');
+    await page.click('button:has-text("2")');
+
+    await page.waitForTimeout(100);
+    let display = await page.textContent('.display');
+    expect(display).toBe('10 + 5 - 3 + 2');
+
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    display = await page.textContent('.display');
+    expect(display).toBe('14');
+  });
+
+  test('should continue calculation after equals', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.calculator', { timeout: 10000 });
+
+    // Calculate 5 + 3 = 8
+    await page.click('button:has-text("5")');
+    await page.click('button:has-text("+")');
+    await page.click('button:has-text("3")');
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    let display = await page.textContent('.display');
+    expect(display).toBe('8');
+
+    // Continue: × 2 = 16
+    await page.click('button:has-text("×")');
+    await page.waitForTimeout(100);
+    display = await page.textContent('.display');
+    expect(display).toBe('8 * ');
+
+    await page.click('button:has-text("2")');
+    await page.waitForTimeout(100);
+    display = await page.textContent('.display');
+    expect(display).toBe('8 * 2');
+
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    display = await page.textContent('.display');
+    expect(display).toBe('16');
+  });
+
+  test('should start fresh after equals when pressing number', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('.calculator', { timeout: 10000 });
+
+    // Calculate 5 + 3 = 8
+    await page.click('button:has-text("5")');
+    await page.click('button:has-text("+")');
+    await page.click('button:has-text("3")');
+    await page.click('button:has-text("=")');
+    await page.waitForTimeout(300);
+
+    let display = await page.textContent('.display');
+    expect(display).toBe('8');
+
+    // Press a number - should start new calculation
+    await page.click('button:has-text("9")');
+    await page.waitForTimeout(100);
+    display = await page.textContent('.display');
+    expect(display).toBe('9');
   });
 
   test('should clear display', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.calculator', { timeout: 10000 });
 
-    // Enter some numbers
+    // Enter some expression
+    await page.click('button:has-text("5")');
+    await page.click('button:has-text("+")');
     await page.click('button:has-text("3")');
-    await page.click('button:has-text("6")');
+    await page.waitForTimeout(100);
 
-    // Click clear
+    // Clear
     await page.click('button:has-text("C")');
     await page.waitForTimeout(300);
 
@@ -104,54 +239,11 @@ test.describe('Calculator Example', () => {
     expect(display).toBe('0');
   });
 
-  test('should handle sequential operations', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForSelector('.calculator', { timeout: 10000 });
-
-    // Test 3+2-3 (should show 2 after entering sequence)
-    await page.click('button:has-text("3")');
-    await page.waitForTimeout(100);
-
-    await page.click('button:has-text("+")');
-    await page.waitForTimeout(100);
-
-    await page.click('button:has-text("2")');
-    await page.waitForTimeout(100);
-
-    // After pressing 2, display should still show "2" (number just entered)
-    let display = await page.textContent('.display');
-    expect(display).toBe('2');
-
-    // Now press minus - this triggers calculation of 3+2=5
-    await page.click('button:has-text("−")');
-    await page.waitForTimeout(300);
-
-    // After pressing minus, should show 5 (calculation triggered)
-    display = await page.textContent('.display');
-    expect(display).toBe('5');
-
-    await page.click('button:has-text("3")');
-    await page.waitForTimeout(100);
-
-    // After pressing 3, display should show "3" (number just entered)
-    display = await page.textContent('.display');
-    expect(display).toBe('3');
-
-    // Press equals to complete: 5-3=2
-    await page.click('button:has-text("=")');
-    await page.waitForTimeout(300);
-
-    // After pressing equals, should show 2 (5-3=2)
-    display = await page.textContent('.display');
-    expect(display).toBe('2');
-  });
-
   test('should handle division by zero', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.calculator', { timeout: 10000 });
 
-    // Click 3 ÷ 0 =
-    await page.click('button:has-text("3")');
+    await page.click('button:has-text("5")');
     await page.click('button:has-text("÷")');
     await page.click('button:has-text("0")');
     await page.click('button:has-text("=")');
@@ -159,8 +251,7 @@ test.describe('Calculator Example', () => {
     await page.waitForTimeout(300);
 
     const display = await page.textContent('.display');
-    // Should handle gracefully (0 or Error are acceptable)
-    expect(['0', 'Error']).toContain(display);
+    expect(display).toBe('0');
   });
 
   test('should display built with Guix message', async ({ page }) => {
