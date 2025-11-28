@@ -337,8 +337,8 @@ func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	// Reset hoisted component map for this component
 	g.hoistedComponentMap = make(map[*guixast.Element]*childComponentInfo)
 
-	// Generate Props struct if component has parameters
-	if len(comp.Params) > 0 {
+	// Generate Props struct and option functions only if @props directive is present
+	if comp.AutoProps && len(comp.Params) > 0 {
 		decls = append(decls, g.generatePropsStruct(comp))
 		decls = append(decls, g.generateOptionType(comp))
 		decls = append(decls, g.generateOptionFuncs(comp)...)
@@ -468,9 +468,18 @@ func (g *Generator) generatePropsStruct(comp *guixast.Component) *ast.GenDecl {
 	fields := make([]*ast.Field, len(comp.Params))
 
 	for i, param := range comp.Params {
+		paramType := g.typeToAST(param.Type)
+
+		// For variadic parameters, wrap the type in a slice
+		if param.IsVariadic {
+			paramType = &ast.ArrayType{
+				Elt: paramType,
+			}
+		}
+
 		fields[i] = &ast.Field{
 			Names: []*ast.Ident{ast.NewIdent(capitalize(param.Name))},
-			Type:  g.typeToAST(param.Type),
+			Type:  paramType,
 		}
 	}
 
@@ -596,9 +605,18 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 
 	// Add parameter fields
 	for _, param := range comp.Params {
+		paramType := g.typeToAST(param.Type)
+
+		// For variadic parameters, wrap the type in a slice
+		if param.IsVariadic {
+			paramType = &ast.ArrayType{
+				Elt: paramType,
+			}
+		}
+
 		fields = append(fields, &ast.Field{
 			Names: []*ast.Ident{ast.NewIdent(capitalize(param.Name))},
-			Type:  g.typeToAST(param.Type),
+			Type:  paramType,
 		})
 
 		// For channel parameters, add a current value field
@@ -696,9 +714,10 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 	funcName := "New" + comp.Name
 	optionType := comp.Name + "Option"
 
-	// Build function params
+	// Build function params based on AutoProps flag
 	var params *ast.FieldList
-	if len(comp.Params) > 0 {
+	if comp.AutoProps && len(comp.Params) > 0 {
+		// AutoProps mode: use variadic options pattern
 		params = &ast.FieldList{
 			List: []*ast.Field{
 				{
@@ -708,6 +727,27 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					},
 				},
 			},
+		}
+	} else if len(comp.Params) > 0 {
+		// Manual mode: pass parameters as-is
+		var paramFields []*ast.Field
+		for _, param := range comp.Params {
+			paramType := g.typeToAST(param.Type)
+
+			// Handle variadic parameters
+			if param.IsVariadic {
+				paramType = &ast.Ellipsis{
+					Elt: paramType,
+				}
+			}
+
+			paramFields = append(paramFields, &ast.Field{
+				Names: []*ast.Ident{ast.NewIdent(param.Name)},
+				Type:  paramType,
+			})
+		}
+		params = &ast.FieldList{
+			List: paramFields,
 		}
 	}
 
@@ -727,8 +767,9 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 		},
 	}
 
-	// Add option application loop only if there are parameters
-	if len(comp.Params) > 0 {
+	// Add option application loop or parameter assignments based on AutoProps
+	if comp.AutoProps && len(comp.Params) > 0 {
+		// AutoProps mode: apply variadic options
 		bodyStmts = append(bodyStmts, &ast.RangeStmt{
 			Key:   ast.NewIdent("_"),
 			Value: ast.NewIdent("opt"),
@@ -745,6 +786,20 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 				},
 			},
 		})
+	} else if len(comp.Params) > 0 {
+		// Manual mode: assign parameters to struct fields
+		for _, param := range comp.Params {
+			bodyStmts = append(bodyStmts, &ast.AssignStmt{
+				Lhs: []ast.Expr{
+					&ast.SelectorExpr{
+						X:   ast.NewIdent("c"),
+						Sel: ast.NewIdent(capitalize(param.Name)),
+					},
+				},
+				Tok: token.ASSIGN,
+				Rhs: []ast.Expr{ast.NewIdent(param.Name)},
+			})
+		}
 	}
 
 	// Initialize hoisted variables (like channels) in constructor

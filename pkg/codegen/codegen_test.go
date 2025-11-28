@@ -17,7 +17,7 @@ func TestGenerateSimpleComponent(t *testing.T) {
 			name: "simple component with string parameter",
 			source: `package main
 
-func Button(label string) (Component) {
+@props func Button(label string) (Component) {
 	Div {
 		Span {
 			` + "`{label}`" + `
@@ -40,7 +40,7 @@ func Button(label string) (Component) {
 			name: "component with channel parameter",
 			source: `package main
 
-func Counter(counterChannel chan int) (Component) {
+@props func Counter(counterChannel chan int) (Component) {
 	Div(Class("counter-display")) {
 		Span(Class("counter-value")) {
 			` + "`Counter: {<-counterChannel}`" + `
@@ -66,7 +66,7 @@ func Counter(counterChannel chan int) (Component) {
 			name: "component with multiple channels",
 			source: `package main
 
-func Dashboard(dataChannel chan string, statusChannel chan int) (Component) {
+@props func Dashboard(dataChannel chan string, statusChannel chan int) (Component) {
 	Div {
 		Span {
 			` + "`Data: {<-dataChannel}`" + `
@@ -102,7 +102,7 @@ func Dashboard(dataChannel chan string, statusChannel chan int) (Component) {
 			name: "component with mixed parameters",
 			source: `package main
 
-func UserCard(name string, updateChannel chan string, age int) (Component) {
+@props func UserCard(name string, updateChannel chan string, age int) (Component) {
 	Div(Class("user-card")) {
 		H1 {
 			` + "`{name}`" + `
@@ -137,7 +137,7 @@ func UserCard(name string, updateChannel chan string, age int) (Component) {
 			name: "component with complex HTML structure",
 			source: `package main
 
-func Card(title string, content string) (Component) {
+@props func Card(title string, content string) (Component) {
 	Div(Class("card")) {
 		Div(Class("card-header")) {
 			H2(Class("card-title")) {
@@ -323,7 +323,7 @@ func Footer(copyright string) (Component) {
 func TestGenerateComponentWithMultipleChannelsAndParameters(t *testing.T) {
 	source := `package main
 
-func ComplexWidget(
+@props func ComplexWidget(
 	title string,
 	dataStream chan string,
 	count int,

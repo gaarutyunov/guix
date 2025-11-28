@@ -1,0 +1,80 @@
+package main
+
+// Example 1: Component with normal parameters
+// Constructor signature: func NewSimpleCard(title string, description string) *SimpleCard
+func SimpleCard(title string, description string) (Component) {
+	Div(Class("card")) {
+		H2(Class("card-title")) {
+			`{title}`
+		}
+		P(Class("card-description")) {
+			`{description}`
+		}
+	}
+}
+
+// Example 2: Component with multiple parameters
+// Constructor signature: func NewProductCard(productName string, price float64, inStock bool) *ProductCard
+func ProductCard(productName string, price float64, inStock bool) (Component) {
+	Div(Class("product-card")) {
+		H2 {
+			`{productName}`
+		}
+		P {
+			`Price: ${price}`
+		}
+		if inStock {
+			Span(Class("in-stock")) {
+				"In Stock"
+			}
+		} else {
+			Span(Class("out-of-stock")) {
+				"Out of Stock"
+			}
+		}
+	}
+}
+
+// Example 3: Component with @props directive (automatic props generation)
+// Constructor signature: func NewAutoCard(opts ...AutoCardOption) *AutoCard
+// Props struct and option functions are auto-generated
+@props func AutoCard(title string, subtitle string, highlighted bool) (Component) {
+	Div(Class("auto-card")) {
+		H1 {
+			`{title}`
+		}
+		P {
+			`{subtitle}`
+		}
+		if highlighted {
+			Span(Class("highlight")) {
+				"⭐"
+			}
+		}
+	}
+}
+
+// Example 4: Component with variadic parameters (like Go's fmt.Sprint)
+// Constructor signature: func NewMessageList(messages ...string) *MessageList
+func MessageList(messages ...string) (Component) {
+	Div(Class("message-list")) {
+		H2 {
+			"Messages"
+		}
+		for _, msg in messages {
+			Div(Class("message-item")) {
+				`{msg}`
+			}
+		}
+	}
+}
+
+// Example 5: Component with channel parameter (using @props)
+@props func LiveCounter(count chan int) (Component) {
+	currentCount := <-count
+	Div(Class("live-counter")) {
+		Span(Class("count-value")) {
+			`Count: {currentCount}`
+		}
+	}
+}

@@ -1,0 +1,65 @@
+package main
+
+func App() (Component) {
+	// Channel for the live counter example
+	counterChan := make(chan int, 10)
+
+	Div(Class("app-container")) {
+		H1 {
+			"Parameter Passing Examples"
+		}
+
+		Div(Class("section")) {
+			H2 {
+				"Auto Props (@props directive)"
+			}
+			P {
+				"Component defined: @props func AutoCard(title string, subtitle string, highlighted bool)"
+			}
+			P {
+				"Usage: NewAutoCard(WithTitle(\"...\"), WithSubtitle(\"...\"), WithHighlighted(true))"
+			}
+			AutoCard(
+				WithTitle("Auto-generated"),
+				WithSubtitle("Using @props directive"),
+				WithHighlighted(true)
+			)
+		}
+
+		Div(Class("section")) {
+			H2 {
+				"Channel with @props"
+			}
+			P {
+				"Component defined: @props func LiveCounter(count chan int)"
+			}
+			P {
+				"Usage: NewLiveCounter(WithCount(channel))"
+			}
+			LiveCounter(WithCount(counterChan))
+		}
+
+		Div(Class("info-section")) {
+			H2 {
+				"Other Parameter Passing Styles"
+			}
+			P {
+				"See the README.md for examples of:"
+			}
+			Div {
+				P {
+					"• Normal Parameters: NewSimpleCard(title, description)"
+				}
+				P {
+					"• Props Struct: NewUserProfile(UserProfileProps{...})"
+				}
+				P {
+					"• Multiple Parameters: NewProductCard(name, price, inStock)"
+				}
+				P {
+					"• Variadic Parameters: NewMessageList(msg1, msg2, msg3, ...)"
+				}
+			}
+		}
+	}
+}
