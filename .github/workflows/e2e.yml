@@ -30,7 +30,7 @@ jobs:
 
       - name: Generate and build counter example
         run: |
-          ./guix generate -p examples/counter
+          ./guix generate -p examples/counter --verbose-logs
           cd examples/counter
           # Copy wasm_exec.js from Go installation
           GOROOT="$(go env GOROOT)"
@@ -64,4 +64,60 @@ jobs:
         with:
           name: playwright-results
           path: examples/counter/test-results/
+          retention-days: 7
+
+  calculator:
+    name: Calculator E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build CLI
+        run: go build -o guix ./cmd/guix
+
+      - name: Generate and build calculator example
+        run: |
+          ./guix generate -p examples/calculator --verbose-logs
+          cd examples/calculator
+
+          # Copy wasm_exec.js from Go installation
+          GOROOT="$(go env GOROOT)"
+          if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/lib/wasm/wasm_exec.js" .
+          elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/misc/wasm/wasm_exec.js" .
+          else
+            echo "wasm_exec.js not found in GOROOT, downloading from GitHub"
+            curl -o wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
+          fi
+          GOOS=js GOARCH=wasm go build -o main.wasm .
+          echo "Files after build:"
+          ls -lah *.{html,js,wasm} 2>/dev/null || ls -lah
+
+      - name: Install Playwright
+        working-directory: examples/calculator
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: examples/calculator
+        run: npx playwright test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calculator-playwright-results
+          path: examples/calculator/test-results/
           retention-days: 7

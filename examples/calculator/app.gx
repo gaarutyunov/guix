@@ -1,0 +1,21 @@
+package main
+
+func App() (Component) {
+	stateChannel := make(chan CalculatorState, 10)
+	stateChannel <- CalculatorState{
+		Tokens:         nil,
+		CurrentInput:   "",
+		JustCalculated: false,
+		LastResult:     0,
+	}
+
+	Div(Class("app-container")) {
+		H1 {
+			"Calculator"
+		}
+		Calculator(WithStateChannel(stateChannel))
+		Div(Class("info")) {
+			"Built with Guix"
+		}
+	}
+}

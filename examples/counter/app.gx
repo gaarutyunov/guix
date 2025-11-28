@@ -2,7 +2,7 @@ package main
 
 import "strconv"
 
-func App() {
+func App() (Component) {
 	counter := make(chan int, 10)
 
 	Div(Class("app-container")) {
@@ -15,7 +15,7 @@ func App() {
 				Type("number"),
 				Placeholder("Enter a number"),
 				ID("counter-input"),
-				OnInput(func(e: Event) {
+				OnInput(func(e Event) {
 					value := e.Target.Value
 					n, _ := strconv.Atoi(value)
 					counter <- n

@@ -15,7 +15,7 @@ var guixLexer = lexer.MustStateful(lexer.Rules{
 	"Root": {
 		{"Comment", `//[^\n]*`, nil},
 		{"Whitespace", `\s+`, nil},
-		{"Keyword", `\b(package|import|if|else|for|in|return|func|chan|true|false|make)\b`, nil},
+		{"Keyword", `\b(package|import|type|struct|if|else|for|in|return|func|chan|true|false|make)\b`, nil},
 		{"Op", `(<-|:=|\+=|-=|\*=|/=|==|!=|<=|>=|&&|\|\||[+\-*/<>&|!.=])`, nil},
 		{"Ident", `[a-zA-Z_][a-zA-Z0-9_]*`, nil},
 		{"Number", `\d+\.?\d*`, nil},
@@ -44,7 +44,7 @@ func New() (*Parser, error) {
 	p, err := participle.Build[ast.File](
 		participle.Lexer(guixLexer),
 		participle.Elide("Comment", "Whitespace"),
-		participle.UseLookahead(2),
+		participle.UseLookahead(10), // Increased for better disambiguation
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build parser: %w", err)
