@@ -24,25 +24,73 @@ func tokensToString(tokens []string) string {
 	return strings.Join(tokens, " ")
 }
 
-// calculateFromTokens evaluates a slice of tokens
+// calculateFromTokens evaluates a slice of tokens with proper operator precedence
 func calculateFromTokens(tokens []string) float64 {
 	// Handle empty case
 	if len(tokens) == 0 {
 		return 0
 	}
 
-	// Parse first number
-	result, _ := strconv.ParseFloat(tokens[0], 64)
-
-	// Loop through operator-number pairs
-	for i := 1; i < len(tokens); i = i + 2 {
-		if i+1 < len(tokens) {
-			operator := tokens[i]
-			num, _ := strconv.ParseFloat(tokens[i+1], 64)
-			result = calculate(result, num, operator)
-		}
+	// Handle single number
+	if len(tokens) == 1 {
+		result, _ := strconv.ParseFloat(tokens[0], 64)
+		return result
 	}
 
+	// Make a copy of tokens to work with
+	workingTokens := make([]string, len(tokens))
+	copy(workingTokens, tokens)
+
+	// First pass: handle * and / (higher precedence)
+	i := 1
+	for i < len(workingTokens) {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if operator == "*" || operator == "/" {
+				// Get left and right operands
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+
+				// Calculate result
+				result := calculate(left, right, operator)
+
+				// Replace the three tokens (num op num) with the result
+				resultStr := formatNumber(result)
+				workingTokens = append(workingTokens[:i-1], append([]string{resultStr}, workingTokens[i+2:]...)...)
+
+				// Don't increment i, check same position again
+				continue
+			}
+		}
+		i = i + 2
+	}
+
+	// Second pass: handle + and - (lower precedence)
+	i = 1
+	for i < len(workingTokens) {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if operator == "+" || operator == "-" {
+				// Get left and right operands
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+
+				// Calculate result
+				result := calculate(left, right, operator)
+
+				// Replace the three tokens with the result
+				resultStr := formatNumber(result)
+				workingTokens = append(workingTokens[:i-1], append([]string{resultStr}, workingTokens[i+2:]...)...)
+
+				// Don't increment i, check same position again
+				continue
+			}
+		}
+		i = i + 2
+	}
+
+	// Parse final result
+	result, _ := strconv.ParseFloat(workingTokens[0], 64)
 	return result
 }
 
