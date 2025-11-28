@@ -160,6 +160,9 @@ func (v *BaseVisitor) VisitCallStmt(node *CallStmt) interface{} {
 }
 
 func (v *BaseVisitor) VisitAssignmentStmt(node *AssignmentStmt) interface{} {
+	if node.Index != nil {
+		node.Index.Accept(v)
+	}
 	if node.Right != nil {
 		node.Right.Accept(v)
 	}
@@ -211,11 +214,25 @@ func (v *BaseVisitor) VisitElse(node *Else) interface{} {
 }
 
 func (v *BaseVisitor) VisitForLoop(node *ForLoop) interface{} {
+	// Range-based for loop
 	if node.Range != nil {
 		node.Range.Accept(v)
 	}
 	if node.Body != nil {
 		node.Body.Accept(v)
+	}
+	// C-style for loop
+	if node.Init != nil {
+		node.Init.Accept(v)
+	}
+	if node.Cond != nil {
+		node.Cond.Accept(v)
+	}
+	if node.Post != nil {
+		node.Post.Accept(v)
+	}
+	if node.CBody != nil {
+		node.CBody.Accept(v)
 	}
 	return nil
 }
@@ -301,6 +318,9 @@ func (v *BaseVisitor) VisitPrimary(node *Primary) interface{} {
 	if node.MakeCall != nil {
 		node.MakeCall.Accept(v)
 	}
+	if node.IndexExpr != nil {
+		node.IndexExpr.Accept(v)
+	}
 	if node.CallOrSel != nil {
 		node.CallOrSel.Accept(v)
 	}
@@ -327,6 +347,26 @@ func (v *BaseVisitor) VisitLiteral(node *Literal) interface{} {
 	return nil
 }
 
+func (v *BaseVisitor) VisitIndexExpr(node *IndexExpr) interface{} {
+	if node.Index != nil {
+		node.Index.Accept(v)
+	}
+	if node.Slice != nil {
+		node.Slice.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitSliceExpr(node *SliceExpr) interface{} {
+	if node.Low != nil {
+		node.Low.Accept(v)
+	}
+	if node.High != nil {
+		node.High.Accept(v)
+	}
+	return nil
+}
+
 func (v *BaseVisitor) VisitCallOrSelect(node *CallOrSelect) interface{} {
 	for _, arg := range node.Args {
 		arg.Accept(v)
@@ -349,8 +389,17 @@ func (v *BaseVisitor) VisitMakeCall(node *MakeCall) interface{} {
 	if node.ChanType != nil {
 		node.ChanType.Accept(v)
 	}
-	if node.Size != nil {
-		node.Size.Accept(v)
+	if node.ChanSize != nil {
+		node.ChanSize.Accept(v)
+	}
+	if node.SliceType != nil {
+		node.SliceType.Accept(v)
+	}
+	if node.SliceLen != nil {
+		node.SliceLen.Accept(v)
+	}
+	if node.SliceCap != nil {
+		node.SliceCap.Accept(v)
 	}
 	return nil
 }

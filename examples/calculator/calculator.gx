@@ -1,5 +1,9 @@
 package main
 
+import "fmt"
+import "strconv"
+import "strings"
+
 type CalculatorState struct {
 	Tokens         []string // Slice of tokens (e.g., ["2", "+", "3"])
 	CurrentInput   string   // Current number being typed
@@ -193,7 +197,137 @@ func buildDisplay(state CalculatorState) (string) {
 	return display
 }
 
-// Helper functions are in helpers.go
+// Helper functions
+
+// appendToken appends a token to a slice of tokens
+func appendToken(tokens []string, token string) ([]string) {
+	return append(tokens, token)
+}
+
+// tokensToString converts a slice of tokens to a display string
+func tokensToString(tokens []string) (string) {
+	return strings.Join(tokens, " ")
+}
+
+// calculateFromTokens evaluates a slice of tokens with proper operator precedence
+func calculateFromTokens(tokens []string) (float64) {
+	// Handle empty case
+	if len(tokens) == 0 {
+		return 0
+	}
+
+	// Handle single number
+	if len(tokens) == 1 {
+		result, _ := strconv.ParseFloat(tokens[0], 64)
+		return result
+	}
+
+	// Make a copy of tokens to work with
+	workingTokens := make([]string, len(tokens))
+	copy(workingTokens, tokens)
+
+	// First pass: handle * and / (higher precedence)
+	for i := 1; i < len(workingTokens); i += 0 {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if (operator == "*") || (operator == "/") {
+				// Get left and right operands
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+
+				// Calculate result
+				result := calculate(left, right, operator)
+
+				// Replace the three tokens (num op num) with the result
+				resultStr := formatNumber(result)
+
+				// Build new slice manually
+				newLen := len(workingTokens) - 2
+				newTokens := make([]string, newLen)
+				// Copy tokens before the operation
+				for j := 0; j < (i-1); j += 1 {
+					newTokens[j] = workingTokens[j]
+				}
+				// Add result
+				newTokens[i-1] = resultStr
+				// Copy tokens after the operation
+				for j := i+2; j < len(workingTokens); j += 1 {
+					newTokens[j-2] = workingTokens[j]
+				}
+				workingTokens = newTokens
+			} else {
+				i = i + 2
+			}
+		} else {
+			i = i + 2
+		}
+	}
+
+	// Second pass: handle + and - (lower precedence)
+	for i := 1; i < len(workingTokens); i += 0 {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if (operator == "+") || (operator == "-") {
+				// Get left and right operands
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+
+				// Calculate result
+				result := calculate(left, right, operator)
+
+				// Replace the three tokens with the result
+				resultStr := formatNumber(result)
+
+				// Build new slice manually
+				newLen := len(workingTokens) - 2
+				newTokens := make([]string, newLen)
+				// Copy tokens before the operation
+				for j := 0; j < (i-1); j += 1 {
+					newTokens[j] = workingTokens[j]
+				}
+				// Add result
+				newTokens[i-1] = resultStr
+				// Copy tokens after the operation
+				for j := i+2; j < len(workingTokens); j += 1 {
+					newTokens[j-2] = workingTokens[j]
+				}
+				workingTokens = newTokens
+			} else {
+				i = i + 2
+			}
+		} else {
+			i = i + 2
+		}
+	}
+
+	// Parse final result
+	result, _ := strconv.ParseFloat(workingTokens[0], 64)
+	return result
+}
+
+// calculate performs a single operation
+func calculate(a float64, b float64, operator string) (float64) {
+	result := b
+	if operator == "+" {
+		result = a + b
+	} else if operator == "-" {
+		result = a - b
+	} else if operator == "*" {
+		result = a * b
+	} else if operator == "/" {
+		if b != 0 {
+			result = a / b
+		} else {
+			result = 0
+		}
+	}
+	return result
+}
+
+// formatNumber formats a float64 for display
+func formatNumber(num float64) (string) {
+	return fmt.Sprintf("%g", num)
+}
 
 func NewCalculatorStateChannel() (chan CalculatorState) {
 	ch := make(chan CalculatorState, 10)
