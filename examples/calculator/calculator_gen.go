@@ -8,6 +8,8 @@ package main
 import (
 	"fmt"
 	"github.com/gaarutyunov/guix/pkg/runtime"
+	"strconv"
+	"strings"
 	"syscall/js"
 )
 
@@ -41,14 +43,11 @@ func NewCalculator(opts ...CalculatorOption) *Calculator {
 		opt(c)
 	}
 	if c.StateChannel != nil {
-		log("Calculator: About to read initial state from StateChannel")
 		c.currentStateChannel = <-c.StateChannel
-		log("Calculator: Received initial state from channel")
 	}
 	return c
 }
 func (c *Calculator) BindApp(app *runtime.App) {
-	log("Calculator: BindApp called")
 	c.app = app
 	if c.listenersStarted {
 		return
@@ -69,7 +68,6 @@ func (c *Calculator) startStateChannelListener() {
 	}()
 }
 func (c *Calculator) Render() *runtime.VNode {
-	log("Calculator: Render called")
 	return func() *runtime.VNode {
 		return runtime.Div(runtime.Class("calculator"), runtime.Div(runtime.Class("display"), runtime.Text(fmt.Sprint(buildDisplay(c.currentStateChannel)))), runtime.Div(runtime.Class("buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
 			handleNumber(c.StateChannel, c.currentStateChannel, "7")
@@ -171,6 +169,95 @@ func buildDisplay(state CalculatorState) string {
 		display = "0"
 	}
 	return display
+}
+func appendToken(tokens []string, token string) []string {
+	return append(tokens, token)
+}
+func tokensToString(tokens []string) string {
+	return strings.Join(tokens, " ")
+}
+func calculateFromTokens(tokens []string) float64 {
+	if len(tokens) == 0 {
+		return 0
+	}
+	if len(tokens) == 1 {
+		result, _ := strconv.ParseFloat(tokens[0], 64)
+		return result
+	}
+	workingTokens := make([]string, len(tokens))
+	copy(workingTokens, tokens)
+	for i := 1; i < len(workingTokens); i += 0 {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if (operator == "*") || (operator == "/") {
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+				result := calculate(left, right, operator)
+				resultStr := formatNumber(result)
+				newLen := len(workingTokens) - 2
+				newTokens := make([]string, newLen)
+				for j := 0; j < (i - 1); j += 1 {
+					newTokens[j] = workingTokens[j]
+				}
+				newTokens[i-1] = resultStr
+				for j := i + 2; j < len(workingTokens); j += 1 {
+					newTokens[j-2] = workingTokens[j]
+				}
+				workingTokens = newTokens
+			} else {
+				i = i + 2
+			}
+		} else {
+			i = i + 2
+		}
+	}
+	for i := 1; i < len(workingTokens); i += 0 {
+		if i+1 < len(workingTokens) {
+			operator := workingTokens[i]
+			if (operator == "+") || (operator == "-") {
+				left, _ := strconv.ParseFloat(workingTokens[i-1], 64)
+				right, _ := strconv.ParseFloat(workingTokens[i+1], 64)
+				result := calculate(left, right, operator)
+				resultStr := formatNumber(result)
+				newLen := len(workingTokens) - 2
+				newTokens := make([]string, newLen)
+				for j := 0; j < (i - 1); j += 1 {
+					newTokens[j] = workingTokens[j]
+				}
+				newTokens[i-1] = resultStr
+				for j := i + 2; j < len(workingTokens); j += 1 {
+					newTokens[j-2] = workingTokens[j]
+				}
+				workingTokens = newTokens
+			} else {
+				i = i + 2
+			}
+		} else {
+			i = i + 2
+		}
+	}
+	result, _ := strconv.ParseFloat(workingTokens[0], 64)
+	return result
+}
+func calculate(a float64, b float64, operator string) float64 {
+	result := b
+	if operator == "+" {
+		result = a + b
+	} else if operator == "-" {
+		result = a - b
+	} else if operator == "*" {
+		result = a * b
+	} else if operator == "/" {
+		if b != 0 {
+			result = a / b
+		} else {
+			result = 0
+		}
+	}
+	return result
+}
+func formatNumber(num float64) string {
+	return fmt.Sprintf("%g", num)
 }
 func NewCalculatorStateChannel() chan CalculatorState {
 	ch := make(chan CalculatorState, 10)

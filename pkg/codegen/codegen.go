@@ -1654,6 +1654,10 @@ func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
 		return g.generateMakeCall(primary.MakeCall)
 	}
 
+	if primary.IndexExpr != nil {
+		return g.generateIndexExpr(primary.IndexExpr)
+	}
+
 	if primary.CallOrSel != nil {
 		return g.generateCallOrSelect(primary.CallOrSel)
 	}
@@ -1798,17 +1802,35 @@ func (g *Generator) generateLiteral(lit *guixast.Literal) ast.Expr {
 // generateMakeCall generates code for a make() function call
 // Example: make(chan int, 10)
 func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {
-	args := []ast.Expr{
-		// First argument is the channel type
-		&ast.ChanType{
-			Dir:   ast.SEND | ast.RECV,
-			Value: g.typeToAST(makeCall.ChanType),
-		},
-	}
+	var args []ast.Expr
 
-	// Add size argument if present
-	if makeCall.Size != nil {
-		args = append(args, g.generateExpr(makeCall.Size))
+	if makeCall.ChanType != nil {
+		// Channel make: make(chan Type, size)
+		args = []ast.Expr{
+			&ast.ChanType{
+				Dir:   ast.SEND | ast.RECV,
+				Value: g.typeToAST(makeCall.ChanType),
+			},
+		}
+		// Add size argument if present
+		if makeCall.ChanSize != nil {
+			args = append(args, g.generateExpr(makeCall.ChanSize))
+		}
+	} else if makeCall.SliceType != nil {
+		// Slice make: make([]Type, len, cap)
+		args = []ast.Expr{
+			&ast.ArrayType{
+				Elt: g.typeToAST(makeCall.SliceType),
+			},
+		}
+		// Add length argument
+		if makeCall.SliceLen != nil {
+			args = append(args, g.generateExpr(makeCall.SliceLen))
+		}
+		// Add capacity argument if present
+		if makeCall.SliceCap != nil {
+			args = append(args, g.generateExpr(makeCall.SliceCap))
+		}
 	}
 
 	return &ast.CallExpr{
@@ -1819,6 +1841,32 @@ func (g *Generator) generateMakeCall(makeCall *guixast.MakeCall) ast.Expr {
 
 // generateCallOrSelect generates code for a call or selector expression
 // If Args is present, generates a call. Otherwise, generates a selector.
+// generateIndexExpr generates an index or slice expression
+func (g *Generator) generateIndexExpr(idx *guixast.IndexExpr) ast.Expr {
+	if idx.Index != nil {
+		// Regular indexing: arr[index]
+		return &ast.IndexExpr{
+			X:     ast.NewIdent(idx.Base),
+			Index: g.generateExpr(idx.Index),
+		}
+	} else if idx.Slice != nil {
+		// Slice expression: arr[low:high]
+		var low, high ast.Expr
+		if idx.Slice.Low != nil {
+			low = g.generateExpr(idx.Slice.Low)
+		}
+		if idx.Slice.High != nil {
+			high = g.generateExpr(idx.Slice.High)
+		}
+		return &ast.SliceExpr{
+			X:    ast.NewIdent(idx.Base),
+			Low:  low,
+			High: high,
+		}
+	}
+	return ast.NewIdent(idx.Base)
+}
+
 func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 	// Check if this is a simple identifier (no fields, no args)
 	if len(cos.Fields) == 0 && len(cos.Args) == 0 {
@@ -1971,6 +2019,14 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 			}
 		}
 
+		// Add index if present
+		if stmt.AssignStmt.Index != nil {
+			baseExpr = &ast.IndexExpr{
+				X:     baseExpr,
+				Index: g.generateExpr(stmt.AssignStmt.Index),
+			}
+		}
+
 		// Handle channel send operation
 		if stmt.AssignStmt.Op == "<-" {
 			return &ast.SendStmt{
@@ -2065,11 +2121,113 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 	}
 
 	if stmt.For != nil {
-		// TODO: Generate for loop statement
-		return &ast.EmptyStmt{}
+		return g.generateForLoopStmt(stmt.For)
 	}
 
 	return &ast.EmptyStmt{}
+}
+
+// generateForLoopStmt generates a for loop statement
+func (g *Generator) generateForLoopStmt(forLoop *guixast.ForLoop) ast.Stmt {
+	// Check if it's a range-based for loop or C-style for loop
+	if forLoop.Range != nil {
+		// Range-based for loop: for key, val in range
+		var key, val ast.Expr
+		if forLoop.Key != "" {
+			key = ast.NewIdent(forLoop.Key)
+			val = ast.NewIdent(forLoop.Val)
+		} else {
+			key = ast.NewIdent("_")
+			val = ast.NewIdent(forLoop.Val)
+		}
+
+		// Generate range statement
+		return &ast.RangeStmt{
+			Key:   key,
+			Value: val,
+			Tok:   token.DEFINE,
+			X:     g.generateExpr(forLoop.Range),
+			Body:  g.generateBodyAsBlock(forLoop.Body),
+		}
+	} else {
+		// C-style for loop: for init; cond; post { body }
+		var init ast.Stmt
+		if forLoop.Init != nil {
+			// Generate initialization statement
+			lhs := make([]ast.Expr, len(forLoop.Init.Names))
+			for i, name := range forLoop.Init.Names {
+				lhs[i] = ast.NewIdent(name)
+			}
+			rhs := make([]ast.Expr, len(forLoop.Init.Values))
+			for i, val := range forLoop.Init.Values {
+				rhs[i] = g.generateExpr(val)
+			}
+			init = &ast.AssignStmt{
+				Lhs: lhs,
+				Tok: g.assignOpToToken(forLoop.Init.Op),
+				Rhs: rhs,
+			}
+		}
+
+		var cond ast.Expr
+		if forLoop.Cond != nil {
+			cond = g.generateExpr(forLoop.Cond)
+		}
+
+		var post ast.Stmt
+		if forLoop.Post != nil {
+			// Generate post statement
+			var baseExpr ast.Expr = ast.NewIdent(forLoop.Post.Base)
+			for _, field := range forLoop.Post.Fields {
+				baseExpr = &ast.SelectorExpr{
+					X:   baseExpr,
+					Sel: ast.NewIdent(field),
+				}
+			}
+			post = &ast.AssignStmt{
+				Lhs: []ast.Expr{baseExpr},
+				Tok: g.assignOpToToken(forLoop.Post.Op),
+				Rhs: []ast.Expr{g.generateExpr(forLoop.Post.Right)},
+			}
+		}
+
+		// Generate for statement
+		return &ast.ForStmt{
+			Init: init,
+			Cond: cond,
+			Post: post,
+			Body: g.generateFuncBody(forLoop.CBody),
+		}
+	}
+}
+
+// generateBodyAsBlock converts a Body to a BlockStmt
+func (g *Generator) generateBodyAsBlock(body *guixast.Body) *ast.BlockStmt {
+	stmts := make([]ast.Stmt, 0)
+
+	// Add variable declarations
+	for _, varDecl := range body.VarDecls {
+		lhs := make([]ast.Expr, len(varDecl.Names))
+		for i, name := range varDecl.Names {
+			lhs[i] = ast.NewIdent(name)
+		}
+		rhs := make([]ast.Expr, len(varDecl.Values))
+		for i, val := range varDecl.Values {
+			rhs[i] = g.generateExpr(val)
+		}
+		stmts = append(stmts, &ast.AssignStmt{
+			Lhs: lhs,
+			Tok: g.assignOpToToken(varDecl.Op),
+			Rhs: rhs,
+		})
+	}
+
+	// Add statements
+	for _, stmt := range body.Statements {
+		stmts = append(stmts, g.generateBodyStatement(stmt))
+	}
+
+	return &ast.BlockStmt{List: stmts}
 }
 
 // generateStatement generates code for a statement
@@ -2123,6 +2281,14 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 			baseExpr = &ast.SelectorExpr{
 				X:   ast.NewIdent("c"),
 				Sel: ast.NewIdent(stmt.AssignStmt.Base),
+			}
+		}
+
+		// Add index if present
+		if stmt.AssignStmt.Index != nil {
+			baseExpr = &ast.IndexExpr{
+				X:     baseExpr,
+				Index: g.generateExpr(stmt.AssignStmt.Index),
 			}
 		}
 
@@ -2223,8 +2389,7 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 	}
 
 	if stmt.For != nil {
-		// TODO: Generate for loop statement
-		return &ast.EmptyStmt{}
+		return g.generateForLoopStmt(stmt.For)
 	}
 
 	return &ast.EmptyStmt{}
