@@ -8,16 +8,14 @@ package main
 import (
 	"fmt"
 	"github.com/gaarutyunov/guix/pkg/runtime"
-	"strconv"
-	"strings"
 	"syscall/js"
 )
 
 type CalculatorState struct {
-	Display        string
 	Expression     string
-	LastResult     float64
+	CurrentInput   string
 	JustCalculated bool
+	LastResult     float64
 }
 type CalculatorProps struct {
 	StateChannel chan CalculatorState
@@ -73,7 +71,7 @@ func (c *Calculator) startStateChannelListener() {
 func (c *Calculator) Render() *runtime.VNode {
 	log("Calculator: Render called")
 	return func() *runtime.VNode {
-		return runtime.Div(runtime.Class("calculator"), runtime.Div(runtime.Class("display"), runtime.Text(fmt.Sprint(c.currentStateChannel.Display))), runtime.Div(runtime.Class("buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
+		return runtime.Div(runtime.Class("calculator"), runtime.Div(runtime.Class("display"), runtime.Text(fmt.Sprint(buildDisplay(c.currentStateChannel)))), runtime.Div(runtime.Class("buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
 			handleNumber(c.StateChannel, c.currentStateChannel, "7")
 		}), runtime.Text("7")), runtime.Button(runtime.Class("button number"), runtime.OnClick(func(e runtime.Event) {
 			handleNumber(c.StateChannel, c.currentStateChannel, "8")
@@ -120,77 +118,67 @@ func (c *Calculator) Update() {
 }
 func handleNumber(stateChannel chan CalculatorState, state CalculatorState, digit string) {
 	if state.JustCalculated {
-		state.Expression = digit
-		state.Display = digit
+		state.Expression = ""
+		state.CurrentInput = digit
 		state.JustCalculated = false
 	} else {
-		state.Expression = state.Expression + digit
-		state.Display = state.Expression
+		state.CurrentInput = state.CurrentInput + digit
 	}
 	stateChannel <- state
 }
 func handleOperator(stateChannel chan CalculatorState, state CalculatorState, operator string) {
 	if state.JustCalculated {
-		state.Expression = formatNumber(state.LastResult) + " " + operator + " "
-		state.Display = state.Expression
+		state.Expression = formatNumber(state.LastResult) + " " + operator
+		state.CurrentInput = ""
 		state.JustCalculated = false
-	} else if state.Expression != "" {
-		state.Expression = state.Expression + " " + operator + " "
-		state.Display = state.Expression
+	} else if state.CurrentInput != "" {
+		if state.Expression != "" {
+			state.Expression = state.Expression + " " + state.CurrentInput + " " + operator
+		} else {
+			state.Expression = state.CurrentInput + " " + operator
+		}
+		state.CurrentInput = ""
 	}
 	stateChannel <- state
 }
 func handleEquals(stateChannel chan CalculatorState, state CalculatorState) {
-	result := evaluateExpr(state.Expression)
-	state.Display = formatNumber(result)
+	fullExpr := state.Expression
+	if state.CurrentInput != "" {
+		if fullExpr != "" {
+			fullExpr = fullExpr + " " + state.CurrentInput
+		} else {
+			fullExpr = state.CurrentInput
+		}
+	}
+	result := calculateFromExpression(fullExpr)
+	state.Expression = ""
+	state.CurrentInput = ""
 	state.LastResult = result
 	state.JustCalculated = true
 	stateChannel <- state
 }
 func handleClear(stateChannel chan CalculatorState) {
-	stateChannel <- CalculatorState{Display: "0", Expression: "", LastResult: 0, JustCalculated: false}
+	stateChannel <- CalculatorState{Expression: "", CurrentInput: "", JustCalculated: false, LastResult: 0}
 }
-func evaluateExpr(expr string) float64 {
-	// Parse and evaluate expression left-to-right
-	tokens := strings.Fields(expr)
-	if len(tokens) == 0 {
-		return 0.0
+func buildDisplay(state CalculatorState) string {
+	if state.JustCalculated {
+		return formatNumber(state.LastResult)
 	}
-
-	// Start with first number
-	result, _ := strconv.ParseFloat(tokens[0], 64)
-
-	// Process operator-number pairs
-	for i := 1; i < len(tokens)-1; i += 2 {
-		operator := tokens[i]
-		num, _ := strconv.ParseFloat(tokens[i+1], 64)
-		result = calculate(result, num, operator)
-	}
-
-	return result
-}
-func calculate(a float64, b float64, operator string) float64 {
-	result := b
-	if operator == "+" {
-		result = a + b
-	} else if operator == "-" {
-		result = a - b
-	} else if operator == "*" {
-		result = a * b
-	} else if operator == "/" {
-		if b != 0 {
-			result = a / b
+	display := state.Expression
+	if state.CurrentInput != "" {
+		if display != "" {
+			display = display + " " + state.CurrentInput
 		} else {
-			result = 0
+			display = state.CurrentInput
 		}
 	}
-	return result
-}
-func formatNumber(num float64) string {
-	return fmt.Sprintf("%g", num)
+	if display == "" {
+		display = "0"
+	}
+	return display
 }
 func NewCalculatorStateChannel() chan CalculatorState {
 	ch := make(chan CalculatorState, 10)
-	ch <- CalculatorState{Display: "0", Expression: "", LastResult: 0, JustCalculated: false}
+	ch <- CalculatorState{Expression: "", CurrentInput: "", JustCalculated: false, LastResult: 0}
 	return ch
 }

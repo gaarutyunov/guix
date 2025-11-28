@@ -3,10 +3,10 @@ package main
 func App() (Component) {
 	stateChannel := make(chan CalculatorState, 10)
 	stateChannel <- CalculatorState{
-		Display:        "0",
 		Expression:     "",
-		LastResult:     0,
+		CurrentInput:   "",
 		JustCalculated: false,
+		LastResult:     0,
 	}
 
 	Div(Class("app-container")) {
