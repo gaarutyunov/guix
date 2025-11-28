@@ -2,10 +2,6 @@
 
 package runtime
 
-import (
-	"syscall/js"
-)
-
 // GPUNodeType represents the type of a GPU node
 type GPUNodeType uint8
 
