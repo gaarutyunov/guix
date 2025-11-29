@@ -60,7 +60,13 @@ func main() {
 
 		fmt.Println("GPU canvas created successfully")
 
-		// Mount canvas to DOM
+		// Clear loading indicator and mount canvas to DOM
+		document := js.Global().Get("document")
+		app := document.Call("querySelector", "#app")
+		if app.Truthy() {
+			app.Set("innerHTML", "") // Clear loading indicator
+		}
+
 		if err := canvas.Mount("#app"); err != nil {
 			fmt.Println(fmt.Sprintf("Failed to mount canvas: %v", err))
 			showError(fmt.Sprintf("Failed to mount canvas: %v", err))
@@ -89,7 +95,6 @@ func main() {
 
 		// Track if first frame has been rendered
 		firstFrameRendered := false
-		document := js.Global().Get("document")
 
 		// Set render function
 		canvas.SetRenderFunc(func(c *runtime.GPUCanvas, delta float64) {
@@ -214,7 +219,10 @@ func setupControls(renderer *runtime.SceneRenderer) {
 	// Insert controls into DOM
 	app := document.Call("querySelector", "#app")
 	if app.Truthy() {
-		app.Set("innerHTML", app.Get("innerHTML").String()+controlsHTML)
+		// Create a container div for controls and append it to preserve the canvas
+		controlsDiv := document.Call("createElement", "div")
+		controlsDiv.Set("innerHTML", controlsHTML)
+		app.Call("appendChild", controlsDiv)
 	}
 
 	// Button event handlers
