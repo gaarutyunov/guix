@@ -10,6 +10,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
+  // Accept new snapshots in CI (first run), but verify existing ones
+  updateSnapshots: process.env.CI ? 'missing' : 'none',
   use: {
     baseURL: 'http://localhost:8080',
     trace: 'on-first-retry',

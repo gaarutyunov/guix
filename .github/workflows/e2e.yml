@@ -168,18 +168,12 @@ jobs:
         working-directory: examples/webgpu-cube
         run: npx playwright test
 
-      - name: Upload test results
+      - name: Upload test results and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: webgpu-cube-playwright-results
-          path: examples/webgpu-cube/test-results/
-          retention-days: 7
-
-      - name: Upload screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: webgpu-cube-screenshots
-          path: examples/webgpu-cube/tests/**/*.png
+          name: webgpu-cube-test-artifacts
+          path: |
+            examples/webgpu-cube/test-results/
+            examples/webgpu-cube/tests/**/*-snapshots/
           retention-days: 7
