@@ -2,7 +2,11 @@
 
 package main
 
-import "github.com/gaarutyunov/guix/pkg/runtime"
+import (
+	"fmt"
+
+	"github.com/gaarutyunov/guix/pkg/runtime"
+)
 
 // AppWithControls extends the generated App with Controls integration
 type AppWithControls struct {
@@ -13,19 +17,27 @@ type AppWithControls struct {
 
 // NewAppWithControls creates an App with integrated Controls
 func NewAppWithControls() *AppWithControls {
+	fmt.Println("[Go] NewAppWithControls: Creating command channel...")
 	commands := make(chan ControlCommand, 10)
 
 	// Start command processor goroutine
+	fmt.Println("[Go] NewAppWithControls: Starting command processor...")
 	go func() {
 		for cmd := range commands {
 			processControlCommand(cmd)
 		}
 	}()
 
+	fmt.Println("[Go] NewAppWithControls: Creating base App...")
+	app := NewApp()
+	fmt.Println("[Go] NewAppWithControls: Creating Controls...")
+	controls := NewControls(WithCommands(commands))
+	fmt.Println("[Go] NewAppWithControls: Done")
+
 	return &AppWithControls{
-		App:              NewApp(),
+		App:              app,
 		commands:         commands,
-		controlsInstance: NewControls(WithCommands(commands)),
+		controlsInstance: controls,
 	}
 }
 
@@ -39,18 +51,32 @@ func (a *AppWithControls) BindApp(app *runtime.App) {
 
 // Render renders the full app with controls and event handlers
 func (a *AppWithControls) Render() *runtime.VNode {
-	return runtime.Div(
+	fmt.Println("[Go] AppWithControls.Render: Called")
+	fmt.Println("[Go] AppWithControls.Render: Creating keyboard handler...")
+	keyHandler := makeKeyboardHandler(a.commands)
+	fmt.Println("[Go] AppWithControls.Render: Creating render callback...")
+	renderCallback := makeRenderUpdateCallback()
+	fmt.Println("[Go] AppWithControls.Render: Creating cube scene...")
+	cubeScene := NewCubeScene(0, 0)
+	fmt.Println("[Go] AppWithControls.Render: Rendering controls...")
+	controlsVNode := a.controlsInstance.Render()
+	fmt.Println("[Go] AppWithControls.Render: Building VNode tree...")
+
+	result := runtime.Div(
 		runtime.Class("webgpu-container"),
 		runtime.TabIndex(0),
-		runtime.OnKeyDown(makeKeyboardHandler(a.commands)),
+		runtime.OnKeyDown(keyHandler),
 		runtime.Canvas(
 			runtime.ID("webgpu-canvas"),
 			runtime.Width(600),
 			runtime.Height(400),
-			runtime.GPURenderUpdate(makeRenderUpdateCallback()),
-			runtime.GPUScene(NewCubeScene(0, 0)),
+			runtime.GPURenderUpdate(renderCallback),
+			runtime.GPUScene(cubeScene),
 		),
-		a.controlsInstance.Render(),
+		controlsVNode,
 		runtime.Div(runtime.Class("loading"), runtime.Text("Loading WebGPU...")),
 	)
+
+	fmt.Println("[Go] AppWithControls.Render: Done, returning VNode")
+	return result
 }

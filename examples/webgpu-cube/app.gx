@@ -2,7 +2,6 @@ package main
 
 func App() (Component) {
 	Div(
-		ID("app"),
 		Class("webgpu-container"),
 		TabIndex(0)
 	) {
