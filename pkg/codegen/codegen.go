@@ -2338,18 +2338,6 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 			}
 		}
 
-		// Check if component parameter needs c. prefix (capitalized)
-		if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
-			receiverName := g.receiverName
-			if receiverName == "" {
-				receiverName = "c"
-			}
-			baseExpr = &ast.SelectorExpr{
-				X:   ast.NewIdent(receiverName),
-				Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
-			}
-		}
-
 		// Add index if present
 		if stmt.AssignStmt.Index != nil {
 			baseExpr = &ast.IndexExpr{
@@ -2360,6 +2348,18 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 
 		// Handle channel send operation
 		if stmt.AssignStmt.Op == "<-" {
+			// Check if component parameter needs c. prefix (capitalized) for channel sends
+			if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				baseExpr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
+				}
+			}
+
 			return &ast.SendStmt{
 				Chan:  baseExpr,
 				Value: g.generateExpr(stmt.AssignStmt.Right),
@@ -2615,18 +2615,6 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 			}
 		}
 
-		// Check if component parameter needs c. prefix (capitalized)
-		if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
-			receiverName := g.receiverName
-			if receiverName == "" {
-				receiverName = "c"
-			}
-			baseExpr = &ast.SelectorExpr{
-				X:   ast.NewIdent(receiverName),
-				Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
-			}
-		}
-
 		// Add index if present
 		if stmt.AssignStmt.Index != nil {
 			baseExpr = &ast.IndexExpr{
@@ -2637,6 +2625,18 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 
 		// Handle channel send operation
 		if stmt.AssignStmt.Op == "<-" {
+			// Check if component parameter needs c. prefix (capitalized) for channel sends
+			if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				baseExpr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
+				}
+			}
+
 			return &ast.SendStmt{
 				Chan:  baseExpr,
 				Value: g.generateExpr(stmt.AssignStmt.Right),
