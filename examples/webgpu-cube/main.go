@@ -75,8 +75,8 @@ func main() {
 
 		fmt.Println("Canvas mounted")
 
-		// Create scene using declarative DSL-style API
-		scene := createSceneDSL()
+		// Create scene using Guix DSL from scene.gx
+		scene := createCubeScene(rotationX, rotationY)
 
 		// Create renderer
 		renderer, err := runtime.NewSceneRenderer(canvas, scene)
@@ -134,51 +134,6 @@ func main() {
 
 	// Keep the program running
 	select {}
-}
-
-// createSceneDSL builds a 3D scene using the declarative DSL-style runtime API
-// This demonstrates the WebGPU DSL that will be integrated into the .gx language
-func createSceneDSL() *runtime.GPUNode {
-	// Declarative scene graph using DSL-style function composition
-	return runtime.Scene(
-		// Scene background color
-		runtime.Background(0.1, 0.1, 0.15, 1.0),
-
-		// Rotating cube mesh with PBR material
-		runtime.Mesh(
-			runtime.GeometryProp(runtime.NewBoxGeometry(2.0, 2.0, 2.0)),
-			runtime.MaterialProp(runtime.StandardMaterial(
-				runtime.Color(0.91, 0.27, 0.38, 1.0), // #e94560
-				runtime.Metalness(0.3),
-				runtime.Roughness(0.4),
-			)),
-			runtime.Position(0, 0, 0),
-			runtime.Rotation(0, 0, 0),
-			runtime.ScaleValue(1, 1, 1),
-		),
-
-		// Perspective camera
-		runtime.PerspectiveCamera(
-			runtime.FOV(runtime.DegreesToRadians(60)),
-			runtime.Near(0.1),
-			runtime.Far(100),
-			runtime.Position(0, 2, 6),
-			runtime.LookAtPos(0, 0, 0),
-		),
-
-		// Ambient light for base illumination
-		runtime.AmbientLight(
-			runtime.Color(1, 1, 1, 1),
-			runtime.Intensity(0.4),
-		),
-
-		// Directional light for depth and shadows
-		runtime.DirectionalLight(
-			runtime.Position(5, 10, 7),
-			runtime.Color(1, 1, 1, 1),
-			runtime.Intensity(0.8),
-		),
-	)
 }
 
 func setupControls(renderer *runtime.SceneRenderer) {

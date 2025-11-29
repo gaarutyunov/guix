@@ -157,15 +157,30 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 		&ast.ImportSpec{
 			Path: &ast.BasicLit{
 				Kind:  token.STRING,
-				Value: `"syscall/js"`,
-			},
-		},
-		&ast.ImportSpec{
-			Path: &ast.BasicLit{
-				Kind:  token.STRING,
 				Value: `"github.com/gaarutyunov/guix/pkg/runtime"`,
 			},
 		},
+	}
+
+	// Only add syscall/js if there are components (not just helper functions)
+	needsSyscallJS := false
+	for _, comp := range file.Components {
+		// Check if this is a UI component (has a body with children)
+		if comp.Body != nil && len(comp.Body.Children) > 0 {
+			needsSyscallJS = true
+			break
+		}
+	}
+
+	if needsSyscallJS {
+		specs = append([]ast.Spec{
+			&ast.ImportSpec{
+				Path: &ast.BasicLit{
+					Kind:  token.STRING,
+					Value: `"syscall/js"`,
+				},
+			},
+		}, specs...)
 	}
 
 	// Only add fmt if there are template interpolations with expressions
@@ -1397,6 +1412,48 @@ var knownGPUElements = map[string]bool{
 	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
 }
 
+// Known runtime functions that need runtime. prefix when called in expressions
+var runtimeFunctions = map[string]bool{
+	// DOM elements
+	"Div": true, "Span": true, "P": true, "A": true, "Button": true, "Input": true,
+	"H1": true, "H2": true, "H3": true, "H4": true, "H5": true, "H6": true,
+	"Ul": true, "Li": true, "Ol": true, "Img": true, "Form": true, "Label": true,
+	"Select": true, "Option": true, "Textarea": true, "Table": true, "Tr": true,
+	"Td": true, "Th": true, "Thead": true, "Tbody": true, "Tfoot": true,
+	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
+	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
+	// GPU elements
+	"Scene": true, "Mesh": true, "Group": true,
+	"PerspectiveCamera": true, "OrthographicCamera": true,
+	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+	// GPU properties
+	"Position": true, "Rotation": true, "ScaleValue": true,
+	"Color": true, "Metalness": true, "Roughness": true,
+	"Intensity": true, "FOV": true, "Near": true, "Far": true,
+	"LookAtPos": true, "Background": true,
+	"Width": true, "Height": true,
+	"GeometryProp": true, "MaterialProp": true,
+	// GPU constructors
+	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
+	"StandardMaterial": true,
+	// Math functions
+	"DegreesToRadians": true, "RadiansToDegrees": true,
+	// Props and attributes
+	"Class": true, "ID": true, "Href": true, "Src": true,
+	"Type": true, "Placeholder": true, "Value": true, "Disabled": true, "Checked": true,
+	"Name": true, "Alt": true, "Title": true, "Style": true,
+	// Event handlers
+	"OnClick": true, "OnInput": true, "OnChange": true, "OnSubmit": true,
+	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,
+	"OnMouseOver": true, "OnMouseOut": true, "OnMouseEnter": true, "OnMouseLeave": true,
+	"OnFocus": true, "OnBlur": true,
+}
+
+// isRuntimeFunction checks if a function name is a known runtime function
+func isRuntimeFunction(name string) bool {
+	return runtimeFunctions[name]
+}
+
 // generateElement generates code for an element
 func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 	args := []ast.Expr{}
@@ -1907,10 +1964,26 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 				Sel: ast.NewIdent("current" + channelName),
 			}
 		} else {
-			expr = ast.NewIdent(cos.Base)
+			// Check if this is a GPU/runtime function that needs runtime. prefix
+			if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent(cos.Base),
+				}
+			} else {
+				expr = ast.NewIdent(cos.Base)
+			}
 		}
 	} else {
-		expr = ast.NewIdent(cos.Base)
+		// Check if this is a GPU/runtime function that needs runtime. prefix
+		if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+			expr = &ast.SelectorExpr{
+				X:   ast.NewIdent("runtime"),
+				Sel: ast.NewIdent(cos.Base),
+			}
+		} else {
+			expr = ast.NewIdent(cos.Base)
+		}
 	}
 
 	for _, field := range cos.Fields {
@@ -2409,6 +2482,7 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 // Known runtime types that should be qualified with runtime package
 var runtimeTypes = map[string]bool{
 	"Event": true, "VNode": true, "App": true,
+	"GPUNode": true, "GPUCanvas": true,
 }
 
 func (g *Generator) typeToAST(t *guixast.Type) ast.Expr {
