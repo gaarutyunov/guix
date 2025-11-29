@@ -84,14 +84,14 @@ func CreateVertexShaderStage(module js.Value, entryPoint string) map[string]inte
 
 // CreateFragmentShaderStage creates a fragment shader stage descriptor
 func CreateFragmentShaderStage(module js.Value, entryPoint string, format string) map[string]interface{} {
+	// Create target descriptor as js.Value to avoid nested map conversion issues
+	targetDesc := js.Global().Get("Object").New()
+	targetDesc.Set("format", format)
+
 	return map[string]interface{}{
 		"module":     module,
 		"entryPoint": entryPoint,
-		"targets": []interface{}{
-			map[string]interface{}{
-				"format": format,
-			},
-		},
+		"targets": []interface{}{targetDesc},
 	}
 }
 
@@ -99,11 +99,12 @@ func CreateFragmentShaderStage(module js.Value, entryPoint string, format string
 func CreateVertexBufferLayout(arrayStride int, attributes []VertexAttribute) map[string]interface{} {
 	jsAttrs := make([]interface{}, len(attributes))
 	for i, attr := range attributes {
-		jsAttrs[i] = map[string]interface{}{
-			"format":         attr.Format,
-			"offset":         attr.Offset,
-			"shaderLocation": attr.ShaderLocation,
-		}
+		// Create each attribute as js.Value to avoid nested map conversion issues
+		attrObj := js.Global().Get("Object").New()
+		attrObj.Set("format", attr.Format)
+		attrObj.Set("offset", attr.Offset)
+		attrObj.Set("shaderLocation", attr.ShaderLocation)
+		jsAttrs[i] = attrObj
 	}
 
 	return map[string]interface{}{
@@ -121,9 +122,10 @@ func CreateBindGroupLayoutEntry(binding int, visibility int, bufferType string) 
 	}
 
 	if bufferType != "" {
-		entry["buffer"] = map[string]interface{}{
-			"type": bufferType,
-		}
+		// Create buffer descriptor as a js.Value to avoid nested map conversion issues
+		bufferDesc := js.Global().Get("Object").New()
+		bufferDesc.Set("type", bufferType)
+		entry["buffer"] = bufferDesc
 	}
 
 	return entry

@@ -77,14 +77,14 @@ func CreateRenderPipeline(ctx *GPUContext, config PipelineConfig) (*RenderPipeli
 	}
 
 	// Create fragment state
+	// Create target as js.Value to avoid nested map conversion issues
+	target := js.Global().Get("Object").New()
+	target.Set("format", config.ColorFormat)
+
 	fragmentState := map[string]interface{}{
 		"module":     config.FragmentShader,
 		"entryPoint": config.FragmentEntryPoint,
-		"targets": []interface{}{
-			map[string]interface{}{
-				"format": config.ColorFormat,
-			},
-		},
+		"targets":    []interface{}{target},
 	}
 
 	// Create primitive state
@@ -114,11 +114,12 @@ func CreateRenderPipeline(ctx *GPUContext, config PipelineConfig) (*RenderPipeli
 
 	// Add depth-stencil state if depth format is specified
 	if config.DepthFormat != "" {
-		pipelineDescriptor["depthStencil"] = map[string]interface{}{
-			"format":            config.DepthFormat,
-			"depthWriteEnabled": true,
-			"depthCompare":      "less",
-		}
+		// Create depth-stencil as js.Value to avoid nested map conversion issues
+		depthStencil := js.Global().Get("Object").New()
+		depthStencil.Set("format", config.DepthFormat)
+		depthStencil.Set("depthWriteEnabled", true)
+		depthStencil.Set("depthCompare", "less")
+		pipelineDescriptor["depthStencil"] = depthStencil
 	}
 
 	// Create the pipeline
@@ -278,26 +279,29 @@ func CreatePipelineWithBlending(ctx *GPUContext, config PipelineConfig) (*Render
 	}
 
 	// Create fragment state with blending
+	// Create blend components as js.Value to avoid nested map conversion issues
+	colorBlend := js.Global().Get("Object").New()
+	colorBlend.Set("srcFactor", BlendFactorSrcAlpha)
+	colorBlend.Set("dstFactor", BlendFactorOneMinusSrcAlpha)
+	colorBlend.Set("operation", BlendOperationAdd)
+
+	alphaBlend := js.Global().Get("Object").New()
+	alphaBlend.Set("srcFactor", BlendFactorOne)
+	alphaBlend.Set("dstFactor", BlendFactorOneMinusSrcAlpha)
+	alphaBlend.Set("operation", BlendOperationAdd)
+
+	blend := js.Global().Get("Object").New()
+	blend.Set("color", colorBlend)
+	blend.Set("alpha", alphaBlend)
+
+	target := js.Global().Get("Object").New()
+	target.Set("format", config.ColorFormat)
+	target.Set("blend", blend)
+
 	fragmentState := map[string]interface{}{
 		"module":     config.FragmentShader,
 		"entryPoint": config.FragmentEntryPoint,
-		"targets": []interface{}{
-			map[string]interface{}{
-				"format": config.ColorFormat,
-				"blend": map[string]interface{}{
-					"color": map[string]interface{}{
-						"srcFactor": BlendFactorSrcAlpha,
-						"dstFactor": BlendFactorOneMinusSrcAlpha,
-						"operation": BlendOperationAdd,
-					},
-					"alpha": map[string]interface{}{
-						"srcFactor": BlendFactorOne,
-						"dstFactor": BlendFactorOneMinusSrcAlpha,
-						"operation": BlendOperationAdd,
-					},
-				},
-			},
-		},
+		"targets":    []interface{}{target},
 	}
 
 	// Create primitive state
@@ -322,11 +326,12 @@ func CreatePipelineWithBlending(ctx *GPUContext, config PipelineConfig) (*Render
 
 	// Add depth-stencil state if depth format is specified
 	if config.DepthFormat != "" {
-		pipelineDescriptor["depthStencil"] = map[string]interface{}{
-			"format":            config.DepthFormat,
-			"depthWriteEnabled": true,
-			"depthCompare":      "less",
-		}
+		// Create depth-stencil as js.Value to avoid nested map conversion issues
+		depthStencil := js.Global().Get("Object").New()
+		depthStencil.Set("format", config.DepthFormat)
+		depthStencil.Set("depthWriteEnabled", true)
+		depthStencil.Set("depthCompare", "less")
+		pipelineDescriptor["depthStencil"] = depthStencil
 	}
 
 	// Create the pipeline
