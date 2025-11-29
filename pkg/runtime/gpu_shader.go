@@ -91,7 +91,7 @@ func CreateFragmentShaderStage(module js.Value, entryPoint string, format string
 	return map[string]interface{}{
 		"module":     module,
 		"entryPoint": entryPoint,
-		"targets": []interface{}{targetDesc},
+		"targets":    []interface{}{targetDesc},
 	}
 }
 

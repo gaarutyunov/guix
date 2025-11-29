@@ -87,6 +87,10 @@ func main() {
 		setupControls(renderer)
 		fmt.Println("[Go] UI controls created")
 
+		// Track if first frame has been rendered
+		firstFrameRendered := false
+		document := js.Global().Get("document")
+
 		// Set render function
 		canvas.SetRenderFunc(func(c *runtime.GPUCanvas, delta float64) {
 			if autoRotate {
@@ -105,6 +109,16 @@ func main() {
 
 			// Render
 			renderer.Render()
+
+			// Mark first frame as rendered
+			if !firstFrameRendered {
+				firstFrameRendered = true
+				app := document.Call("querySelector", "#app")
+				if app.Truthy() {
+					app.Call("setAttribute", "data-rendering", "true")
+				}
+				fmt.Println("[Go] First frame rendered")
+			}
 		})
 
 		// Start render loop

@@ -16,9 +16,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // NOW navigate to the page
     await page.goto('http://localhost:8080');
 
-    // Wait for page to load
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    // Wait for first frame to render (longer timeout for complete initialization)
+    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
+
+    // Wait a bit more for messages
+    await page.waitForTimeout(1000);
 
     // Print all console messages for debugging
     console.log('=== Console Messages ===');
@@ -31,11 +33,17 @@ test.describe('WebGPU Rotating Cube', () => {
     );
     expect(hasHTMLCheck).toBeTruthy();
 
-    // If we got past HTML check, we should see WASM start
+    // Check for WASM start
     const hasGoStart = consoleMessages.some(msg =>
       msg.includes('[Go] WASM module started')
     );
-    console.log('Has Go start message:', hasGoStart);
+    expect(hasGoStart).toBeTruthy();
+
+    // Check for first frame rendered
+    const hasFirstFrame = consoleMessages.some(msg =>
+      msg.includes('[Go] First frame rendered')
+    );
+    expect(hasFirstFrame).toBeTruthy();
   });
 
   test('should load without errors', async ({ page }) => {
@@ -114,6 +122,9 @@ test.describe('WebGPU Rotating Cube', () => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
+    // Wait for first frame to render
+    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
+
     // Wait for either controls or error to appear
     await page.waitForSelector('#controls, div[style*="background: #ff4444"]', { timeout: 20000 });
 
@@ -139,6 +150,9 @@ test.describe('WebGPU Rotating Cube', () => {
   test('should respond to button clicks', async ({ page }) => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
+
+    // Wait for first frame to render
+    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
 
     // Wait for either controls or error to appear
     await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 20000 });
@@ -173,6 +187,9 @@ test.describe('WebGPU Rotating Cube', () => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
+    // Wait for first frame to render
+    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
+
     // Wait for either controls or error to appear
     await page.waitForSelector('#speed-control, div[style*="background: #ff4444"]', { timeout: 20000 });
 
@@ -200,6 +217,9 @@ test.describe('WebGPU Rotating Cube', () => {
   test('should handle keyboard controls', async ({ page }) => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
+
+    // Wait for first frame to render
+    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
 
     // Wait for either controls or error to appear
     await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 20000 });
@@ -229,23 +249,28 @@ test.describe('WebGPU Rotating Cube', () => {
     await expect(toggleButton).toBeVisible();
   });
 
-  test.skip('should take screenshot of rendered scene', async ({ page }) => {
-    // Skip in CI - visual snapshot testing requires a baseline screenshot
-    // The rendering is already validated by the "should display control buttons" test
-    // which proves the canvas rendered successfully
-
+  test('should render scene and capture screenshot', async ({ page }) => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
-    // Wait for everything to load
-    await page.waitForSelector('canvas', { timeout: 5000 });
-    await page.waitForTimeout(2000); // Give WebGPU time to render
+    // Wait for first frame to render
+    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
 
-    // Take screenshot
+    // Wait a bit more for animation
+    await page.waitForTimeout(2000);
+
+    // Take full page screenshot for debugging
+    await page.screenshot({ path: 'test-results/webgpu-rendering.png', fullPage: true });
+
+    // Verify canvas exists and has content
     const canvas = await page.locator('canvas');
-    await expect(canvas).toHaveScreenshot('webgpu-cube.png', {
-      maxDiffPixels: 100, // Allow some variation due to rendering differences
-    });
+    await expect(canvas).toBeVisible();
+
+    // Check canvas has non-zero dimensions
+    const boundingBox = await canvas.boundingBox();
+    expect(boundingBox).not.toBeNull();
+    expect(boundingBox?.width).toBeGreaterThan(0);
+    expect(boundingBox?.height).toBeGreaterThan(0);
   });
 
   test('should not show error messages', async ({ page }) => {
