@@ -7,6 +7,34 @@ import (
 	"syscall/js"
 )
 
+// mapToJSObject converts a Go map to a JavaScript object,
+// properly handling js.Value objects and nested structures
+func mapToJSObject(m map[string]interface{}) js.Value {
+	obj := js.Global().Get("Object").New()
+	for key, value := range m {
+		switch v := value.(type) {
+		case []interface{}:
+			// Convert slice to JavaScript array
+			arr := js.Global().Get("Array").New(len(v))
+			for i, elem := range v {
+				if elemMap, ok := elem.(map[string]interface{}); ok {
+					arr.SetIndex(i, mapToJSObject(elemMap))
+				} else {
+					arr.SetIndex(i, elem)
+				}
+			}
+			obj.Set(key, arr)
+		case map[string]interface{}:
+			// Recursively convert nested maps
+			obj.Set(key, mapToJSObject(v))
+		default:
+			// Direct assignment (handles js.Value, primitives, etc.)
+			obj.Set(key, v)
+		}
+	}
+	return obj
+}
+
 // RenderPipeline wraps a WebGPU render pipeline
 type RenderPipeline struct {
 	Pipeline js.Value
@@ -56,11 +84,17 @@ func CreateRenderPipeline(ctx *GPUContext, config PipelineConfig) (*RenderPipeli
 	// Create pipeline layout
 	var pipelineLayout js.Value
 	if len(config.BindGroupLayouts) > 0 {
-		layoutDescriptor := map[string]interface{}{
-			"bindGroupLayouts": config.BindGroupLayouts,
+		// Convert bind group layouts to JavaScript array
+		jsLayouts := js.Global().Get("Array").New(len(config.BindGroupLayouts))
+		for i, layout := range config.BindGroupLayouts {
+			jsLayouts.SetIndex(i, layout)
 		}
+
+		// Create layout descriptor as JavaScript object
+		layoutDescriptor := js.Global().Get("Object").New()
+		layoutDescriptor.Set("bindGroupLayouts", jsLayouts)
 		if config.Label != "" {
-			layoutDescriptor["label"] = config.Label + " Layout"
+			layoutDescriptor.Set("label", config.Label+" Layout")
 		}
 		pipelineLayout = ctx.Device.Call("createPipelineLayout", layoutDescriptor)
 	} else {
@@ -122,8 +156,11 @@ func CreateRenderPipeline(ctx *GPUContext, config PipelineConfig) (*RenderPipeli
 		pipelineDescriptor["depthStencil"] = depthStencil
 	}
 
+	// Convert pipeline descriptor to JavaScript object
+	jsPipelineDescriptor := mapToJSObject(pipelineDescriptor)
+
 	// Create the pipeline
-	pipeline := ctx.Device.Call("createRenderPipeline", pipelineDescriptor)
+	pipeline := ctx.Device.Call("createRenderPipeline", jsPipelineDescriptor)
 	if !pipeline.Truthy() {
 		return nil, fmt.Errorf("failed to create render pipeline")
 	}
@@ -167,11 +204,17 @@ func CreateComputePipeline(ctx *GPUContext, config ComputePipelineConfig) (*Comp
 	// Create pipeline layout
 	var pipelineLayout js.Value
 	if len(config.BindGroupLayouts) > 0 {
-		layoutDescriptor := map[string]interface{}{
-			"bindGroupLayouts": config.BindGroupLayouts,
+		// Convert bind group layouts to JavaScript array
+		jsLayouts := js.Global().Get("Array").New(len(config.BindGroupLayouts))
+		for i, layout := range config.BindGroupLayouts {
+			jsLayouts.SetIndex(i, layout)
 		}
+
+		// Create layout descriptor as JavaScript object
+		layoutDescriptor := js.Global().Get("Object").New()
+		layoutDescriptor.Set("bindGroupLayouts", jsLayouts)
 		if config.Label != "" {
-			layoutDescriptor["label"] = config.Label + " Layout"
+			layoutDescriptor.Set("label", config.Label+" Layout")
 		}
 		pipelineLayout = ctx.Device.Call("createPipelineLayout", layoutDescriptor)
 	} else {
@@ -199,8 +242,11 @@ func CreateComputePipeline(ctx *GPUContext, config ComputePipelineConfig) (*Comp
 		pipelineDescriptor["layout"] = "auto"
 	}
 
+	// Convert pipeline descriptor to JavaScript object
+	jsPipelineDescriptor := mapToJSObject(pipelineDescriptor)
+
 	// Create the pipeline
-	pipeline := ctx.Device.Call("createComputePipeline", pipelineDescriptor)
+	pipeline := ctx.Device.Call("createComputePipeline", jsPipelineDescriptor)
 	if !pipeline.Truthy() {
 		return nil, fmt.Errorf("failed to create compute pipeline")
 	}
@@ -334,8 +380,11 @@ func CreatePipelineWithBlending(ctx *GPUContext, config PipelineConfig) (*Render
 		pipelineDescriptor["depthStencil"] = depthStencil
 	}
 
+	// Convert pipeline descriptor to JavaScript object
+	jsPipelineDescriptor := mapToJSObject(pipelineDescriptor)
+
 	// Create the pipeline
-	pipeline := ctx.Device.Call("createRenderPipeline", pipelineDescriptor)
+	pipeline := ctx.Device.Call("createRenderPipeline", jsPipelineDescriptor)
 	if !pipeline.Truthy() {
 		return nil, fmt.Errorf("failed to create render pipeline with blending")
 	}

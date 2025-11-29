@@ -137,11 +137,21 @@ func CreateBindGroupLayout(ctx *GPUContext, entries []map[string]interface{}, la
 		return js.Undefined(), fmt.Errorf("GPU device not initialized")
 	}
 
-	descriptor := map[string]interface{}{
-		"entries": entries,
+	// Convert entries to JavaScript array
+	jsEntries := js.Global().Get("Array").New(len(entries))
+	for i, entry := range entries {
+		jsEntry := js.Global().Get("Object").New()
+		for key, value := range entry {
+			jsEntry.Set(key, value)
+		}
+		jsEntries.SetIndex(i, jsEntry)
 	}
+
+	// Create descriptor as JavaScript object
+	descriptor := js.Global().Get("Object").New()
+	descriptor.Set("entries", jsEntries)
 	if label != "" {
-		descriptor["label"] = label
+		descriptor.Set("label", label)
 	}
 
 	layout := ctx.Device.Call("createBindGroupLayout", descriptor)
@@ -158,12 +168,22 @@ func CreateBindGroup(ctx *GPUContext, layout js.Value, entries []map[string]inte
 		return js.Undefined(), fmt.Errorf("GPU device not initialized")
 	}
 
-	descriptor := map[string]interface{}{
-		"layout":  layout,
-		"entries": entries,
+	// Convert entries to JavaScript array
+	jsEntries := js.Global().Get("Array").New(len(entries))
+	for i, entry := range entries {
+		jsEntry := js.Global().Get("Object").New()
+		for key, value := range entry {
+			jsEntry.Set(key, value)
+		}
+		jsEntries.SetIndex(i, jsEntry)
 	}
+
+	// Create descriptor as JavaScript object
+	descriptor := js.Global().Get("Object").New()
+	descriptor.Set("layout", layout)
+	descriptor.Set("entries", jsEntries)
 	if label != "" {
-		descriptor["label"] = label
+		descriptor.Set("label", label)
 	}
 
 	bindGroup := ctx.Device.Call("createBindGroup", descriptor)
