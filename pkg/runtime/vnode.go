@@ -2,6 +2,7 @@
 package runtime
 
 import (
+	"strconv"
 	"syscall/js"
 )
 
@@ -42,9 +43,15 @@ type EventHandler struct {
 
 // Event wraps JavaScript event objects
 type Event struct {
-	Native js.Value
-	Target EventTarget
-	Type   string
+	Native   js.Value
+	Target   EventTarget
+	Type     string
+	Key      string // For keyboard events: the key value
+	Code     string // For keyboard events: the physical key code
+	CtrlKey  bool   // For keyboard events: ctrl key pressed
+	ShiftKey bool   // For keyboard events: shift key pressed
+	AltKey   bool   // For keyboard events: alt key pressed
+	MetaKey  bool   // For keyboard events: meta/command key pressed
 }
 
 // EventTarget represents an event target
@@ -246,6 +253,11 @@ func Disabled(value bool) Prop {
 	return Prop{Key: "disabled", Value: value}
 }
 
+// TabIndex sets the tabindex attribute (makes element focusable)
+func TabIndex(value int) Attr {
+	return Attr{Key: "tabindex", Value: strconv.Itoa(value)}
+}
+
 // GPUScene creates a special VNode wrapper for WebGPU Scene components
 // This allows Scene components to be used as children of Canvas elements
 func GPUScene(scene Scene) *VNode {
@@ -288,14 +300,6 @@ func OnChange(handler func(Event)) EventHandler {
 	}
 }
 
-// OnSubmit creates a submit event handler
-func OnSubmit(handler func(Event)) EventHandler {
-	return EventHandler{
-		Name:    "submit",
-		Handler: handler,
-	}
-}
-
 // OnKeyDown creates a keydown event handler
 func OnKeyDown(handler func(Event)) EventHandler {
 	return EventHandler{
@@ -308,6 +312,22 @@ func OnKeyDown(handler func(Event)) EventHandler {
 func OnKeyUp(handler func(Event)) EventHandler {
 	return EventHandler{
 		Name:    "keyup",
+		Handler: handler,
+	}
+}
+
+// OnKeyPress creates a keypress event handler
+func OnKeyPress(handler func(Event)) EventHandler {
+	return EventHandler{
+		Name:    "keypress",
+		Handler: handler,
+	}
+}
+
+// OnSubmit creates a submit event handler
+func OnSubmit(handler func(Event)) EventHandler {
+	return EventHandler{
+		Name:    "submit",
 		Handler: handler,
 	}
 }

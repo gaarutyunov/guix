@@ -155,6 +155,26 @@ func attachEventHandler(elem js.Value, eventName string, handler EventHandler, v
 			event.Target.Checked = target.Get("checked").Bool()
 		}
 
+		// Extract keyboard event fields if they exist
+		if jsEvent.Get("key").Type() == js.TypeString {
+			event.Key = jsEvent.Get("key").String()
+		}
+		if jsEvent.Get("code").Type() == js.TypeString {
+			event.Code = jsEvent.Get("code").String()
+		}
+		if jsEvent.Get("ctrlKey").Type() == js.TypeBoolean {
+			event.CtrlKey = jsEvent.Get("ctrlKey").Bool()
+		}
+		if jsEvent.Get("shiftKey").Type() == js.TypeBoolean {
+			event.ShiftKey = jsEvent.Get("shiftKey").Bool()
+		}
+		if jsEvent.Get("altKey").Type() == js.TypeBoolean {
+			event.AltKey = jsEvent.Get("altKey").Bool()
+		}
+		if jsEvent.Get("metaKey").Type() == js.TypeBoolean {
+			event.MetaKey = jsEvent.Get("metaKey").Bool()
+		}
+
 		log("DOM: Calling event handler in goroutine")
 		// Call the handler in a goroutine to avoid blocking the event loop
 		go func() {

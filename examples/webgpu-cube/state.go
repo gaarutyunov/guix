@@ -6,17 +6,54 @@ import "github.com/gaarutyunov/guix/pkg/runtime"
 
 // Rotation state - accessed by render loop and updated by controls
 var (
-	rotationX      float32 = 0
-	rotationY      float32 = 0
-	autoRotate     bool    = true
-	speed          float32 = 1.0
-	renderer       *runtime.SceneRenderer
-	renderCallback func(float64, interface{})
+	rotationX  float32 = 0
+	rotationY  float32 = 0
+	autoRotate bool    = true
+	speed      float32 = 1.0
+	renderer   *runtime.SceneRenderer
 )
 
-// getRenderUpdateCallback returns the render update callback
-func getRenderUpdateCallback() func(float64, interface{}) {
-	return renderCallback
+// makeCommandChannel creates a new command channel and starts the processor goroutine
+func makeCommandChannel() chan ControlCommand {
+	commands := make(chan ControlCommand, 10)
+	go func() {
+		for cmd := range commands {
+			processControlCommand(cmd)
+		}
+	}()
+	return commands
+}
+
+// makeKeyboardHandler creates a keyboard event handler for the given command channel
+func makeKeyboardHandler(commands chan ControlCommand) func(runtime.Event) {
+	return func(e runtime.Event) {
+		switch e.Key {
+		case "ArrowUp":
+			commands <- ControlCommand{Type: "rotX", Value: -0.2}
+		case "ArrowDown":
+			commands <- ControlCommand{Type: "rotX", Value: 0.2}
+		case "ArrowLeft":
+			commands <- ControlCommand{Type: "rotY", Value: -0.2}
+		case "ArrowRight":
+			commands <- ControlCommand{Type: "rotY", Value: 0.2}
+		case " ":
+			commands <- ControlCommand{Type: "autoRotate"}
+		}
+	}
+}
+
+// makeRenderUpdateCallback creates the render update callback for WebGPU
+func makeRenderUpdateCallback() func(float64, interface{}) {
+	return func(delta float64, r interface{}) {
+		// Initialize renderer reference on first call
+		if renderer == nil {
+			if sceneRenderer, ok := r.(*runtime.SceneRenderer); ok {
+				renderer = sceneRenderer
+			}
+		}
+		// Update rotation state and mesh transform
+		updateRotation(delta)
+	}
 }
 
 // updateRotation is called from the render loop to update rotation based on delta time
