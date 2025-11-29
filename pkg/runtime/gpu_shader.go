@@ -168,14 +168,10 @@ func CreateBindGroup(ctx *GPUContext, layout js.Value, entries []map[string]inte
 		return js.Undefined(), fmt.Errorf("GPU device not initialized")
 	}
 
-	// Convert entries to JavaScript array
+	// Convert entries to JavaScript array using mapToJSObject
 	jsEntries := js.Global().Get("Array").New(len(entries))
 	for i, entry := range entries {
-		jsEntry := js.Global().Get("Object").New()
-		for key, value := range entry {
-			jsEntry.Set(key, value)
-		}
-		jsEntries.SetIndex(i, jsEntry)
+		jsEntries.SetIndex(i, mapToJSObject(entry))
 	}
 
 	// Create descriptor as JavaScript object
