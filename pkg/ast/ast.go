@@ -126,10 +126,11 @@ type Element struct {
 }
 
 // Prop represents a property or event handler
+// Props are function calls like Class("value") or Background(0.1, 0.1, 0.15, 1.0)
 type Prop struct {
-	Pos   lexer.Position
-	Name  string `@Ident`
-	Value *Expr  `"(" @@ ")"`
+	Pos  lexer.Position
+	Name string  `@Ident`
+	Args []*Expr `"(" (@@ ("," @@)*)? ")"`
 }
 
 // Expr represents an expression with optional binary operations

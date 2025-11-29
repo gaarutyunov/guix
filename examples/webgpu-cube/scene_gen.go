@@ -7,8 +7,17 @@ package main
 
 import (
 	"github.com/gaarutyunov/guix/pkg/runtime"
+	"syscall/js"
 )
 
-func createCubeScene(rotX float32, rotY float32) *runtime.GPUNode {
-	return runtime.Scene(runtime.Background(0.1, 0.1, 0.15, 1.0), runtime.Mesh(runtime.GeometryProp(runtime.NewBoxGeometry(2.0, 2.0, 2.0)), runtime.MaterialProp(runtime.StandardMaterial(runtime.Color(0.91, 0.27, 0.38, 1.0), runtime.Metalness(0.3), runtime.Roughness(0.4))), runtime.Position(0, 0, 0), runtime.Rotation(rotX, rotY, 0), runtime.ScaleValue(1, 1, 1)), runtime.PerspectiveCamera(runtime.FOV(runtime.DegreesToRadians(60)), runtime.Near(0.1), runtime.Far(100), runtime.Position(0, 2, 6), runtime.LookAtPos(0, 0, 0)), runtime.AmbientLight(runtime.Color(1, 1, 1, 1), runtime.Intensity(0.4)), runtime.DirectionalLight(runtime.Position(5, 10, 7), runtime.Color(1, 1, 1, 1), runtime.Intensity(0.8)))
+type CubeScene struct {
+	RotX float32
+	RotY float32
+}
+
+func NewCubeScene(rotX float32, rotY float32) runtime.Scene {
+	return &CubeScene{RotX: rotX, RotY: rotY}
+}
+func (s *CubeScene) RenderScene() *runtime.GPUNode {
+	return runtime.SceneNode(runtime.Background(0.1, 0.1, 0.15, 1.0), runtime.Mesh(runtime.GeometryProp(runtime.NewBoxGeometry(2.0, 2.0, 2.0)), runtime.MaterialProp(runtime.StandardMaterial(runtime.Color(0.91, 0.27, 0.38, 1.0), runtime.Metalness(0.3), runtime.Roughness(0.4))), runtime.Position(0, 0, 0), runtime.Rotation(c.RotX, c.RotY, 0), runtime.ScaleValue(1, 1, 1)), runtime.PerspectiveCamera(runtime.FOV(runtime.DegreesToRadians(60)), runtime.Near(0.1), runtime.Far(100), runtime.Position(0, 2, 6), runtime.LookAtPos(0, 0, 0)), runtime.AmbientLight(runtime.Color(1, 1, 1, 1), runtime.Intensity(0.4)), runtime.DirectionalLight(runtime.Position(5, 10, 7), runtime.Color(1, 1, 1, 1), runtime.Intensity(0.8)))
 }

@@ -1,11 +1,7 @@
 package main
 
-// createCubeScene builds a 3D scene with a rotating cube
-// This function uses Guix DSL syntax for declarative scene graph construction
-func createCubeScene(rotX float32, rotY float32) (GPUNode*) {
-	return Scene(
-		Background(0.1, 0.1, 0.15, 1.0),
-
+func CubeScene(rotX float32, rotY float32) (Scene) {
+	Scene(Background(0.1, 0.1, 0.15, 1.0)) {
 		Mesh(
 			GeometryProp(NewBoxGeometry(2.0, 2.0, 2.0)),
 			MaterialProp(StandardMaterial(
@@ -16,7 +12,7 @@ func createCubeScene(rotX float32, rotY float32) (GPUNode*) {
 			Position(0, 0, 0),
 			Rotation(rotX, rotY, 0),
 			ScaleValue(1, 1, 1)
-		),
+		)
 
 		PerspectiveCamera(
 			FOV(DegreesToRadians(60)),
@@ -24,17 +20,17 @@ func createCubeScene(rotX float32, rotY float32) (GPUNode*) {
 			Far(100),
 			Position(0, 2, 6),
 			LookAtPos(0, 0, 0)
-		),
+		)
 
 		AmbientLight(
 			Color(1, 1, 1, 1),
 			Intensity(0.4)
-		),
+		)
 
 		DirectionalLight(
 			Position(5, 10, 7),
 			Color(1, 1, 1, 1),
 			Intensity(0.8)
 		)
-	)
+	}
 }

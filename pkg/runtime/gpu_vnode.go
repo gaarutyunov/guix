@@ -171,8 +171,14 @@ func MaterialProp(mat *Material) GPUProp {
 // The working implementation uses CreateGPUCanvas() directly.
 // These will be integrated with the .gx parser in future updates.
 
-// Scene creates a 3D scene node
-func Scene(options ...interface{}) *GPUNode {
+// Scene interface for all Guix 3D scenes (parallel to Component for UI)
+// Scene components implement this interface to render their 3D scene graph
+type Scene interface {
+	RenderScene() *GPUNode
+}
+
+// SceneNode creates a 3D scene node
+func SceneNode(options ...interface{}) *GPUNode {
 	node := &GPUNode{
 		Type:       SceneNodeType,
 		Tag:        "scene",

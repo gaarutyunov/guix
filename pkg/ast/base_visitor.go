@@ -275,8 +275,10 @@ func (v *BaseVisitor) VisitElement(node *Element) interface{} {
 }
 
 func (v *BaseVisitor) VisitProp(node *Prop) interface{} {
-	if node.Value != nil {
-		node.Value.Accept(v)
+	for _, arg := range node.Args {
+		if arg != nil {
+			arg.Accept(v)
+		}
 	}
 	return nil
 }
