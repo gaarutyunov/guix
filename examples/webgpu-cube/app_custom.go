@@ -2,11 +2,7 @@
 
 package main
 
-import (
-	"fmt"
-
-	"github.com/gaarutyunov/guix/pkg/runtime"
-)
+import "github.com/gaarutyunov/guix/pkg/runtime"
 
 // AppWithControls extends the generated App with Controls integration
 type AppWithControls struct {
@@ -17,22 +13,22 @@ type AppWithControls struct {
 
 // NewAppWithControls creates an App with integrated Controls
 func NewAppWithControls() *AppWithControls {
-	fmt.Println("[Go] NewAppWithControls: Creating command channel...")
+	log("[Go] NewAppWithControls: Creating command channel...")
 	commands := make(chan ControlCommand, 10)
 
 	// Start command processor goroutine
-	fmt.Println("[Go] NewAppWithControls: Starting command processor...")
+	log("[Go] NewAppWithControls: Starting command processor...")
 	go func() {
 		for cmd := range commands {
 			processControlCommand(cmd)
 		}
 	}()
 
-	fmt.Println("[Go] NewAppWithControls: Creating base App...")
+	log("[Go] NewAppWithControls: Creating base App...")
 	app := NewApp()
-	fmt.Println("[Go] NewAppWithControls: Creating Controls...")
+	log("[Go] NewAppWithControls: Creating Controls...")
 	controls := NewControls(WithCommands(commands))
-	fmt.Println("[Go] NewAppWithControls: Done")
+	log("[Go] NewAppWithControls: Done")
 
 	return &AppWithControls{
 		App:              app,
@@ -51,16 +47,16 @@ func (a *AppWithControls) BindApp(app *runtime.App) {
 
 // Render renders the full app with controls and event handlers
 func (a *AppWithControls) Render() *runtime.VNode {
-	fmt.Println("[Go] AppWithControls.Render: Called")
-	fmt.Println("[Go] AppWithControls.Render: Creating keyboard handler...")
+	log("[Go] AppWithControls.Render: Called")
+	log("[Go] AppWithControls.Render: Creating keyboard handler...")
 	keyHandler := makeKeyboardHandler(a.commands)
-	fmt.Println("[Go] AppWithControls.Render: Creating render callback...")
+	log("[Go] AppWithControls.Render: Creating render callback...")
 	renderCallback := makeRenderUpdateCallback()
-	fmt.Println("[Go] AppWithControls.Render: Creating cube scene...")
+	log("[Go] AppWithControls.Render: Creating cube scene...")
 	cubeScene := NewCubeScene(0, 0)
-	fmt.Println("[Go] AppWithControls.Render: Rendering controls...")
+	log("[Go] AppWithControls.Render: Rendering controls...")
 	controlsVNode := a.controlsInstance.Render()
-	fmt.Println("[Go] AppWithControls.Render: Building VNode tree...")
+	log("[Go] AppWithControls.Render: Building VNode tree...")
 
 	result := runtime.Div(
 		runtime.Class("webgpu-container"),
@@ -77,6 +73,6 @@ func (a *AppWithControls) Render() *runtime.VNode {
 		runtime.Div(runtime.Class("loading"), runtime.Text("Loading WebGPU...")),
 	)
 
-	fmt.Println("[Go] AppWithControls.Render: Done, returning VNode")
+	log("[Go] AppWithControls.Render: Done, returning VNode")
 	return result
 }
