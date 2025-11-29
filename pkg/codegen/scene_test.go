@@ -386,7 +386,3 @@ func TestScene() (Scene) {
 }
 
 
-// TODO: Fix receiver reference bug - currently generates c.Field instead of s.Field
-// func TestSceneReceiverReference(t *testing.T) {
-//     ... test code ...
-// }
