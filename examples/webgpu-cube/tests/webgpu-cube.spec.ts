@@ -2,16 +2,19 @@ import { test, expect } from '@playwright/test';
 
 test.describe('WebGPU Rotating Cube', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the WebGPU cube example
-    await page.goto('http://localhost:8080');
+    // Only navigate if not the initialization logs test
+    // (that test needs to set up listeners before navigation)
   });
 
   test('should show initialization logs', async ({ page }) => {
-    // Collect all console messages
+    // Collect all console messages - set up BEFORE navigation
     const consoleMessages: string[] = [];
     page.on('console', msg => {
       consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
     });
+
+    // NOW navigate to the page
+    await page.goto('http://localhost:8080');
 
     // Wait for page to load
     await page.waitForLoadState('networkidle');
@@ -36,6 +39,9 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should load without errors', async ({ page }) => {
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Wait for the page to load
     await page.waitForLoadState('networkidle');
 
@@ -60,6 +66,9 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should display WebGPU support message', async ({ page }) => {
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Check that WebGPU initialization messages appear in console
     const initMessages: string[] = [];
     page.on('console', msg => {
@@ -85,6 +94,9 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should render canvas element', async ({ page }) => {
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Wait for canvas to be created
     await page.waitForSelector('canvas', { timeout: 5000 });
 
@@ -99,6 +111,9 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should display control buttons', async ({ page }) => {
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Wait for either controls or error to appear
     await page.waitForSelector('#controls, div[style*="background: #ff4444"]', { timeout: 20000 });
 
@@ -122,6 +137,9 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should respond to button clicks', async ({ page }) => {
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Wait for either controls or error to appear
     await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 20000 });
 
@@ -152,6 +170,9 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should show speed control when auto-rotate is enabled', async ({ page }) => {
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Wait for either controls or error to appear
     await page.waitForSelector('#speed-control, div[style*="background: #ff4444"]', { timeout: 20000 });
 
@@ -177,6 +198,9 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should handle keyboard controls', async ({ page }) => {
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Wait for either controls or error to appear
     await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 20000 });
 
@@ -206,6 +230,9 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should take screenshot of rendered scene', async ({ page }) => {
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Wait for everything to load
     await page.waitForSelector('canvas', { timeout: 5000 });
     await page.waitForTimeout(2000); // Give WebGPU time to render
@@ -218,6 +245,9 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should not show error messages', async ({ page }) => {
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Wait for page to load
     await page.waitForTimeout(3000);
 
