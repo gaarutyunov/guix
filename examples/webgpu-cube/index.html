@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guix WebGPU - Rotating Cube</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 24px;
+            font-size: 32px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        #app {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        canvas {
+            display: block;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #e94560;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .footer {
+            margin-top: 32px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: #e94560;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Guix WebGPU - Rotating Cube</h1>
+
+    <div id="app">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Initializing WebGPU...</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>
+            Built with <a href="https://github.com/gaarutyunov/guix" target="_blank">Guix</a> and WebGPU
+        </p>
+        <p style="margin-top: 8px; font-size: 12px;">
+            WebGPU requires Chrome 113+, Edge 113+, or other compatible browsers
+        </p>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        console.log('[HTML] Checking WebGPU support...');
+        console.log('[HTML] navigator.gpu:', navigator.gpu);
+
+        // Check for WebGPU support
+        if (!navigator.gpu) {
+            console.error('[HTML] WebGPU not supported - navigator.gpu is not available');
+            document.getElementById('app').innerHTML = `
+                <div style="padding: 20px; background: #ff4444; color: white; border-radius: 8px;">
+                    <h2>WebGPU Not Supported</h2>
+                    <p style="margin-top: 12px;">
+                        Your browser doesn't support WebGPU. Please use:
+                    </p>
+                    <ul style="margin-top: 12px; margin-left: 20px;">
+                        <li>Chrome 113+ or Edge 113+ (with WebGPU enabled)</li>
+                        <li>Or visit <a href="https://webgpu.io" style="color: white;">webgpu.io</a> for more information</li>
+                    </ul>
+                </div>
+            `;
+        } else {
+            console.log('[HTML] WebGPU is supported, loading WASM...');
+            // Load WASM
+            const go = new Go();
+            console.log('[HTML] Fetching main.wasm...');
+            WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
+                .then((result) => {
+                    console.log('[HTML] WASM loaded successfully, starting Go runtime...');
+                    go.run(result.instance);
+                })
+                .catch((err) => {
+                    console.error("[HTML] Failed to load WASM:", err);
+                    document.getElementById('app').innerHTML = `
+                        <div style="padding: 20px; background: #ff4444; color: white; border-radius: 8px;">
+                            <h2>Error Loading Application</h2>
+                            <p style="margin-top: 12px;">${err.message}</p>
+                        </div>
+                    `;
+                });
+        }
+    </script>
+</body>
+</html>

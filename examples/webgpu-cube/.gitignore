@@ -1,0 +1,16 @@
+# Node
+node_modules/
+package-lock.json
+
+# WASM build artifacts
+*.wasm
+wasm_exec.js
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Screenshots (except baseline)
+tests/**/*.png
+!tests/**/*-snapshots/**/*.png
