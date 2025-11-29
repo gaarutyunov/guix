@@ -58,11 +58,11 @@ jobs:
         working-directory: examples/counter
         run: npx playwright test
 
-      - name: Upload test results
+      - name: Upload test results and videos
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results
+          name: counter-playwright-results
           path: examples/counter/test-results/
           retention-days: 7
 
@@ -114,7 +114,7 @@ jobs:
         working-directory: examples/calculator
         run: npx playwright test
 
-      - name: Upload test results
+      - name: Upload test results and videos
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -168,7 +168,7 @@ jobs:
         working-directory: examples/webgpu-cube
         run: npx playwright test
 
-      - name: Upload test results and screenshots
+      - name: Upload test results, videos, and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
