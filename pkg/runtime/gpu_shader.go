@@ -198,12 +198,8 @@ func CreateBindGroupEntry(binding int, resource js.Value) map[string]interface{}
 func CreateBufferBinding(buffer js.Value, offset int, size int) js.Value {
 	binding := js.Global().Get("Object").New()
 	binding.Set("buffer", buffer)
-	if offset > 0 {
-		binding.Set("offset", offset)
-	}
-	if size > 0 {
-		binding.Set("size", size)
-	}
+	binding.Set("offset", offset)
+	binding.Set("size", size)
 	return binding
 }
 
