@@ -194,6 +194,19 @@ func CreateBindGroupEntry(binding int, resource js.Value) map[string]interface{}
 	}
 }
 
+// CreateBufferBinding creates a GPUBufferBinding object for use in bind group entries
+func CreateBufferBinding(buffer js.Value, offset int, size int) js.Value {
+	binding := js.Global().Get("Object").New()
+	binding.Set("buffer", buffer)
+	if offset > 0 {
+		binding.Set("offset", offset)
+	}
+	if size > 0 {
+		binding.Set("size", size)
+	}
+	return binding
+}
+
 // Common vertex formats
 const (
 	VertexFormatFloat32   = "float32"

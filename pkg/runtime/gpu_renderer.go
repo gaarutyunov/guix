@@ -287,8 +287,10 @@ func (sr *SceneRenderer) Render() {
 		}
 
 		// Create bind group for this mesh
+		// Note: WebGPU requires a GPUBufferBinding object (with buffer, offset, size) not just the buffer
+		bufferBinding := CreateBufferBinding(sr.UniformBuffer.Buffer, 0, sr.UniformBuffer.Size)
 		bindGroupEntries := []map[string]interface{}{
-			CreateBindGroupEntry(0, sr.UniformBuffer.Buffer),
+			CreateBindGroupEntry(0, bufferBinding),
 		}
 
 		bindGroup, err := CreateBindGroup(
