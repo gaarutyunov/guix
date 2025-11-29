@@ -284,6 +284,8 @@ var RuntimeComponents = map[string]bool{
 	"Table": true, "Tr": true, "Td": true, "Th": true, "Thead": true, "Tbody": true,
 	"Header": true, "Footer": true, "Nav": true, "Main": true, "Section": true, "Article": true,
 	"Aside": true, "Select": true, "Option": true, "Textarea": true, "Label": true,
+	// WebGPU Canvas
+	"Canvas": true,
 	// Runtime helpers
 	"Fragment": true, "Text": true, "El": true,
 	// Props and Attributes
@@ -305,7 +307,7 @@ var RuntimeComponents = map[string]bool{
 	"Intensity": true, "FOV": true, "Near": true, "Far": true,
 	"LookAtPos": true, "Background": true,
 	"Width": true, "Height": true,
-	"GeometryProp": true, "MaterialProp": true,
+	"GeometryProp": true, "MaterialProp": true, "SceneProp": true,
 	// WebGPU Geometry Constructors
 	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
 	// WebGPU Material Constructors

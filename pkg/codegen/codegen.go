@@ -1600,6 +1600,8 @@ var knownDOMElements = map[string]bool{
 	"Td": true, "Th": true, "Thead": true, "Tbody": true, "Tfoot": true,
 	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
 	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
+	// WebGPU Canvas
+	"Canvas": true,
 }
 
 // Known WebGPU/3D element names - treated as runtime elements like DOM elements
@@ -1622,6 +1624,8 @@ var runtimeFunctions = map[string]bool{
 	"Td": true, "Th": true, "Thead": true, "Tbody": true, "Tfoot": true,
 	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
 	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
+	// WebGPU Canvas
+	"Canvas": true,
 	// GPU elements
 	"Scene": true, "Mesh": true, "Group": true,
 	"PerspectiveCamera": true, "OrthographicCamera": true,
@@ -1632,7 +1636,7 @@ var runtimeFunctions = map[string]bool{
 	"Intensity": true, "FOV": true, "Near": true, "Far": true,
 	"LookAtPos": true, "Background": true,
 	"Width": true, "Height": true,
-	"GeometryProp": true, "MaterialProp": true,
+	"GeometryProp": true, "MaterialProp": true, "SceneProp": true,
 	// GPU constructors
 	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
 	"StandardMaterial": true,

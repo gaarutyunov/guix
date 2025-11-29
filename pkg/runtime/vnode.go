@@ -184,6 +184,11 @@ func Img(options ...interface{}) *VNode {
 	return El("img", options...)
 }
 
+// Canvas creates a canvas element (for WebGPU)
+func Canvas(options ...interface{}) *VNode {
+	return El("canvas", options...)
+}
+
 // Common attribute helpers
 
 // ID sets the id attribute
@@ -224,6 +229,11 @@ func Value(value string) Prop {
 // Disabled sets the disabled property
 func Disabled(value bool) Prop {
 	return Prop{Key: "disabled", Value: value}
+}
+
+// SceneProp sets the scene property for WebGPU canvas
+func SceneProp(scene Scene) Prop {
+	return Prop{Key: "scene", Value: scene}
 }
 
 // Event handler helpers
