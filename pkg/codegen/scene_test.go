@@ -384,5 +384,3 @@ func TestScene() (Scene) {
 		t.Error("Scene components should not import syscall/js")
 	}
 }
-
-
