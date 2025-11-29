@@ -379,9 +379,9 @@ func TestScene() (Scene) {
 		t.Error("Expected runtime package import")
 	}
 
-	// Scene components should import syscall/js (for consistency with Component)
-	if !strings.Contains(outputStr, `"syscall/js"`) {
-		t.Error("Expected syscall/js import")
+	// Scene components should NOT import syscall/js (only UI components need it)
+	if strings.Contains(outputStr, `"syscall/js"`) {
+		t.Error("Scene components should not import syscall/js")
 	}
 }
 

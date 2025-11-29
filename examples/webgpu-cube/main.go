@@ -76,7 +76,7 @@ func main() {
 		fmt.Println("Canvas mounted")
 
 		// Create scene using Guix DSL from scene.gx
-		scene := createCubeScene(rotationX, rotationY)
+		scene := NewCubeScene(rotationX, rotationY).RenderScene()
 
 		// Create renderer
 		renderer, err := runtime.NewSceneRenderer(canvas, scene)

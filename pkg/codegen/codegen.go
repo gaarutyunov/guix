@@ -183,11 +183,11 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 		},
 	}
 
-	// Only add syscall/js if there are components (not just helper functions)
+	// Only add syscall/js if there are UI components (not Scene components or helper functions)
 	needsSyscallJS := false
 	for _, comp := range file.Components {
-		// Check if this is a UI component (has a body with children)
-		if comp.Body != nil && len(comp.Body.Children) > 0 {
+		// Only UI components (returning Component interface) need syscall/js
+		if g.isComponentFunc(comp) && comp.Body != nil && len(comp.Body.Children) > 0 {
 			needsSyscallJS = true
 			break
 		}
@@ -2173,8 +2173,12 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 		}
 		// Check if it's a component parameter
 		if g.componentParams != nil && g.componentParams[cos.Base] {
+			receiverName := g.receiverName
+			if receiverName == "" {
+				receiverName = "c" // Default to "c" for backwards compatibility
+			}
 			return &ast.SelectorExpr{
-				X:   ast.NewIdent("c"),
+				X:   ast.NewIdent(receiverName),
 				Sel: ast.NewIdent(capitalize(cos.Base)),
 			}
 		}
