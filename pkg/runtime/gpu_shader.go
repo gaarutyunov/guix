@@ -137,14 +137,10 @@ func CreateBindGroupLayout(ctx *GPUContext, entries []map[string]interface{}, la
 		return js.Undefined(), fmt.Errorf("GPU device not initialized")
 	}
 
-	// Convert entries to JavaScript array
+	// Convert entries to JavaScript array using mapToJSObject
 	jsEntries := js.Global().Get("Array").New(len(entries))
 	for i, entry := range entries {
-		jsEntry := js.Global().Get("Object").New()
-		for key, value := range entry {
-			jsEntry.Set(key, value)
-		}
-		jsEntries.SetIndex(i, jsEntry)
+		jsEntries.SetIndex(i, mapToJSObject(entry))
 	}
 
 	// Create descriptor as JavaScript object
@@ -196,6 +192,19 @@ func CreateBindGroupEntry(binding int, resource js.Value) map[string]interface{}
 		"binding":  binding,
 		"resource": resource,
 	}
+}
+
+// CreateBufferBinding creates a GPUBufferBinding object for use in bind group entries
+func CreateBufferBinding(buffer js.Value, offset int, size int) js.Value {
+	binding := js.Global().Get("Object").New()
+	binding.Set("buffer", buffer)
+	if offset > 0 {
+		binding.Set("offset", offset)
+	}
+	if size > 0 {
+		binding.Set("size", size)
+	}
+	return binding
 }
 
 // Common vertex formats
