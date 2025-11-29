@@ -126,10 +126,11 @@ type Element struct {
 }
 
 // Prop represents a property or event handler
+// Props are function calls like Class("value") or Background(0.1, 0.1, 0.15, 1.0)
 type Prop struct {
-	Pos   lexer.Position
-	Name  string `@Ident`
-	Value *Expr  `"(" @@ ")"`
+	Pos  lexer.Position
+	Name string  `@Ident`
+	Args []*Expr `"(" (@@ ("," @@)*)? ")"`
 }
 
 // Expr represents an expression with optional binary operations
@@ -283,17 +284,35 @@ var RuntimeComponents = map[string]bool{
 	"Table": true, "Tr": true, "Td": true, "Th": true, "Thead": true, "Tbody": true,
 	"Header": true, "Footer": true, "Nav": true, "Main": true, "Section": true, "Article": true,
 	"Aside": true, "Select": true, "Option": true, "Textarea": true, "Label": true,
+	// WebGPU Canvas
+	"Canvas": true, "GPUScene": true,
 	// Runtime helpers
 	"Fragment": true, "Text": true, "El": true,
 	// Props and Attributes
 	"Class": true, "ID": true, "ClassAttr": true, "Href": true, "Src": true,
 	"Type": true, "Placeholder": true, "Value": true, "Disabled": true, "Checked": true,
 	"Name": true, "For": true, "Alt": true, "Title": true, "Style": true,
+	"Min": true, "Max": true, "Step": true, "TabIndex": true,
 	// Event Handlers
 	"OnClick": true, "OnInput": true, "OnChange": true, "OnSubmit": true,
 	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,
 	"OnMouseOver": true, "OnMouseOut": true, "OnMouseEnter": true, "OnMouseLeave": true,
 	"OnFocus": true, "OnBlur": true,
+	// WebGPU Elements
+	"Scene": true, "Mesh": true, "Group": true,
+	"PerspectiveCamera": true, "OrthographicCamera": true,
+	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+	// WebGPU Properties
+	"Position": true, "Rotation": true, "ScaleValue": true,
+	"Color": true, "Metalness": true, "Roughness": true,
+	"Intensity": true, "FOV": true, "Near": true, "Far": true,
+	"LookAtPos": true, "Background": true,
+	"Width": true, "Height": true,
+	"GeometryProp": true, "MaterialProp": true, "GPURenderUpdate": true,
+	// WebGPU Geometry Constructors
+	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
+	// WebGPU Material Constructors
+	"StandardMaterial": true,
 }
 
 // NonRuntimeIdent is a custom type that only captures identifiers that are NOT runtime components

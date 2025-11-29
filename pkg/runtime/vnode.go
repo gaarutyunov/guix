@@ -2,6 +2,7 @@
 package runtime
 
 import (
+	"strconv"
 	"syscall/js"
 )
 
@@ -42,9 +43,15 @@ type EventHandler struct {
 
 // Event wraps JavaScript event objects
 type Event struct {
-	Native js.Value
-	Target EventTarget
-	Type   string
+	Native   js.Value
+	Target   EventTarget
+	Type     string
+	Key      string // For keyboard events: the key value
+	Code     string // For keyboard events: the physical key code
+	CtrlKey  bool   // For keyboard events: ctrl key pressed
+	ShiftKey bool   // For keyboard events: shift key pressed
+	AltKey   bool   // For keyboard events: alt key pressed
+	MetaKey  bool   // For keyboard events: meta/command key pressed
 }
 
 // EventTarget represents an event target
@@ -184,6 +191,11 @@ func Img(options ...interface{}) *VNode {
 	return El("img", options...)
 }
 
+// Canvas creates a canvas element (for WebGPU)
+func Canvas(options ...interface{}) *VNode {
+	return El("canvas", options...)
+}
+
 // Common attribute helpers
 
 // ID sets the id attribute
@@ -216,6 +228,21 @@ func Placeholder(value string) Attr {
 	return Attr{Key: "placeholder", Value: value}
 }
 
+// Min sets the min attribute (for input elements)
+func Min(value string) Attr {
+	return Attr{Key: "min", Value: value}
+}
+
+// Max sets the max attribute (for input elements)
+func Max(value string) Attr {
+	return Attr{Key: "max", Value: value}
+}
+
+// Step sets the step attribute (for input elements)
+func Step(value string) Attr {
+	return Attr{Key: "step", Value: value}
+}
+
 // Value sets the value property
 func Value(value string) Prop {
 	return Prop{Key: "value", Value: value}
@@ -224,6 +251,27 @@ func Value(value string) Prop {
 // Disabled sets the disabled property
 func Disabled(value bool) Prop {
 	return Prop{Key: "disabled", Value: value}
+}
+
+// TabIndex sets the tabindex attribute (makes element focusable)
+func TabIndex(value int) Attr {
+	return Attr{Key: "tabindex", Value: strconv.Itoa(value)}
+}
+
+// GPUScene creates a special VNode wrapper for WebGPU Scene components
+// This allows Scene components to be used as children of Canvas elements
+func GPUScene(scene Scene) *VNode {
+	return &VNode{
+		Type:       ElementNode,
+		Tag:        "webgpu-scene",
+		Properties: map[string]interface{}{"scene": scene},
+	}
+}
+
+// GPURenderUpdate sets a render update callback for WebGPU canvas
+// The callback is called on each frame with delta time and scene renderer
+func GPURenderUpdate(callback func(float64, interface{})) Prop {
+	return Prop{Key: "gpuRenderUpdate", Value: callback}
 }
 
 // Event handler helpers
@@ -252,14 +300,6 @@ func OnChange(handler func(Event)) EventHandler {
 	}
 }
 
-// OnSubmit creates a submit event handler
-func OnSubmit(handler func(Event)) EventHandler {
-	return EventHandler{
-		Name:    "submit",
-		Handler: handler,
-	}
-}
-
 // OnKeyDown creates a keydown event handler
 func OnKeyDown(handler func(Event)) EventHandler {
 	return EventHandler{
@@ -272,6 +312,22 @@ func OnKeyDown(handler func(Event)) EventHandler {
 func OnKeyUp(handler func(Event)) EventHandler {
 	return EventHandler{
 		Name:    "keyup",
+		Handler: handler,
+	}
+}
+
+// OnKeyPress creates a keypress event handler
+func OnKeyPress(handler func(Event)) EventHandler {
+	return EventHandler{
+		Name:    "keypress",
+		Handler: handler,
+	}
+}
+
+// OnSubmit creates a submit event handler
+func OnSubmit(handler func(Event)) EventHandler {
+	return EventHandler{
+		Name:    "submit",
 		Handler: handler,
 	}
 }

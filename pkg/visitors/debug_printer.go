@@ -295,8 +295,10 @@ func (d *DebugPrinter) VisitElement(node *ast.Element) interface{} {
 func (d *DebugPrinter) VisitProp(node *ast.Prop) interface{} {
 	d.print("Prop: %s(...)", node.Name)
 	d.indent++
-	if node.Value != nil {
-		node.Value.Accept(d)
+	for _, arg := range node.Args {
+		if arg != nil {
+			arg.Accept(d)
+		}
 	}
 	d.indent--
 	return nil

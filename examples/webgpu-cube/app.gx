@@ -1,0 +1,19 @@
+package main
+
+func App() (Component) {
+	Div(
+		Class("webgpu-container"),
+		TabIndex(0)
+	) {
+		Canvas(
+			ID("webgpu-canvas"),
+			Width(600),
+			Height(400)
+		) {
+			GPUScene(NewCubeScene(0, 0))
+		}
+		Div(Class("loading")) {
+			"Loading WebGPU..."
+		}
+	}
+}

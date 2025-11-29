@@ -1,0 +1,36 @@
+package main
+
+func CubeScene(rotX float32, rotY float32) (Scene) {
+	Scene(Background(0.1, 0.1, 0.15, 1.0)) {
+		Mesh(
+			GeometryProp(NewBoxGeometry(2.0, 2.0, 2.0)),
+			MaterialProp(StandardMaterial(
+				Color(0.91, 0.27, 0.38, 1.0),
+				Metalness(0.3),
+				Roughness(0.4)
+			)),
+			Position(0, 0, 0),
+			Rotation(rotX, rotY, 0),
+			ScaleValue(1, 1, 1)
+		)
+
+		PerspectiveCamera(
+			FOV(DegreesToRadians(60)),
+			Near(0.1),
+			Far(100),
+			Position(0, 2, 6),
+			LookAtPos(0, 0, 0)
+		)
+
+		AmbientLight(
+			Color(1, 1, 1, 1),
+			Intensity(0.4)
+		)
+
+		DirectionalLight(
+			Position(5, 10, 7),
+			Color(1, 1, 1, 1),
+			Intensity(0.8)
+		)
+	}
+}

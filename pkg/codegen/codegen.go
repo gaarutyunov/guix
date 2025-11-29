@@ -32,6 +32,7 @@ type Generator struct {
 	currentComp         *guixast.Component                       // Current component being generated
 	componentParams     map[string]bool                          // Track current component's parameter names
 	channelReceiveVars  map[string]string                        // Map local var names to channel names (e.g., "currentState" -> "StateChannel")
+	receiverName        string                                   // Current receiver name: "c" for Component, "s" for Scene
 	verbose             bool                                     // Generate verbose logging statements
 
 	// Result accumulation for visitor pattern
@@ -94,8 +95,11 @@ func (g *Generator) VisitTypeDef(node *guixast.TypeDef) interface{} {
 func (g *Generator) VisitComponent(comp *guixast.Component) interface{} {
 	var decls []ast.Decl
 	if g.isComponentFunc(comp) {
-		// Generate full component with struct, methods, etc.
+		// Generate full UI component with struct, methods, etc.
 		decls = g.generateComponent(comp)
+	} else if g.isSceneFunc(comp) {
+		// Generate Scene component (3D scene graph)
+		decls = g.generateSceneComponent(comp)
 	} else {
 		// Generate simple function
 		decls = []ast.Decl{g.generateFunction(comp)}
@@ -115,6 +119,23 @@ func (g *Generator) isComponentFunc(comp *guixast.Component) bool {
 	// Check if any result is named "Component" (the interface)
 	for _, result := range comp.Results {
 		if result.Name == "Component" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isSceneFunc checks if a function is a Scene component (returns Scene interface)
+func (g *Generator) isSceneFunc(comp *guixast.Component) bool {
+	// If it has no return type, it's a regular function
+	if len(comp.Results) == 0 {
+		return false
+	}
+
+	// Check if any result is named "Scene" (the interface)
+	for _, result := range comp.Results {
+		if result.Name == "Scene" {
 			return true
 		}
 	}
@@ -157,15 +178,30 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 		&ast.ImportSpec{
 			Path: &ast.BasicLit{
 				Kind:  token.STRING,
-				Value: `"syscall/js"`,
-			},
-		},
-		&ast.ImportSpec{
-			Path: &ast.BasicLit{
-				Kind:  token.STRING,
 				Value: `"github.com/gaarutyunov/guix/pkg/runtime"`,
 			},
 		},
+	}
+
+	// Only add syscall/js if there are UI components (not Scene components or helper functions)
+	needsSyscallJS := false
+	for _, comp := range file.Components {
+		// Only UI components (returning Component interface) need syscall/js
+		if g.isComponentFunc(comp) && comp.Body != nil && len(comp.Body.Children) > 0 {
+			needsSyscallJS = true
+			break
+		}
+	}
+
+	if needsSyscallJS {
+		specs = append([]ast.Spec{
+			&ast.ImportSpec{
+				Path: &ast.BasicLit{
+					Kind:  token.STRING,
+					Value: `"syscall/js"`,
+				},
+			},
+		}, specs...)
 	}
 
 	// Only add fmt if there are template interpolations with expressions
@@ -245,6 +281,7 @@ func (g *Generator) generateTypeDef(typeDef *guixast.TypeDef) *ast.GenDecl {
 func (g *Generator) generateFunction(comp *guixast.Component) *ast.FuncDecl {
 	// Set up context
 	g.hoistedVars = make(map[string]bool)
+	g.componentParams = nil // Clear component params for regular functions
 	g.currentCompBody = comp.Body
 
 	// Generate parameters
@@ -329,6 +366,7 @@ func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 
 	// Set current component context
 	g.currentComp = comp
+	g.receiverName = "c" // UI components use "c" as receiver
 	g.componentParams = make(map[string]bool)
 	for _, param := range comp.Params {
 		g.componentParams[param.Name] = true
@@ -370,6 +408,179 @@ func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	decls = append(decls, g.generateUpdateMethod(comp))
 
 	return decls
+}
+
+// generateSceneComponent generates a Scene component (3D scene graph)
+func (g *Generator) generateSceneComponent(comp *guixast.Component) []ast.Decl {
+	var decls []ast.Decl
+
+	// Set current component context
+	g.currentComp = comp
+	g.receiverName = "s" // Scene components use "s" as receiver
+	g.componentParams = make(map[string]bool)
+	for _, param := range comp.Params {
+		g.componentParams[param.Name] = true
+	}
+
+	// Reset hoisted component map
+	g.hoistedComponentMap = make(map[*guixast.Element]*childComponentInfo)
+
+	// Generate Scene struct
+	decls = append(decls, g.generateSceneStruct(comp))
+
+	// Generate constructor
+	decls = append(decls, g.generateSceneConstructor(comp))
+
+	// Generate RenderScene method (returns *GPUNode)
+	decls = append(decls, g.generateRenderSceneMethod(comp))
+
+	return decls
+}
+
+// generateSceneStruct generates the struct for a Scene component
+func (g *Generator) generateSceneStruct(comp *guixast.Component) *ast.GenDecl {
+	var fields []*ast.Field
+
+	// Add parameter fields
+	for _, param := range comp.Params {
+		paramType := g.typeToAST(param.Type)
+
+		// For variadic parameters, wrap the type in a slice
+		if param.IsVariadic {
+			paramType = &ast.ArrayType{
+				Elt: paramType,
+			}
+		}
+
+		fields = append(fields, &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent(capitalize(param.Name))},
+			Type:  paramType,
+		})
+	}
+
+	return &ast.GenDecl{
+		Tok: token.TYPE,
+		Specs: []ast.Spec{
+			&ast.TypeSpec{
+				Name: ast.NewIdent(comp.Name),
+				Type: &ast.StructType{
+					Fields: &ast.FieldList{
+						List: fields,
+					},
+				},
+			},
+		},
+	}
+}
+
+// generateSceneConstructor generates the constructor function for a Scene
+func (g *Generator) generateSceneConstructor(comp *guixast.Component) *ast.FuncDecl {
+	// Build parameter list
+	params := make([]*ast.Field, len(comp.Params))
+	for i, param := range comp.Params {
+		paramType := g.typeToAST(param.Type)
+		if param.IsVariadic {
+			paramType = &ast.Ellipsis{Elt: paramType}
+		}
+		params[i] = &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent(param.Name)},
+			Type:  paramType,
+		}
+	}
+
+	// Build field assignments for struct initialization
+	var elts []ast.Expr
+	for _, param := range comp.Params {
+		elts = append(elts, &ast.KeyValueExpr{
+			Key:   ast.NewIdent(capitalize(param.Name)),
+			Value: ast.NewIdent(param.Name),
+		})
+	}
+
+	return &ast.FuncDecl{
+		Name: ast.NewIdent("New" + comp.Name),
+		Type: &ast.FuncType{
+			Params: &ast.FieldList{List: params},
+			Results: &ast.FieldList{
+				List: []*ast.Field{
+					{
+						Type: &ast.SelectorExpr{
+							X:   ast.NewIdent("runtime"),
+							Sel: ast.NewIdent("Scene"),
+						},
+					},
+				},
+			},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.ReturnStmt{
+					Results: []ast.Expr{
+						&ast.UnaryExpr{
+							Op: token.AND,
+							X: &ast.CompositeLit{
+								Type: ast.NewIdent(comp.Name),
+								Elts: elts,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// generateRenderSceneMethod generates the RenderScene method for a Scene component
+func (g *Generator) generateRenderSceneMethod(comp *guixast.Component) *ast.FuncDecl {
+	// Generate scene graph from body children
+	var sceneNode ast.Expr
+	if comp.Body != nil && len(comp.Body.Children) > 0 {
+		// The first (and should be only) child should be the Scene element
+		sceneNode = g.generateNode(comp.Body.Children[0])
+	} else {
+		// Empty scene
+		sceneNode = &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent("runtime"),
+				Sel: ast.NewIdent("SceneNode"),
+			},
+		}
+	}
+
+	return &ast.FuncDecl{
+		Recv: &ast.FieldList{
+			List: []*ast.Field{
+				{
+					Names: []*ast.Ident{ast.NewIdent("s")},
+					Type: &ast.StarExpr{
+						X: ast.NewIdent(comp.Name),
+					},
+				},
+			},
+		},
+		Name: ast.NewIdent("RenderScene"),
+		Type: &ast.FuncType{
+			Results: &ast.FieldList{
+				List: []*ast.Field{
+					{
+						Type: &ast.StarExpr{
+							X: &ast.SelectorExpr{
+								X:   ast.NewIdent("runtime"),
+								Sel: ast.NewIdent("GPUNode"),
+							},
+						},
+					},
+				},
+			},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.ReturnStmt{
+					Results: []ast.Expr{sceneNode},
+				},
+			},
+		},
+	}
 }
 
 // hasChannelParams checks if a component has any channel parameters
@@ -441,8 +652,8 @@ func (g *Generator) collectChildComponentsFromNodes(nodes []*guixast.Node, resul
 	for _, node := range nodes {
 		if node.Element != nil {
 			elem := node.Element
-			// Check if this is a component (capitalized tag name)
-			isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag])
+			// Check if this is a component (capitalized tag name, not a DOM/GPU element)
+			isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag] && !knownGPUElements[elem.Tag])
 
 			if isComponent {
 				// Generate a variable name for this component instance
@@ -1040,9 +1251,14 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 			// Generate option calls from props
 			optionCalls := []ast.Expr{}
 			for _, prop := range childInfo.element.Props {
+				// Generate option function call: PropName(args...)
+				args := make([]ast.Expr, len(prop.Args))
+				for i, arg := range prop.Args {
+					args[i] = g.generateExpr(arg)
+				}
 				optionCalls = append(optionCalls, &ast.CallExpr{
 					Fun:  ast.NewIdent(prop.Name),
-					Args: []ast.Expr{g.generateExpr(prop.Value)},
+					Args: args,
 				})
 			}
 
@@ -1385,6 +1601,63 @@ var knownDOMElements = map[string]bool{
 	"Td": true, "Th": true, "Thead": true, "Tbody": true, "Tfoot": true,
 	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
 	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
+	// WebGPU Canvas
+	"Canvas": true, "GPUScene": true,
+}
+
+// Known WebGPU/3D element names - treated as runtime elements like DOM elements
+var knownGPUElements = map[string]bool{
+	// Scene graph elements
+	"Scene": true, "Mesh": true, "Group": true,
+	// Camera elements
+	"PerspectiveCamera": true, "OrthographicCamera": true,
+	// Light elements
+	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+}
+
+// Known runtime functions that need runtime. prefix when called in expressions
+var runtimeFunctions = map[string]bool{
+	// DOM elements
+	"Div": true, "Span": true, "P": true, "A": true, "Button": true, "Input": true,
+	"H1": true, "H2": true, "H3": true, "H4": true, "H5": true, "H6": true,
+	"Ul": true, "Li": true, "Ol": true, "Img": true, "Form": true, "Label": true,
+	"Select": true, "Option": true, "Textarea": true, "Table": true, "Tr": true,
+	"Td": true, "Th": true, "Thead": true, "Tbody": true, "Tfoot": true,
+	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
+	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
+	// WebGPU Canvas
+	"Canvas": true, "GPUScene": true,
+	// GPU elements
+	"Scene": true, "Mesh": true, "Group": true,
+	"PerspectiveCamera": true, "OrthographicCamera": true,
+	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+	// GPU properties
+	"Position": true, "Rotation": true, "ScaleValue": true,
+	"Color": true, "Metalness": true, "Roughness": true,
+	"Intensity": true, "FOV": true, "Near": true, "Far": true,
+	"LookAtPos": true, "Background": true,
+	"Width": true, "Height": true,
+	"GeometryProp": true, "MaterialProp": true, "GPURenderUpdate": true,
+	// GPU constructors
+	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
+	"StandardMaterial": true,
+	// Math functions
+	"DegreesToRadians": true, "RadiansToDegrees": true,
+	// Props and attributes
+	"Class": true, "ID": true, "Href": true, "Src": true,
+	"Type": true, "Placeholder": true, "Value": true, "Disabled": true, "Checked": true,
+	"Name": true, "Alt": true, "Title": true, "Style": true,
+	"Min": true, "Max": true, "Step": true,
+	// Event handlers
+	"OnClick": true, "OnInput": true, "OnChange": true, "OnSubmit": true,
+	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,
+	"OnMouseOver": true, "OnMouseOut": true, "OnMouseEnter": true, "OnMouseLeave": true,
+	"OnFocus": true, "OnBlur": true,
+}
+
+// isRuntimeFunction checks if a function name is a known runtime function
+func isRuntimeFunction(name string) bool {
+	return runtimeFunctions[name]
 }
 
 // generateElement generates code for an element
@@ -1394,16 +1667,20 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 	// Check if this is a custom component
 	// A tag is a component if:
 	// 1. It's defined in the current file (in g.components map), OR
-	// 2. It starts with a capital letter AND is NOT a known DOM element
-	isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag])
+	// 2. It starts with a capital letter AND is NOT a known DOM/GPU element
+	isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag] && !knownGPUElements[elem.Tag])
 
 	// Add props as arguments
 	for _, prop := range elem.Props {
 		if isComponent {
-			// For components, props are passed as option functions: WithProp(value)
+			// For components, props are passed as option functions: PropName(args...)
+			propArgs := make([]ast.Expr, len(prop.Args))
+			for i, arg := range prop.Args {
+				propArgs[i] = g.generateExpr(arg)
+			}
 			args = append(args, &ast.CallExpr{
 				Fun:  ast.NewIdent(prop.Name),
-				Args: []ast.Expr{g.generateExpr(prop.Value)},
+				Args: propArgs,
 			})
 		} else {
 			// For DOM elements, wrap in runtime.Prop()
@@ -1515,11 +1792,17 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 			},
 		}
 	} else {
-		// DOM element: call runtime.Element()
+		// DOM/GPU element: call runtime.Element()
+		// Special case: Scene element maps to SceneNode() function
+		runtimeFuncName := elem.Tag
+		if elem.Tag == "Scene" {
+			runtimeFuncName = "SceneNode"
+		}
+
 		return &ast.CallExpr{
 			Fun: &ast.SelectorExpr{
 				X:   ast.NewIdent("runtime"),
-				Sel: ast.NewIdent(elem.Tag),
+				Sel: ast.NewIdent(runtimeFuncName),
 			},
 			Args: args,
 		}
@@ -1528,12 +1811,25 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 
 // generateProp generates code for a prop/event handler
 func (g *Generator) generateProp(prop *guixast.Prop) ast.Expr {
-	return &ast.CallExpr{
-		Fun: &ast.SelectorExpr{
+	// Generate runtime.Name(args...)
+	var fun ast.Expr
+	if isRuntimeFunction(prop.Name) {
+		fun = &ast.SelectorExpr{
 			X:   ast.NewIdent("runtime"),
 			Sel: ast.NewIdent(prop.Name),
-		},
-		Args: []ast.Expr{g.generateExpr(prop.Value)},
+		}
+	} else {
+		fun = ast.NewIdent(prop.Name)
+	}
+
+	args := make([]ast.Expr, len(prop.Args))
+	for i, arg := range prop.Args {
+		args[i] = g.generateExpr(arg)
+	}
+
+	return &ast.CallExpr{
+		Fun:  fun,
+		Args: args,
 	}
 }
 
@@ -1686,10 +1982,14 @@ func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
 				Sel: ast.NewIdent(primary.Ident), // Use exact name, not capitalized
 			}
 		}
-		// Check if it's a component parameter (should be converted to c.FieldName)
+		// Check if it's a component parameter (should be converted to receiver.FieldName)
 		if g.componentParams != nil && g.componentParams[primary.Ident] {
+			receiverName := g.receiverName
+			if receiverName == "" {
+				receiverName = "c" // Default to "c" for backwards compatibility
+			}
 			return &ast.SelectorExpr{
-				X:   ast.NewIdent("c"),
+				X:   ast.NewIdent(receiverName),
 				Sel: ast.NewIdent(capitalize(primary.Ident)),
 			}
 		}
@@ -1879,8 +2179,12 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 		}
 		// Check if it's a component parameter
 		if g.componentParams != nil && g.componentParams[cos.Base] {
+			receiverName := g.receiverName
+			if receiverName == "" {
+				receiverName = "c" // Default to "c" for backwards compatibility
+			}
 			return &ast.SelectorExpr{
-				X:   ast.NewIdent("c"),
+				X:   ast.NewIdent(receiverName),
 				Sel: ast.NewIdent(capitalize(cos.Base)),
 			}
 		}
@@ -1897,10 +2201,26 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 				Sel: ast.NewIdent("current" + channelName),
 			}
 		} else {
-			expr = ast.NewIdent(cos.Base)
+			// Check if this is a GPU/runtime function that needs runtime. prefix
+			if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent(cos.Base),
+				}
+			} else {
+				expr = ast.NewIdent(cos.Base)
+			}
 		}
 	} else {
-		expr = ast.NewIdent(cos.Base)
+		// Check if this is a GPU/runtime function that needs runtime. prefix
+		if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+			expr = &ast.SelectorExpr{
+				X:   ast.NewIdent("runtime"),
+				Sel: ast.NewIdent(cos.Base),
+			}
+		} else {
+			expr = ast.NewIdent(cos.Base)
+		}
 	}
 
 	for _, field := range cos.Fields {
@@ -2029,6 +2349,18 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 
 		// Handle channel send operation
 		if stmt.AssignStmt.Op == "<-" {
+			// Check if component parameter needs c. prefix (capitalized) for channel sends
+			if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				baseExpr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
+				}
+			}
+
 			return &ast.SendStmt{
 				Chan:  baseExpr,
 				Value: g.generateExpr(stmt.AssignStmt.Right),
@@ -2294,6 +2626,18 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 
 		// Handle channel send operation
 		if stmt.AssignStmt.Op == "<-" {
+			// Check if component parameter needs c. prefix (capitalized) for channel sends
+			if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				baseExpr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
+				}
+			}
+
 			return &ast.SendStmt{
 				Chan:  baseExpr,
 				Value: g.generateExpr(stmt.AssignStmt.Right),
@@ -2398,7 +2742,8 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 // typeToAST converts a Guix type to Go AST type
 // Known runtime types that should be qualified with runtime package
 var runtimeTypes = map[string]bool{
-	"Event": true, "VNode": true, "App": true,
+	"Event": true, "VNode": true, "App": true, "Component": true,
+	"GPUNode": true, "GPUCanvas": true, "Scene": true,
 }
 
 func (g *Generator) typeToAST(t *guixast.Type) ast.Expr {

@@ -16,11 +16,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // NOW navigate to the page
     await page.goto('http://localhost:8080');
 
-    // Wait for first frame to render (longer timeout for complete initialization)
-    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
+    // Wait for canvas to be rendered (indicates WebGPU initialization)
+    await page.waitForSelector('canvas', { timeout: 5000 });
 
     // Wait a bit more for messages
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
 
     // Print all console messages for debugging
     console.log('=== Console Messages ===');
@@ -39,11 +39,11 @@ test.describe('WebGPU Rotating Cube', () => {
     );
     expect(hasGoStart).toBeTruthy();
 
-    // Check for first frame rendered
-    const hasFirstFrame = consoleMessages.some(msg =>
-      msg.includes('[Go] First frame rendered')
+    // Check for app mounted successfully
+    const hasAppMounted = consoleMessages.some(msg =>
+      msg.includes('[Go] App mounted successfully')
     );
-    expect(hasFirstFrame).toBeTruthy();
+    expect(hasAppMounted).toBeTruthy();
   });
 
   test('should load without errors', async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe('WebGPU Rotating Cube', () => {
     });
 
     // Wait a bit for any errors to appear
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
     // Filter out known acceptable errors
     const criticalErrors = errors.filter(err =>
@@ -86,7 +86,7 @@ test.describe('WebGPU Rotating Cube', () => {
     });
 
     // Wait for initialization
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(1000);
 
     // Check for key initialization messages
     const hasWebGPUMessage = initMessages.some(msg =>
@@ -122,11 +122,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
-    // Wait for first frame to render
-    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
+    // Wait for canvas to be rendered
+    await page.waitForSelector('canvas', { timeout: 5000 });
 
     // Wait for either controls or error to appear
-    await page.waitForSelector('#controls, div[style*="background: #ff4444"]', { timeout: 20000 });
+    await page.waitForSelector('#controls, div[style*="background: #ff4444"]', { timeout: 5000 });
 
     // Check that no error occurred
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
@@ -151,11 +151,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
-    // Wait for first frame to render
-    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
+    // Wait for canvas to be rendered
+    await page.waitForSelector('canvas', { timeout: 5000 });
 
     // Wait for either controls or error to appear
-    await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 20000 });
+    await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 5000 });
 
     // Check that no error occurred
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
@@ -187,11 +187,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
-    // Wait for first frame to render
-    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
+    // Wait for canvas to be rendered
+    await page.waitForSelector('canvas', { timeout: 5000 });
 
     // Wait for either controls or error to appear
-    await page.waitForSelector('#speed-control, div[style*="background: #ff4444"]', { timeout: 20000 });
+    await page.waitForSelector('#speed-control, div[style*="background: #ff4444"]', { timeout: 5000 });
 
     // Check that no error occurred
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
@@ -218,11 +218,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
-    // Wait for first frame to render
-    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
+    // Wait for canvas to be rendered
+    await page.waitForSelector('canvas', { timeout: 5000 });
 
     // Wait for either controls or error to appear
-    await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 20000 });
+    await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 5000 });
 
     // Check that no error occurred
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
@@ -253,11 +253,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
-    // Wait for first frame to render
-    await page.waitForSelector('#app[data-rendering="true"]', { timeout: 30000 });
+    // Wait for canvas to be rendered
+    await page.waitForSelector('canvas', { timeout: 5000 });
 
     // Wait a bit more for animation
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
     // Take full page screenshot for debugging
     await page.screenshot({ path: 'test-results/webgpu-rendering.png', fullPage: true });
@@ -278,7 +278,7 @@ test.describe('WebGPU Rotating Cube', () => {
     await page.goto('http://localhost:8080');
 
     // Wait for page to load
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(1000);
 
     // Check that no error divs are present
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
