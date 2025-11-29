@@ -22,7 +22,7 @@ func (c *App) BindApp(app *runtime.App) {
 	c.app = app
 }
 func (c *App) Render() *runtime.VNode {
-	return runtime.Div(runtime.ID("app"), runtime.Class("webgpu-container"), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.SceneProp(NewCubeScene(0, 0))), runtime.Div(runtime.Class("loading"), runtime.Text("Loading WebGPU...")))
+	return runtime.Div(runtime.ID("app"), runtime.Class("webgpu-container"), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(0, 0))), runtime.Div(runtime.Class("loading"), runtime.Text("Loading WebGPU...")))
 }
 func (c *App) Mount(parent js.Value) {
 	runtime.Mount(c.Render(), parent)

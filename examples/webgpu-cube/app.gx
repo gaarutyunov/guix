@@ -2,7 +2,9 @@ package main
 
 func App() (Component) {
 	Div(ID("app"), Class("webgpu-container")) {
-		Canvas(ID("webgpu-canvas"), Width(600), Height(400), SceneProp(NewCubeScene(0, 0)))
+		Canvas(ID("webgpu-canvas"), Width(600), Height(400)) {
+			GPUScene(NewCubeScene(0, 0))
+		}
 		Div(Class("loading")) {
 			"Loading WebGPU..."
 		}

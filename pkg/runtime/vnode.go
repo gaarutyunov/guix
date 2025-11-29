@@ -231,9 +231,14 @@ func Disabled(value bool) Prop {
 	return Prop{Key: "disabled", Value: value}
 }
 
-// SceneProp sets the scene property for WebGPU canvas
-func SceneProp(scene Scene) Prop {
-	return Prop{Key: "scene", Value: scene}
+// GPUScene creates a special VNode wrapper for WebGPU Scene components
+// This allows Scene components to be used as children of Canvas elements
+func GPUScene(scene Scene) *VNode {
+	return &VNode{
+		Type:       ElementNode,
+		Tag:        "webgpu-scene",
+		Properties: map[string]interface{}{"scene": scene},
+	}
 }
 
 // Event handler helpers

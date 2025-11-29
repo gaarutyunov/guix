@@ -62,11 +62,9 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 			elem.Call("setAttribute", key, value)
 		}
 
-		// Set properties (excluding special WebGPU scene property)
+		// Set properties
 		for key, value := range vnode.Properties {
-			if key != "scene" {
-				elem.Set(key, value)
-			}
+			elem.Set(key, value)
 		}
 
 		// Attach event handlers
@@ -75,8 +73,21 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 			attachEventHandler(elem, name, handler, vnode)
 		}
 
-		// Mount children
+		// Mount children (skip webgpu-scene wrappers)
+		var sceneComponent Scene
 		for _, child := range vnode.Children {
+			// Check if this is a webgpu-scene wrapper
+			if child.Type == ElementNode && child.Tag == "webgpu-scene" {
+				// Extract Scene from the wrapper
+				if sceneValue, hasScene := child.Properties["scene"]; hasScene {
+					if scene, ok := sceneValue.(Scene); ok {
+						sceneComponent = scene
+						log("DOM: Found Scene component in canvas children")
+					}
+				}
+				continue // Don't mount the wrapper as a DOM node
+			}
+
 			childNode, err := createDOMNode(child)
 			if err != nil {
 				return js.Undefined(), err
@@ -86,13 +97,9 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 		}
 
 		// Special handling for canvas elements with WebGPU scene
-		if vnode.Tag == "canvas" {
-			if sceneValue, hasScene := vnode.Properties["scene"]; hasScene {
-				if scene, ok := sceneValue.(Scene); ok {
-					log("DOM: Initializing WebGPU canvas with scene")
-					go initializeWebGPUCanvas(elem, scene, vnode)
-				}
-			}
+		if vnode.Tag == "canvas" && sceneComponent != nil {
+			log("DOM: Initializing WebGPU canvas with scene")
+			go initializeWebGPUCanvas(elem, sceneComponent, vnode)
 		}
 
 		return elem, nil
