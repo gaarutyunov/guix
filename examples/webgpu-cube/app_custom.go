@@ -40,7 +40,6 @@ func (a *AppWithControls) BindApp(app *runtime.App) {
 // Render renders the full app with controls and event handlers
 func (a *AppWithControls) Render() *runtime.VNode {
 	return runtime.Div(
-		runtime.ID("app"),
 		runtime.Class("webgpu-container"),
 		runtime.TabIndex(0),
 		runtime.OnKeyDown(makeKeyboardHandler(a.commands)),
