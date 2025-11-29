@@ -24,12 +24,26 @@ func mapToJSObject(m map[string]interface{}) js.Value {
 				}
 			}
 			obj.Set(key, arr)
+		case []map[string]interface{}:
+			// Convert slice of maps to JavaScript array
+			arr := js.Global().Get("Array").New(len(v))
+			for i, elemMap := range v {
+				arr.SetIndex(i, mapToJSObject(elemMap))
+			}
+			obj.Set(key, arr)
 		case map[string]interface{}:
 			// Recursively convert nested maps
 			obj.Set(key, mapToJSObject(v))
-		default:
-			// Direct assignment (handles js.Value, primitives, etc.)
+		case js.Value:
+			// js.Value can be set directly
 			obj.Set(key, v)
+		case string, int, int32, int64, uint, uint32, uint64, float32, float64, bool:
+			// Primitives can be set directly
+			obj.Set(key, v)
+		default:
+			// For other types, we need to be careful - log and skip to avoid panic
+			// This shouldn't happen in our WebGPU code, but it's a safety net
+			logError(fmt.Sprintf("mapToJSObject: unsupported type for key %s: %T", key, v))
 		}
 	}
 	return obj
