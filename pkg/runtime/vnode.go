@@ -221,6 +221,21 @@ func Placeholder(value string) Attr {
 	return Attr{Key: "placeholder", Value: value}
 }
 
+// Min sets the min attribute (for input elements)
+func Min(value string) Attr {
+	return Attr{Key: "min", Value: value}
+}
+
+// Max sets the max attribute (for input elements)
+func Max(value string) Attr {
+	return Attr{Key: "max", Value: value}
+}
+
+// Step sets the step attribute (for input elements)
+func Step(value string) Attr {
+	return Attr{Key: "step", Value: value}
+}
+
 // Value sets the value property
 func Value(value string) Prop {
 	return Prop{Key: "value", Value: value}
@@ -239,6 +254,12 @@ func GPUScene(scene Scene) *VNode {
 		Tag:        "webgpu-scene",
 		Properties: map[string]interface{}{"scene": scene},
 	}
+}
+
+// GPURenderUpdate sets a render update callback for WebGPU canvas
+// The callback is called on each frame with delta time and scene renderer
+func GPURenderUpdate(callback func(float64, interface{})) Prop {
+	return Prop{Key: "gpuRenderUpdate", Value: callback}
 }
 
 // Event handler helpers

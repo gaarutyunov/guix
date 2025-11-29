@@ -367,8 +367,21 @@ func initializeWebGPUCanvas(canvasElem js.Value, scene Scene, vnode *VNode) {
 
 	log("WebGPU: Scene renderer created successfully")
 
+	// Check for render update callback
+	var renderUpdate func(float64, interface{})
+	if updateValue, hasUpdate := vnode.Properties["gpuRenderUpdate"]; hasUpdate {
+		if callback, ok := updateValue.(func(float64, interface{})); ok {
+			renderUpdate = callback
+			log("WebGPU: Found render update callback")
+		}
+	}
+
 	// Set render function
 	canvas.SetRenderFunc(func(c *GPUCanvas, delta float64) {
+		// Call update callback if provided
+		if renderUpdate != nil {
+			renderUpdate(delta, renderer)
+		}
 		renderer.Render()
 	})
 

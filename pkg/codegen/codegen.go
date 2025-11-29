@@ -1636,7 +1636,7 @@ var runtimeFunctions = map[string]bool{
 	"Intensity": true, "FOV": true, "Near": true, "Far": true,
 	"LookAtPos": true, "Background": true,
 	"Width": true, "Height": true,
-	"GeometryProp": true, "MaterialProp": true,
+	"GeometryProp": true, "MaterialProp": true, "GPURenderUpdate": true,
 	// GPU constructors
 	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
 	"StandardMaterial": true,
@@ -1646,6 +1646,7 @@ var runtimeFunctions = map[string]bool{
 	"Class": true, "ID": true, "Href": true, "Src": true,
 	"Type": true, "Placeholder": true, "Value": true, "Disabled": true, "Checked": true,
 	"Name": true, "Alt": true, "Title": true, "Style": true,
+	"Min": true, "Max": true, "Step": true,
 	// Event handlers
 	"OnClick": true, "OnInput": true, "OnChange": true, "OnSubmit": true,
 	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,

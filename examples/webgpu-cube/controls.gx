@@ -1,0 +1,95 @@
+package main
+
+import "strconv"
+
+type ControlCommand struct {
+	Type  string
+	Value float32
+}
+
+@props func Controls(commands chan ControlCommand) (Component) {
+	Div(ID("controls"), Class("controls-panel")) {
+		// Arrow buttons
+		Div(Class("arrow-buttons")) {
+			Div(Class("button-row")) {
+				Button(
+					ID("btn-up"),
+					Class("control-button"),
+					OnClick(func(e Event) {
+						commands <- ControlCommand{Type: "rotX", Value: -0.2}
+					})
+				) {
+					"↑"
+				}
+			}
+			Div(Class("button-row")) {
+				Button(
+					ID("btn-left"),
+					Class("control-button"),
+					OnClick(func(e Event) {
+						commands <- ControlCommand{Type: "rotY", Value: -0.2}
+					})
+				) {
+					"←"
+				}
+				Button(
+					ID("btn-toggle"),
+					Class("control-button toggle"),
+					OnClick(func(e Event) {
+						commands <- ControlCommand{Type: "autoRotate"}
+					})
+				) {
+					"⏸"
+				}
+				Button(
+					ID("btn-right"),
+					Class("control-button"),
+					OnClick(func(e Event) {
+						commands <- ControlCommand{Type: "rotY", Value: 0.2}
+					})
+				) {
+					"→"
+				}
+			}
+			Div(Class("button-row")) {
+				Button(
+					ID("btn-down"),
+					Class("control-button"),
+					OnClick(func(e Event) {
+						commands <- ControlCommand{Type: "rotX", Value: 0.2}
+					})
+				) {
+					"↓"
+				}
+			}
+		}
+
+		// Speed control
+		Div(ID("speed-control"), Class("speed-control")) {
+			Span(Class("speed-label")) {
+				"Speed:"
+			}
+			Input(
+				ID("speed-slider"),
+				Type("range"),
+				Class("speed-slider"),
+				Min("0.1"),
+				Max("3.0"),
+				Step("0.1"),
+				Value("1.0"),
+				OnInput(func(e Event) {
+					val, _ := strconv.ParseFloat(e.Target.Value, 32)
+					commands <- ControlCommand{Type: "speed", Value: float32(val)}
+				})
+			)
+			Span(ID("speed-value"), Class("speed-value")) {
+				"1.0"
+			}
+		}
+
+		// Instructions
+		P(Class("instructions")) {
+			"Use arrow keys or buttons to rotate. Space to toggle auto-rotation."
+		}
+	}
+}
