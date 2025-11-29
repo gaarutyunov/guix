@@ -2338,6 +2338,18 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 			}
 		}
 
+		// Check if component parameter needs c. prefix (capitalized)
+		if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
+			receiverName := g.receiverName
+			if receiverName == "" {
+				receiverName = "c"
+			}
+			baseExpr = &ast.SelectorExpr{
+				X:   ast.NewIdent(receiverName),
+				Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
+			}
+		}
+
 		// Add index if present
 		if stmt.AssignStmt.Index != nil {
 			baseExpr = &ast.IndexExpr{
@@ -2600,6 +2612,18 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 			baseExpr = &ast.SelectorExpr{
 				X:   ast.NewIdent("c"),
 				Sel: ast.NewIdent(stmt.AssignStmt.Base),
+			}
+		}
+
+		// Check if component parameter needs c. prefix (capitalized)
+		if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
+			receiverName := g.receiverName
+			if receiverName == "" {
+				receiverName = "c"
+			}
+			baseExpr = &ast.SelectorExpr{
+				X:   ast.NewIdent(receiverName),
+				Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
 			}
 		}
 

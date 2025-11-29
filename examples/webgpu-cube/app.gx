@@ -5,7 +5,8 @@ func App() (Component) {
 		Canvas(
 			ID("webgpu-canvas"),
 			Width(600),
-			Height(400)
+			Height(400),
+			GPURenderUpdate(renderCallback)
 		) {
 			GPUScene(NewCubeScene(0, 0))
 		}
