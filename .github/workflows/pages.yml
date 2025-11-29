@@ -43,13 +43,16 @@ jobs:
           if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
             cp "$GOROOT/lib/wasm/wasm_exec.js" examples/counter/
             cp "$GOROOT/lib/wasm/wasm_exec.js" examples/calculator/
+            cp "$GOROOT/lib/wasm/wasm_exec.js" examples/webgpu-cube/
           elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
             cp "$GOROOT/misc/wasm/wasm_exec.js" examples/counter/
             cp "$GOROOT/misc/wasm/wasm_exec.js" examples/calculator/
+            cp "$GOROOT/misc/wasm/wasm_exec.js" examples/webgpu-cube/
           else
             echo "wasm_exec.js not found in GOROOT, downloading from GitHub"
             curl -o examples/counter/wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
             curl -o examples/calculator/wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
+            curl -o examples/webgpu-cube/wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
           fi
 
       - name: Build counter WASM
@@ -60,17 +63,25 @@ jobs:
         working-directory: examples/calculator
         run: GOOS=js GOARCH=wasm go build -o main.wasm .
 
+      - name: Build WebGPU cube WASM
+        working-directory: examples/webgpu-cube
+        run: GOOS=js GOARCH=wasm go build -o main.wasm .
+
       - name: Create Pages structure
         run: |
           mkdir -p _site
           mkdir -p _site/counter
           mkdir -p _site/calculator
+          mkdir -p _site/webgpu-cube
           cp examples/counter/index.html _site/counter/
           cp examples/counter/main.wasm _site/counter/
           cp examples/counter/wasm_exec.js _site/counter/
           cp examples/calculator/index.html _site/calculator/
           cp examples/calculator/main.wasm _site/calculator/
           cp examples/calculator/wasm_exec.js _site/calculator/
+          cp examples/webgpu-cube/index.html _site/webgpu-cube/
+          cp examples/webgpu-cube/main.wasm _site/webgpu-cube/
+          cp examples/webgpu-cube/wasm_exec.js _site/webgpu-cube/
 
           # Create index page with links to examples
           cat > _site/index.html << 'EOF'
@@ -153,7 +164,21 @@ jobs:
                               <strong>Calculator</strong> - Interactive calculator with state management and event handlers
                           </a>
                       </li>
+                      <li>
+                          <a href="./webgpu-cube/">
+                              <strong>WebGPU Rotating Cube</strong> - 3D graphics with WebGPU, scene graphs, and PBR materials
+                          </a>
+                      </li>
                   </ul>
+
+                  <div class="info">
+                      <h3>Browser Compatibility</h3>
+                      <p>
+                          <strong>Note:</strong> The WebGPU Cube example requires a browser with WebGPU support
+                          (Chrome 113+, Edge 113+, or other WebGPU-enabled browsers). The Counter and Calculator
+                          examples work in all modern browsers.
+                      </p>
+                  </div>
 
                   <div class="info">
                       <h3>Learn More</h3>
