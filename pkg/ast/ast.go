@@ -294,6 +294,21 @@ var RuntimeComponents = map[string]bool{
 	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,
 	"OnMouseOver": true, "OnMouseOut": true, "OnMouseEnter": true, "OnMouseLeave": true,
 	"OnFocus": true, "OnBlur": true,
+	// WebGPU Elements
+	"Scene": true, "Mesh": true, "Group": true,
+	"PerspectiveCamera": true, "OrthographicCamera": true,
+	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+	// WebGPU Properties
+	"Position": true, "Rotation": true, "ScaleValue": true,
+	"Color": true, "Metalness": true, "Roughness": true,
+	"Intensity": true, "FOV": true, "Near": true, "Far": true,
+	"LookAtPos": true, "Background": true,
+	"Width": true, "Height": true,
+	"GeometryProp": true, "MaterialProp": true,
+	// WebGPU Geometry Constructors
+	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
+	// WebGPU Material Constructors
+	"StandardMaterial": true,
 }
 
 // NonRuntimeIdent is a custom type that only captures identifiers that are NOT runtime components

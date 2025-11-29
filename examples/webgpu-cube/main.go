@@ -17,7 +17,7 @@ var (
 
 func main() {
 	fmt.Println("[Go] WASM module started")
-	fmt.Println("[Go] WebGPU Rotating Cube Example")
+	fmt.Println("[Go] WebGPU Rotating Cube Example (Declarative DSL)")
 	fmt.Println("[Go] Waiting for DOM to be ready...")
 
 	// Wait for DOM to be ready before initializing
@@ -75,8 +75,8 @@ func main() {
 
 		fmt.Println("Canvas mounted")
 
-		// Create scene
-		scene := createScene()
+		// Create scene using declarative DSL-style API
+		scene := createSceneDSL()
 
 		// Create renderer
 		renderer, err := runtime.NewSceneRenderer(canvas, scene)
@@ -96,14 +96,14 @@ func main() {
 		// Track if first frame has been rendered
 		firstFrameRendered := false
 
-		// Set render function
+		// Set render function with declarative transform updates
 		canvas.SetRenderFunc(func(c *runtime.GPUCanvas, delta float64) {
 			if autoRotate {
 				rotationY += float32(delta) * 0.001 * speed
 				rotationX += float32(delta) * 0.0005 * speed
 			}
 
-			// Update mesh transform
+			// Update mesh transform using declarative API
 			if len(renderer.Meshes) > 0 {
 				transform := runtime.NewTransform()
 				transform.Position = runtime.Vec3{X: 0, Y: 0, Z: 0}
@@ -136,56 +136,49 @@ func main() {
 	select {}
 }
 
-func createScene() *runtime.GPUNode {
-	// Create scene
-	scene := runtime.Scene(
+// createSceneDSL builds a 3D scene using the declarative DSL-style runtime API
+// This demonstrates the WebGPU DSL that will be integrated into the .gx language
+func createSceneDSL() *runtime.GPUNode {
+	// Declarative scene graph using DSL-style function composition
+	return runtime.Scene(
+		// Scene background color
 		runtime.Background(0.1, 0.1, 0.15, 1.0),
+
+		// Rotating cube mesh with PBR material
+		runtime.Mesh(
+			runtime.GeometryProp(runtime.NewBoxGeometry(2.0, 2.0, 2.0)),
+			runtime.MaterialProp(runtime.StandardMaterial(
+				runtime.Color(0.91, 0.27, 0.38, 1.0), // #e94560
+				runtime.Metalness(0.3),
+				runtime.Roughness(0.4),
+			)),
+			runtime.Position(0, 0, 0),
+			runtime.Rotation(0, 0, 0),
+			runtime.ScaleValue(1, 1, 1),
+		),
+
+		// Perspective camera
+		runtime.PerspectiveCamera(
+			runtime.FOV(runtime.DegreesToRadians(60)),
+			runtime.Near(0.1),
+			runtime.Far(100),
+			runtime.Position(0, 2, 6),
+			runtime.LookAtPos(0, 0, 0),
+		),
+
+		// Ambient light for base illumination
+		runtime.AmbientLight(
+			runtime.Color(1, 1, 1, 1),
+			runtime.Intensity(0.4),
+		),
+
+		// Directional light for depth and shadows
+		runtime.DirectionalLight(
+			runtime.Position(5, 10, 7),
+			runtime.Color(1, 1, 1, 1),
+			runtime.Intensity(0.8),
+		),
 	)
-
-	// Create cube geometry
-	cubeGeometry := runtime.NewBoxGeometry(2.0, 2.0, 2.0)
-
-	// Create material
-	material := runtime.StandardMaterial(
-		runtime.Color(0.91, 0.27, 0.38, 1.0), // #e94560
-		runtime.Metalness(0.3),
-		runtime.Roughness(0.4),
-	)
-
-	// Create mesh
-	mesh := runtime.Mesh(
-		runtime.GeometryProp(cubeGeometry),
-		runtime.MaterialProp(material),
-		runtime.Position(0, 0, 0),
-		runtime.Rotation(0, 0, 0),
-		runtime.ScaleValue(1, 1, 1),
-	)
-
-	// Create camera
-	camera := runtime.PerspectiveCamera(
-		runtime.FOV(runtime.DegreesToRadians(60)),
-		runtime.Near(0.1),
-		runtime.Far(100),
-		runtime.Position(0, 2, 6),
-		runtime.LookAtPos(0, 0, 0),
-	)
-
-	// Create lights
-	ambientLight := runtime.AmbientLight(
-		runtime.Color(1, 1, 1, 1),
-		runtime.Intensity(0.4),
-	)
-
-	directionalLight := runtime.DirectionalLight(
-		runtime.Position(5, 10, 7),
-		runtime.Color(1, 1, 1, 1),
-		runtime.Intensity(0.8),
-	)
-
-	// Add nodes to scene
-	scene.Children = append(scene.Children, mesh, camera, ambientLight, directionalLight)
-
-	return scene
 }
 
 func setupControls(renderer *runtime.SceneRenderer) {

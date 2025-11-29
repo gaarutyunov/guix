@@ -441,8 +441,8 @@ func (g *Generator) collectChildComponentsFromNodes(nodes []*guixast.Node, resul
 	for _, node := range nodes {
 		if node.Element != nil {
 			elem := node.Element
-			// Check if this is a component (capitalized tag name)
-			isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag])
+			// Check if this is a component (capitalized tag name, not a DOM/GPU element)
+			isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag] && !knownGPUElements[elem.Tag])
 
 			if isComponent {
 				// Generate a variable name for this component instance
@@ -1387,6 +1387,16 @@ var knownDOMElements = map[string]bool{
 	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
 }
 
+// Known WebGPU/3D element names - treated as runtime elements like DOM elements
+var knownGPUElements = map[string]bool{
+	// Scene graph elements
+	"Scene": true, "Mesh": true, "Group": true,
+	// Camera elements
+	"PerspectiveCamera": true, "OrthographicCamera": true,
+	// Light elements
+	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+}
+
 // generateElement generates code for an element
 func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 	args := []ast.Expr{}
@@ -1394,8 +1404,8 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 	// Check if this is a custom component
 	// A tag is a component if:
 	// 1. It's defined in the current file (in g.components map), OR
-	// 2. It starts with a capital letter AND is NOT a known DOM element
-	isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag])
+	// 2. It starts with a capital letter AND is NOT a known DOM/GPU element
+	isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag] && !knownGPUElements[elem.Tag])
 
 	// Add props as arguments
 	for _, prop := range elem.Props {
