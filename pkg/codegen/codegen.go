@@ -281,6 +281,7 @@ func (g *Generator) generateTypeDef(typeDef *guixast.TypeDef) *ast.GenDecl {
 func (g *Generator) generateFunction(comp *guixast.Component) *ast.FuncDecl {
 	// Set up context
 	g.hoistedVars = make(map[string]bool)
+	g.componentParams = nil // Clear component params for regular functions
 	g.currentCompBody = comp.Body
 
 	// Generate parameters
