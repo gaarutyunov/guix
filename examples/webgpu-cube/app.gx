@@ -1,9 +1,12 @@
 package main
 
 func App() (Component) {
+	commands := make(chan ControlCommand, 10)
+
 	Div(
 		Class("webgpu-container"),
-		TabIndex(0)
+		TabIndex(0),
+		OnKeyDown(makeKeyboardHandler(commands))
 	) {
 		Canvas(
 			ID("webgpu-canvas"),
@@ -12,6 +15,7 @@ func App() (Component) {
 		) {
 			GPUScene(NewCubeScene(0, 0))
 		}
+		Controls(WithCommands(commands))
 		Div(Class("loading")) {
 			"Loading WebGPU..."
 		}

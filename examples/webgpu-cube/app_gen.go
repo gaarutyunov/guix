@@ -11,18 +11,27 @@ import (
 )
 
 type App struct {
-	app *runtime.App
+	app              *runtime.App
+	commands         chan ControlCommand
+	controlsInstance *Controls
 }
 
 func NewApp() *App {
 	c := &App{}
+	c.commands = make(chan ControlCommand, 10)
+	c.controlsInstance = NewControls(WithCommands(c.commands))
 	return c
 }
 func (c *App) BindApp(app *runtime.App) {
 	c.app = app
+	if c.controlsInstance != nil {
+		c.controlsInstance.BindApp(app)
+	}
 }
 func (c *App) Render() *runtime.VNode {
-	return runtime.Div(runtime.ID("app"), runtime.Class("webgpu-container"), runtime.TabIndex(0), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(0, 0))), runtime.Div(runtime.Class("loading"), runtime.Text("Loading WebGPU...")))
+	return func() *runtime.VNode {
+		return runtime.Div(runtime.Class("webgpu-container"), runtime.TabIndex(0), runtime.OnKeyDown(makeKeyboardHandler(c.commands)), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(0, 0))), c.controlsInstance.Render(), runtime.Div(runtime.Class("loading"), runtime.Text("Loading WebGPU...")))
+	}()
 }
 func (c *App) Mount(parent js.Value) {
 	runtime.Mount(c.Render(), parent)
