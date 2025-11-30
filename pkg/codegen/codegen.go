@@ -360,6 +360,124 @@ func (g *Generator) generateFunctionBodyStmts(body *guixast.Body) []ast.Stmt {
 	return stmts
 }
 
+// analyzeComponentBody pre-analyzes the component body to collect information needed for code generation
+func (g *Generator) analyzeComponentBody(comp *guixast.Component) {
+	// Initialize maps
+	g.hoistedVars = make(map[string]bool)
+	g.channelReceiveVars = make(map[string]string)
+	g.currentCompBody = comp.Body
+
+	// Collect hoisted variable names and channel receive variables
+	if comp.Body != nil {
+		for _, varDecl := range comp.Body.VarDecls {
+			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 {
+				if g.inferTypeFromExpr(varDecl.Values[0]) != nil {
+					g.hoistedVars[varDecl.Names[0]] = true
+				} else if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
+					// Track channel receive: currentState := <-stateChannel
+					channelName := varDecl.Values[0].Left.ChannelOp.Channel
+					g.channelReceiveVars[varDecl.Names[0]] = capitalize(channelName)
+				}
+			}
+		}
+
+		// Also scan for inline channel receives in the component body (e.g., in template interpolations)
+		g.scanForChannelReceives(comp.Body.Children)
+	}
+}
+
+// scanForChannelReceives recursively scans nodes for channel receive operations
+func (g *Generator) scanForChannelReceives(nodes []*guixast.Node) {
+	for _, node := range nodes {
+		// Check template for channel receives
+		if node.Template != nil && node.Template.Fragments != nil {
+			for _, frag := range node.Template.Fragments {
+				if frag.Expr != nil {
+					g.checkExprForChannelReceive(frag.Expr)
+				}
+			}
+		}
+
+		// Check element and its children
+		if node.Element != nil {
+			// Check element props for channel receives
+			for _, prop := range node.Element.Props {
+				if prop.Args != nil {
+					for _, arg := range prop.Args {
+						g.checkExprForChannelReceive(arg)
+					}
+				}
+			}
+
+			// Recurse into children
+			g.scanForChannelReceives(node.Element.Children)
+		}
+
+		// Check if expressions
+		if node.IfExpr != nil {
+			if node.IfExpr.Cond != nil {
+				g.checkExprForChannelReceive(node.IfExpr.Cond)
+			}
+			if node.IfExpr.TrueBody != nil && node.IfExpr.TrueBody.Children != nil {
+				g.scanForChannelReceives(node.IfExpr.TrueBody.Children)
+			}
+			if node.IfExpr.FalseBody != nil && node.IfExpr.FalseBody.Children != nil {
+				g.scanForChannelReceives(node.IfExpr.FalseBody.Children)
+			}
+		}
+	}
+}
+
+// checkExprForChannelReceive checks if an expression contains a channel receive
+func (g *Generator) checkExprForChannelReceive(expr *guixast.Expr) {
+	if expr == nil {
+		return
+	}
+
+	// Check if the left side is a channel receive
+	if expr.Left != nil && expr.Left.ChannelOp != nil {
+		// Found a channel receive like <-channelName
+		channelName := expr.Left.ChannelOp.Channel
+		// Use a dummy variable name to track that this channel is received from
+		g.channelReceiveVars["__inline_"+channelName] = capitalize(channelName)
+		return
+	}
+
+	// Recursively check primary expressions
+	g.checkPrimaryForChannelReceive(expr.Left)
+
+	// Check binary operation operands
+	for _, binOp := range expr.BinOps {
+		if binOp != nil && binOp.Right != nil {
+			g.checkPrimaryForChannelReceive(binOp.Right)
+		}
+	}
+}
+
+// checkPrimaryForChannelReceive recursively checks a primary expression for channel receives
+func (g *Generator) checkPrimaryForChannelReceive(primary *guixast.Primary) {
+	if primary == nil {
+		return
+	}
+
+	// Check channel operation
+	if primary.ChannelOp != nil {
+		channelName := primary.ChannelOp.Channel
+		g.channelReceiveVars["__inline_"+channelName] = capitalize(channelName)
+		return
+	}
+
+	// Check parenthesized expression
+	if primary.Paren != nil {
+		g.checkExprForChannelReceive(primary.Paren)
+	}
+
+	// Check unary expression
+	if primary.Unary != nil && primary.Unary.Right != nil {
+		g.checkPrimaryForChannelReceive(primary.Unary.Right)
+	}
+}
+
 // generateComponent generates code for a component
 func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	var decls []ast.Decl
@@ -374,6 +492,9 @@ func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 
 	// Reset hoisted component map for this component
 	g.hoistedComponentMap = make(map[*guixast.Element]*childComponentInfo)
+
+	// Pre-analyze component body to collect hoisted variables and channel receives
+	g.analyzeComponentBody(comp)
 
 	// Generate Props struct and option functions only if @props directive is present
 	if comp.AutoProps && len(comp.Params) > 0 {
@@ -1305,25 +1426,7 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 
 // generateRenderMethod generates the Render method
 func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl {
-	// Set up context for hoisted variable tracking
-	g.hoistedVars = make(map[string]bool)
-	g.channelReceiveVars = make(map[string]string)
-	g.currentCompBody = comp.Body
-
-	// Collect hoisted variable names and channel receive variables
-	if comp.Body != nil {
-		for _, varDecl := range comp.Body.VarDecls {
-			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 {
-				if g.inferTypeFromExpr(varDecl.Values[0]) != nil {
-					g.hoistedVars[varDecl.Names[0]] = true
-				} else if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
-					// Track channel receive: currentState := <-stateChannel
-					channelName := varDecl.Values[0].Left.ChannelOp.Channel
-					g.channelReceiveVars[varDecl.Names[0]] = capitalize(channelName)
-				}
-			}
-		}
-	}
+	// Note: hoistedVars and channelReceiveVars are already populated by analyzeComponentBody
 
 	// Populate hoisted component map for this component
 	if comp.Body != nil {
@@ -3148,15 +3251,28 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 		})
 	}
 
-	// For each channel parameter, start a listener
+	// For each channel parameter that is received from, start a listener
 	for _, param := range comp.Params {
 		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+			// Only start listener if this channel is received from in the component body
+			capitalizedParamName := capitalize(param.Name)
+			isReceived := false
+			for _, channelName := range g.channelReceiveVars {
+				if channelName == capitalizedParamName {
+					isReceived = true
+					break
+				}
+			}
+			if !isReceived {
+				continue
+			}
+
 			// if c.ChannelName != nil { c.startChannelNameListener() }
 			stmts = append(stmts, &ast.IfStmt{
 				Cond: &ast.BinaryExpr{
 					X: &ast.SelectorExpr{
 						X:   ast.NewIdent("c"),
-						Sel: ast.NewIdent(capitalize(param.Name)),
+						Sel: ast.NewIdent(capitalizedParamName),
 					},
 					Op: token.NEQ,
 					Y:  ast.NewIdent("nil"),
@@ -3167,7 +3283,7 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 							X: &ast.CallExpr{
 								Fun: &ast.SelectorExpr{
 									X:   ast.NewIdent("c"),
-									Sel: ast.NewIdent("start" + capitalize(param.Name) + "Listener"),
+									Sel: ast.NewIdent("start" + capitalizedParamName + "Listener"),
 								},
 							},
 						},
@@ -3264,6 +3380,19 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 
 	for _, param := range comp.Params {
 		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+			// Only generate listener if this channel is received from in the component body
+			capitalizedParamName := capitalize(param.Name)
+			isReceived := false
+			for _, channelName := range g.channelReceiveVars {
+				if channelName == capitalizedParamName {
+					isReceived = true
+					break
+				}
+			}
+			if !isReceived {
+				continue
+			}
+
 			// Generate: func (c *Component) startChannelNameListener() { go func() { for val := range c.ChannelName { c.currentChannelName = val; c.app.Update() } }() }
 			decls = append(decls, &ast.FuncDecl{
 				Recv: &ast.FieldList{

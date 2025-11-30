@@ -60,23 +60,10 @@ func (c *Controls) BindApp(app *runtime.App) {
 	if c.listenersStarted {
 		return
 	}
-	if c.Commands != nil {
-		c.startCommandsListener()
-	}
 	if c.State != nil {
 		c.startStateListener()
 	}
 	c.listenersStarted = true
-}
-func (c *Controls) startCommandsListener() {
-	go func() {
-		for val := range c.Commands {
-			c.currentCommands = val
-			if c.app != nil {
-				c.app.Update()
-			}
-		}
-	}()
 }
 func (c *Controls) startStateListener() {
 	go func() {
