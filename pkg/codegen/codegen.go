@@ -1647,7 +1647,7 @@ var runtimeFunctions = map[string]bool{
 	"Class": true, "ID": true, "Href": true, "Src": true,
 	"Type": true, "Placeholder": true, "Value": true, "Disabled": true, "Checked": true,
 	"Name": true, "Alt": true, "Title": true, "Style": true,
-	"Min": true, "Max": true, "Step": true,
+	"Min": true, "Max": true, "Step": true, "TabIndex": true,
 	// Event handlers
 	"OnClick": true, "OnInput": true, "OnChange": true, "OnSubmit": true,
 	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,
