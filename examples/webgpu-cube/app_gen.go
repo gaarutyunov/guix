@@ -30,7 +30,7 @@ func (c *App) BindApp(app *runtime.App) {
 }
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
-		return runtime.Div(runtime.Class("webgpu-container"), runtime.TabIndex(0), runtime.OnKeyDown(makeKeyboardHandler(c.commands)), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(0, 0))), c.controlsInstance.Render(), runtime.Div(runtime.Class("loading"), runtime.Text("Loading WebGPU...")))
+		return runtime.Div(runtime.Class("webgpu-container"), runtime.TabIndex(0), runtime.OnKeyDown(makeKeyboardHandler(c.commands)), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(0, 0))), c.controlsInstance.Render())
 	}()
 }
 func (c *App) Mount(parent js.Value) {

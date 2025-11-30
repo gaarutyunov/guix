@@ -6,12 +6,23 @@ import "github.com/gaarutyunov/guix/pkg/runtime"
 
 // Rotation state - accessed by render loop and updated by controls
 var (
-	rotationX  float32 = 0
-	rotationY  float32 = 0
-	autoRotate bool    = true
-	speed      float32 = 1.0
-	renderer   *runtime.SceneRenderer
+	rotationX    float32 = 0
+	rotationY    float32 = 0
+	autoRotate   bool    = true
+	speed        float32 = 1.0
+	renderer     *runtime.SceneRenderer
+	loadingChan  chan bool
+	firstRender  = true
 )
+
+// makeLoadingChannel creates and initializes the loading state channel
+func makeLoadingChannel() chan bool {
+	if loadingChan == nil {
+		loadingChan = make(chan bool, 1)
+		loadingChan <- true // Start with loading = true
+	}
+	return loadingChan
+}
 
 // makeCommandChannel creates a new command channel and starts the processor goroutine
 func makeCommandChannel() chan ControlCommand {
@@ -51,6 +62,18 @@ func makeRenderUpdateCallback() func(float64, interface{}) {
 				renderer = sceneRenderer
 			}
 		}
+
+		// Mark loading complete on first frame
+		if firstRender && renderer != nil {
+			firstRender = false
+			if loadingChan != nil {
+				select {
+				case loadingChan <- false:
+				default:
+				}
+			}
+		}
+
 		// Update rotation state and mesh transform
 		updateRotation(delta)
 	}

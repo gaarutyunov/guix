@@ -1583,6 +1583,14 @@ func (g *Generator) generateNode(node *guixast.Node) ast.Expr {
 		return g.generateTemplate(node.Template)
 	}
 
+	if node.IfExpr != nil {
+		return g.generateIfExpr(node.IfExpr)
+	}
+
+	if node.ForLoop != nil {
+		return g.generateForLoop(node.ForLoop)
+	}
+
 	// Default: empty div
 	return &ast.CallExpr{
 		Fun: &ast.SelectorExpr{
@@ -1894,6 +1902,145 @@ func (g *Generator) generateTemplate(tmpl *guixast.Template) ast.Expr {
 			Sel: ast.NewIdent("Text"),
 		},
 		Args: []ast.Expr{result},
+	}
+}
+
+// generateIfExpr generates code for a conditional expression (if/else)
+// Generates an IIFE that returns different VNodes based on the condition
+func (g *Generator) generateIfExpr(ifExpr *guixast.IfExpr) ast.Expr {
+	// Generate the condition expression
+	cond := g.generateExpr(ifExpr.Cond)
+
+	// Generate the true branch body
+	trueNodes := []ast.Expr{}
+	if ifExpr.TrueBody != nil {
+		for _, node := range ifExpr.TrueBody.Children {
+			trueNodes = append(trueNodes, g.generateNode(node))
+		}
+	}
+
+	// Generate the false branch body (if it exists)
+	var falseBody []ast.Stmt
+	if ifExpr.FalseBody != nil {
+		falseNodes := []ast.Expr{}
+		for _, node := range ifExpr.FalseBody.Children {
+			falseNodes = append(falseNodes, g.generateNode(node))
+		}
+
+		// If there are multiple nodes in false branch, wrap in fragment
+		var falseReturn ast.Expr
+		if len(falseNodes) == 0 {
+			falseReturn = &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent("Div"),
+				},
+			}
+		} else if len(falseNodes) == 1 {
+			falseReturn = falseNodes[0]
+		} else {
+			falseReturn = &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent("Fragment"),
+				},
+				Args: falseNodes,
+			}
+		}
+
+		falseBody = []ast.Stmt{
+			&ast.ReturnStmt{Results: []ast.Expr{falseReturn}},
+		}
+	} else {
+		// No else clause - return empty div
+		falseBody = []ast.Stmt{
+			&ast.ReturnStmt{
+				Results: []ast.Expr{
+					&ast.CallExpr{
+						Fun: &ast.SelectorExpr{
+							X:   ast.NewIdent("runtime"),
+							Sel: ast.NewIdent("Div"),
+						},
+					},
+				},
+			},
+		}
+	}
+
+	// Build the true body return statement
+	var trueReturn ast.Expr
+	if len(trueNodes) == 0 {
+		trueReturn = &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent("runtime"),
+				Sel: ast.NewIdent("Div"),
+			},
+		}
+	} else if len(trueNodes) == 1 {
+		trueReturn = trueNodes[0]
+	} else {
+		trueReturn = &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent("runtime"),
+				Sel: ast.NewIdent("Fragment"),
+			},
+			Args: trueNodes,
+		}
+	}
+
+	// Create the IIFE:
+	// func() *runtime.VNode {
+	//     if <condition> {
+	//         return <trueBody>
+	//     } else {
+	//         return <falseBody>
+	//     }
+	// }()
+	return &ast.CallExpr{
+		Fun: &ast.FuncLit{
+			Type: &ast.FuncType{
+				Results: &ast.FieldList{
+					List: []*ast.Field{
+						{
+							Type: &ast.StarExpr{
+								X: &ast.SelectorExpr{
+									X:   ast.NewIdent("runtime"),
+									Sel: ast.NewIdent("VNode"),
+								},
+							},
+						},
+					},
+				},
+			},
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.IfStmt{
+						Cond: cond,
+						Body: &ast.BlockStmt{
+							List: []ast.Stmt{
+								&ast.ReturnStmt{Results: []ast.Expr{trueReturn}},
+							},
+						},
+						Else: &ast.BlockStmt{
+							List: falseBody,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// generateForLoop generates code for a for loop expression
+// For now, this is a placeholder - proper implementation needed
+func (g *Generator) generateForLoop(forLoop *guixast.ForLoop) ast.Expr {
+	// TODO: Implement for loop rendering
+	// This would generate code that iterates and collects VNodes
+	return &ast.CallExpr{
+		Fun: &ast.SelectorExpr{
+			X:   ast.NewIdent("runtime"),
+			Sel: ast.NewIdent("Div"),
+		},
 	}
 }
 

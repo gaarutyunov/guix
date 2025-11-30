@@ -16,8 +16,5 @@ func App() (Component) {
 			GPUScene(NewCubeScene(0, 0))
 		}
 		Controls(WithCommands(commands))
-		Div(Class("loading")) {
-			"Loading WebGPU..."
-		}
 	}
 }
