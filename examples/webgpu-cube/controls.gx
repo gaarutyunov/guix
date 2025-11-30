@@ -7,7 +7,14 @@ type ControlCommand struct {
 	Value float32
 }
 
-@props func Controls(commands chan ControlCommand) (Component) {
+type ControlState struct {
+	AutoRotate bool
+	Speed      float32
+}
+
+@props func Controls(commands chan ControlCommand, state chan ControlState) (Component) {
+	currentState := <-state
+
 	Div(ID("controls"), Class("controls-panel")) {
 		// Arrow buttons
 		Div(Class("arrow-buttons")) {
@@ -39,7 +46,11 @@ type ControlCommand struct {
 						commands <- ControlCommand{Type: "autoRotate"}
 					})
 				) {
-					"⏸"
+					if currentState.AutoRotate {
+						"⏸"
+					} else {
+						"▶"
+					}
 				}
 				Button(
 					ID("btn-right"),

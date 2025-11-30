@@ -2,6 +2,8 @@ package main
 
 func App() (Component) {
 	commands := make(chan ControlCommand, 10)
+	controlState := make(chan ControlState, 10)
+	controlState <- ControlState{AutoRotate: true, Speed: 1.0}
 
 	Div(
 		Class("webgpu-container"),
@@ -15,6 +17,6 @@ func App() (Component) {
 		) {
 			GPUScene(NewCubeScene(0, 0))
 		}
-		Controls(WithCommands(commands))
+		Controls(WithCommands(commands), WithState(controlState))
 	}
 }

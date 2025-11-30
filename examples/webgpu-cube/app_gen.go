@@ -13,13 +13,16 @@ import (
 type App struct {
 	app              *runtime.App
 	commands         chan ControlCommand
+	controlState     chan ControlState
 	controlsInstance *Controls
 }
 
 func NewApp() *App {
 	c := &App{}
 	c.commands = make(chan ControlCommand, 10)
-	c.controlsInstance = NewControls(WithCommands(c.commands))
+	c.controlState = make(chan ControlState, 10)
+	c.controlState <- ControlState{AutoRotate: true, Speed: 1.0}
+	c.controlsInstance = NewControls(WithCommands(c.commands), WithState(c.controlState))
 	return c
 }
 func (c *App) BindApp(app *runtime.App) {

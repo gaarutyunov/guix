@@ -6,13 +6,13 @@ import "github.com/gaarutyunov/guix/pkg/runtime"
 
 // Rotation state - accessed by render loop and updated by controls
 var (
-	rotationX    float32 = 0
-	rotationY    float32 = 0
-	autoRotate   bool    = true
-	speed        float32 = 1.0
-	renderer     *runtime.SceneRenderer
-	loadingChan  chan bool
-	firstRender  = true
+	rotationX   float32 = 0
+	rotationY   float32 = 0
+	autoRotate  bool    = true
+	speed       float32 = 1.0
+	renderer    *runtime.SceneRenderer
+	loadingChan chan bool
+	firstRender = true
 )
 
 // makeLoadingChannel creates and initializes the loading state channel
@@ -107,5 +107,14 @@ func processControlCommand(cmd ControlCommand) {
 		autoRotate = !autoRotate
 	case "speed":
 		speed = cmd.Value
+	}
+}
+
+// sendControlState sends the current control state to the channel
+func sendControlState(stateChan chan ControlState) {
+	select {
+	case stateChan <- ControlState{AutoRotate: autoRotate, Speed: speed}:
+	default:
+		// Channel full, skip this update
 	}
 }
