@@ -93,10 +93,16 @@ func (c *Controls) Render() *runtime.VNode {
 			c.Commands <- ControlCommand{Type: "rotY", Value: 0.2}
 		}), runtime.Text("→"))), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.ID("btn-down"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {
 			c.Commands <- ControlCommand{Type: "rotX", Value: 0.2}
-		}), runtime.Text("↓")))), runtime.Div(runtime.ID("speed-control"), runtime.Class("speed-control"), runtime.Span(runtime.Class("speed-label"), runtime.Text("Speed:")), runtime.Input(runtime.ID("speed-slider"), runtime.Type("range"), runtime.Class("speed-slider"), runtime.Min("0.1"), runtime.Max("3.0"), runtime.Step("0.1"), runtime.Value("1.0"), runtime.OnInput(func(e runtime.Event) {
-			val, _ := strconv.ParseFloat(e.Target.Value, 32)
-			c.Commands <- ControlCommand{Type: "speed", Value: float32(val)}
-		})), runtime.Span(runtime.ID("speed-value"), runtime.Class("speed-value"), runtime.Text("1.0"))), runtime.P(runtime.Class("instructions"), runtime.Text("Use arrow keys or buttons to rotate. Space to toggle auto-rotation.")))
+		}), runtime.Text("↓")))), func() *runtime.VNode {
+			if c.currentState.AutoRotate {
+				return runtime.Div(runtime.ID("speed-control"), runtime.Class("speed-control"), runtime.Span(runtime.Class("speed-label"), runtime.Text("Speed:")), runtime.Input(runtime.ID("speed-slider"), runtime.Type("range"), runtime.Class("speed-slider"), runtime.Min("0.1"), runtime.Max("3.0"), runtime.Step("0.1"), runtime.Value("1.0"), runtime.OnInput(func(e runtime.Event) {
+					val, _ := strconv.ParseFloat(e.Target.Value, 32)
+					c.Commands <- ControlCommand{Type: "speed", Value: float32(val)}
+				})), runtime.Span(runtime.ID("speed-value"), runtime.Class("speed-value"), runtime.Text("1.0")))
+			} else {
+				return runtime.Div()
+			}
+		}(), runtime.P(runtime.Class("instructions"), runtime.Text("Use arrow keys or buttons to rotate. Space to toggle auto-rotation.")))
 	}()
 }
 func (c *Controls) Mount(parent js.Value) {

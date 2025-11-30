@@ -1035,6 +1035,37 @@ func (g *Generator) inferTypeFromExpr(expr *guixast.Expr) ast.Expr {
 		}
 	}
 
+	// Handle channel receive: varName := <-channelName
+	if expr.Left.ChannelOp != nil {
+		channelName := expr.Left.ChannelOp.Channel
+		// Find the channel parameter or hoisted channel to get its element type
+		if g.currentComp != nil {
+			for _, param := range g.currentComp.Params {
+				if param.Name == channelName && param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+					// Extract element type from channel
+					if param.Type.Generic != nil {
+						return g.typeToAST(param.Type.Generic)
+					}
+					return g.typeToAST(&guixast.Type{Name: param.Type.Name})
+				}
+			}
+
+			// Check hoisted channels (local make(chan ...) declarations)
+			if g.currentCompBody != nil {
+				for _, varDecl := range g.currentCompBody.VarDecls {
+					for i, name := range varDecl.Names {
+						if name == channelName && i < len(varDecl.Values) {
+							val := varDecl.Values[i]
+							if val.Left != nil && val.Left.MakeCall != nil && val.Left.MakeCall.ChanType != nil {
+								return g.typeToAST(val.Left.MakeCall.ChanType)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// For other expression types, we can't easily infer the type without more context
 	// For now, return nil and skip adding the field (will remain as local var)
 	// TODO: Add type inference for other expressions if needed

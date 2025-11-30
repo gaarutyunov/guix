@@ -75,26 +75,28 @@ type ControlState struct {
 			}
 		}
 
-		// Speed control
-		Div(ID("speed-control"), Class("speed-control")) {
-			Span(Class("speed-label")) {
-				"Speed:"
-			}
-			Input(
-				ID("speed-slider"),
-				Type("range"),
-				Class("speed-slider"),
-				Min("0.1"),
-				Max("3.0"),
-				Step("0.1"),
-				Value("1.0"),
-				OnInput(func(e Event) {
-					val, _ := strconv.ParseFloat(e.Target.Value, 32)
-					commands <- ControlCommand{Type: "speed", Value: float32(val)}
-				})
-			)
-			Span(ID("speed-value"), Class("speed-value")) {
-				"1.0"
+		// Speed control (only show when auto-rotate is enabled)
+		if currentState.AutoRotate {
+			Div(ID("speed-control"), Class("speed-control")) {
+				Span(Class("speed-label")) {
+					"Speed:"
+				}
+				Input(
+					ID("speed-slider"),
+					Type("range"),
+					Class("speed-slider"),
+					Min("0.1"),
+					Max("3.0"),
+					Step("0.1"),
+					Value("1.0"),
+					OnInput(func(e Event) {
+						val, _ := strconv.ParseFloat(e.Target.Value, 32)
+						commands <- ControlCommand{Type: "speed", Value: float32(val)}
+					})
+				)
+				Span(ID("speed-value"), Class("speed-value")) {
+					"1.0"
+				}
 			}
 		}
 
