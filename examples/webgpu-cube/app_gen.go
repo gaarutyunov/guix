@@ -12,6 +12,10 @@ import (
 
 type App struct {
 	app              *runtime.App
+	rotationX        float64
+	rotationY        float64
+	autoRotate       bool
+	speed            float64
 	commands         chan ControlCommand
 	controlState     chan ControlState
 	controlsInstance *Controls
@@ -19,9 +23,12 @@ type App struct {
 
 func NewApp() *App {
 	c := &App{}
+	c.rotationX = 0.0
+	c.rotationY = 0.0
+	c.autoRotate = true
+	c.speed = 1.0
 	c.commands = make(chan ControlCommand, 10)
 	c.controlState = make(chan ControlState, 10)
-	c.controlState <- ControlState{AutoRotate: true, Speed: 1.0}
 	c.controlsInstance = NewControls(WithCommands(c.commands), WithState(c.controlState))
 	return c
 }
@@ -30,10 +37,13 @@ func (c *App) BindApp(app *runtime.App) {
 	if c.controlsInstance != nil {
 		c.controlsInstance.BindApp(app)
 	}
+	go func() {
+		c.controlState <- ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
+	}()
 }
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
-		return runtime.Div(runtime.Class("webgpu-container"), runtime.TabIndex(0), runtime.OnKeyDown(makeKeyboardHandler(c.commands)), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(0, 0))), c.controlsInstance.Render())
+		return runtime.Div(runtime.Class("webgpu-container"), runtime.TabIndex(0), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(c.rotationX, c.rotationY))), c.controlsInstance.Render())
 	}()
 }
 func (c *App) Mount(parent js.Value) {

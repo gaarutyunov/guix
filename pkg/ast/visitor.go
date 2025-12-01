@@ -24,6 +24,7 @@ type Visitor interface {
 	VisitAssignmentStmt(*AssignmentStmt) interface{}
 	VisitVarDecl(*VarDecl) interface{}
 	VisitAssignment(*Assignment) interface{}
+	VisitGoStmt(*GoStmt) interface{}
 	VisitReturn(*Return) interface{}
 	VisitIfStmt(*IfStmt) interface{}
 	VisitElse(*Else) interface{}

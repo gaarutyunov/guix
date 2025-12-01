@@ -1,21 +1,27 @@
 package main
 
 func App() (Component) {
+	rotationX := 0.0
+	rotationY := 0.0
+	autoRotate := true
+	speed := 1.0
 	commands := make(chan ControlCommand, 10)
 	controlState := make(chan ControlState, 10)
-	controlState <- ControlState{AutoRotate: true, Speed: 1.0}
+
+	go func() {
+		controlState <- ControlState{AutoRotate: autoRotate, Speed: float32(speed)}
+	}()
 
 	Div(
 		Class("webgpu-container"),
-		TabIndex(0),
-		OnKeyDown(makeKeyboardHandler(commands))
+		TabIndex(0)
 	) {
 		Canvas(
 			ID("webgpu-canvas"),
 			Width(600),
 			Height(400)
 		) {
-			GPUScene(NewCubeScene(0, 0))
+			GPUScene(NewCubeScene(rotationX, rotationY))
 		}
 		Controls(WithCommands(commands), WithState(controlState))
 	}

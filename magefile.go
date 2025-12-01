@@ -16,10 +16,27 @@ func Format() error {
 	return sh.RunV("gofmt", "-w", ".")
 }
 
-// Vet runs go vet on all packages
+// Vet runs go vet on all packages (excluding WASM-only runtime package)
 func Vet() error {
 	fmt.Println("Running go vet...")
-	return sh.RunV("go", "vet", "./...")
+	// Vet non-WASM packages (skip pkg/ast and pkg/parser due to participle library)
+	packages := []string{
+		"./cmd/...",
+		"./pkg/codegen",
+		"./pkg/visitors",
+	}
+	for _, pkg := range packages {
+		if err := sh.RunV("go", "vet", pkg); err != nil {
+			return err
+		}
+	}
+	// Vet WASM runtime package with appropriate build tags
+	fmt.Println("Running go vet on WASM runtime...")
+	env := map[string]string{
+		"GOOS":   "js",
+		"GOARCH": "wasm",
+	}
+	return sh.RunWith(env, "go", "vet", "./pkg/runtime/...")
 }
 
 // Test runs all tests

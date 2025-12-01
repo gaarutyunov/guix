@@ -93,6 +93,7 @@ type BodyStatement struct {
 	Return     *Return         `| @@`
 	If         *IfStmt         `| @@`
 	For        *ForLoop        `| @@`
+	GoStmt     *GoStmt         `| @@` // Goroutine statement
 	Assignment *Assignment     `| @@` // Deprecated
 	CallStmt   *CallStmt       `| @@` // Last to minimize conflicts with Elements
 }
@@ -271,6 +272,7 @@ type Statement struct {
 	Return     *Return         `| @@`
 	If         *IfStmt         `| @@`
 	For        *ForLoop        `| @@`
+	GoStmt     *GoStmt         `| @@` // Goroutine statement
 	Assignment *Assignment     `| @@` // Deprecated: kept for backward compatibility
 	Expr       *Expr           `| @@` // Deprecated: kept for backward compatibility
 }
@@ -366,6 +368,14 @@ type Assignment struct {
 	LeftSelector []string `("." @Ident)*`
 	Op           string   `@("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=")`
 	Right        *Expr    `@@`
+}
+
+// GoStmt represents a goroutine statement
+// Example: go func() { state <- 42 }()
+type GoStmt struct {
+	Pos  lexer.Position
+	Func *FuncLit `"go" @@`
+	Call bool     `"(" ")"` // Function call
 }
 
 // Return represents a return statement
@@ -480,6 +490,7 @@ func (n *CallStmt) Accept(v Visitor) interface{}       { return v.VisitCallStmt(
 func (n *AssignmentStmt) Accept(v Visitor) interface{} { return v.VisitAssignmentStmt(n) }
 func (n *VarDecl) Accept(v Visitor) interface{}        { return v.VisitVarDecl(n) }
 func (n *Assignment) Accept(v Visitor) interface{}     { return v.VisitAssignment(n) }
+func (n *GoStmt) Accept(v Visitor) interface{}         { return v.VisitGoStmt(n) }
 func (n *Return) Accept(v Visitor) interface{}         { return v.VisitReturn(n) }
 func (n *IfStmt) Accept(v Visitor) interface{}         { return v.VisitIfStmt(n) }
 func (n *Else) Accept(v Visitor) interface{}           { return v.VisitElse(n) }

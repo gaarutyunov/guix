@@ -27,7 +27,7 @@ func main() {
 		appComponent := NewApp()
 		log("[Go] App created")
 
-		// Start command processor goroutine
+		// Start command processor (uses hoisted variables from component)
 		log("[Go] Starting command processor...")
 		appComponent.StartCommandProcessor()
 		log("[Go] Command processor started")

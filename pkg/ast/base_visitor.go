@@ -113,6 +113,9 @@ func (v *BaseVisitor) VisitBodyStatement(node *BodyStatement) interface{} {
 	if node.For != nil {
 		node.For.Accept(v)
 	}
+	if node.GoStmt != nil {
+		node.GoStmt.Accept(v)
+	}
 	// Deprecated - kept for backward compatibility
 	if node.Assignment != nil {
 		node.Assignment.Accept(v)
@@ -141,6 +144,9 @@ func (v *BaseVisitor) VisitStatement(node *Statement) interface{} {
 	}
 	if node.For != nil {
 		node.For.Accept(v)
+	}
+	if node.GoStmt != nil {
+		node.GoStmt.Accept(v)
 	}
 	// Deprecated - kept for backward compatibility
 	if node.Assignment != nil {
@@ -186,6 +192,13 @@ func (v *BaseVisitor) VisitAssignment(node *Assignment) interface{} {
 func (v *BaseVisitor) VisitReturn(node *Return) interface{} {
 	for _, val := range node.Values {
 		val.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGoStmt(node *GoStmt) interface{} {
+	if node.Func != nil {
+		node.Func.Accept(v)
 	}
 	return nil
 }

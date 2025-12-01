@@ -32,6 +32,7 @@ type Generator struct {
 	currentComp         *guixast.Component                       // Current component being generated
 	componentParams     map[string]bool                          // Track current component's parameter names
 	channelReceiveVars  map[string]string                        // Map local var names to channel names (e.g., "currentState" -> "StateChannel")
+	goroutines          []*guixast.GoStmt                        // Track goroutine statements in current component
 	receiverName        string                                   // Current receiver name: "c" for Component, "s" for Scene
 	verbose             bool                                     // Generate verbose logging statements
 
@@ -365,6 +366,7 @@ func (g *Generator) analyzeComponentBody(comp *guixast.Component) {
 	// Initialize maps
 	g.hoistedVars = make(map[string]bool)
 	g.channelReceiveVars = make(map[string]string)
+	g.goroutines = nil // Reset goroutines
 	g.currentCompBody = comp.Body
 
 	// Collect hoisted variable names and channel receive variables
@@ -381,6 +383,14 @@ func (g *Generator) analyzeComponentBody(comp *guixast.Component) {
 				if g.inferTypeFromExpr(varDecl.Values[0]) != nil {
 					g.hoistedVars[varDecl.Names[0]] = true
 				}
+			}
+		}
+
+		// Collect goroutine statements from the body
+		for _, stmt := range comp.Body.Statements {
+			if stmt.GoStmt != nil {
+				fmt.Printf("[DEBUG analyzeComponentBody] Found goroutine statement\n")
+				g.goroutines = append(g.goroutines, stmt.GoStmt)
 			}
 		}
 
@@ -1043,11 +1053,13 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 // inferTypeFromExpr infers the Go AST type from a Guix expression
 func (g *Generator) inferTypeFromExpr(expr *guixast.Expr) ast.Expr {
 	if expr == nil || expr.Left == nil {
+		fmt.Printf("[DEBUG inferTypeFromExpr] expr or expr.Left is nil\n")
 		return nil
 	}
 
 	// Handle make(chan Type, size)
 	if expr.Left.MakeCall != nil {
+		fmt.Printf("[DEBUG inferTypeFromExpr] Found make() call, inferring chan type\n")
 		return &ast.ChanType{
 			Dir:   ast.SEND | ast.RECV,
 			Value: g.typeToAST(expr.Left.MakeCall.ChanType),
@@ -1057,6 +1069,7 @@ func (g *Generator) inferTypeFromExpr(expr *guixast.Expr) ast.Expr {
 	// Handle channel receive: varName := <-channelName
 	if expr.Left.ChannelOp != nil {
 		channelName := expr.Left.ChannelOp.Channel
+		fmt.Printf("[DEBUG inferTypeFromExpr] Found channel receive from '%s'\n", channelName)
 		// Find the channel parameter or hoisted channel to get its element type
 		if g.currentComp != nil {
 			for _, param := range g.currentComp.Params {
@@ -1085,10 +1098,48 @@ func (g *Generator) inferTypeFromExpr(expr *guixast.Expr) ast.Expr {
 		}
 	}
 
+	// Handle literal values
+	if expr.Left.Literal != nil {
+		lit := expr.Left.Literal
+		if lit.Bool != nil {
+			fmt.Printf("[DEBUG inferTypeFromExpr] Found bool literal\n")
+			return ast.NewIdent("bool")
+		}
+		if lit.Number != nil {
+			// Check if it contains a decimal point
+			numStr := *lit.Number
+			if contains(numStr, ".") {
+				fmt.Printf("[DEBUG inferTypeFromExpr] Found float literal\n")
+				return ast.NewIdent("float64")
+			}
+			fmt.Printf("[DEBUG inferTypeFromExpr] Found int literal\n")
+			return ast.NewIdent("int")
+		}
+		if lit.String != nil {
+			fmt.Printf("[DEBUG inferTypeFromExpr] Found string literal\n")
+			return ast.NewIdent("string")
+		}
+	}
+
 	// For other expression types, we can't easily infer the type without more context
 	// For now, return nil and skip adding the field (will remain as local var)
-	// TODO: Add type inference for other expressions if needed
+	// TODO: Add type inference for function calls and other expressions
+	fmt.Printf("[DEBUG inferTypeFromExpr] Cannot infer type for expr (not literal/make/channel-recv)\n")
 	return nil
+}
+
+// contains checks if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
 // generateConstructor generates the New* constructor function
@@ -1616,7 +1667,10 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 					continue
 				}
 			}
-			stmts = append(stmts, g.generateBodyStatement(stmt))
+			genStmt := g.generateBodyStatement(stmt)
+			if genStmt != nil {
+				stmts = append(stmts, genStmt)
+			}
 		}
 
 		// Add expression statements (function calls)
@@ -2694,6 +2748,11 @@ func (g *Generator) generateFuncBody(body *guixast.FuncBody) *ast.BlockStmt {
 
 // generateBodyStatement generates code for a body statement
 func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt {
+	// Skip goroutine statements - they're executed in BindApp, not in Render
+	if stmt.GoStmt != nil {
+		return nil
+	}
+
 	// Handle CallStmt (function call statements)
 	if stmt.CallStmt != nil {
 		// Build base expression (identifier or selector)
@@ -2967,6 +3026,30 @@ func (g *Generator) generateBodyAsBlock(body *guixast.Body) *ast.BlockStmt {
 	}
 
 	return &ast.BlockStmt{List: stmts}
+}
+
+// generateGoStatement generates code for a go statement
+func (g *Generator) generateGoStatement(goStmt *guixast.GoStmt) ast.Stmt {
+	if goStmt == nil || goStmt.Func == nil {
+		return nil
+	}
+
+	// Generate the function literal body
+	funcBody := g.generateFuncBody(goStmt.Func.Body)
+
+	// Create go statement with anonymous function call
+	return &ast.GoStmt{
+		Call: &ast.CallExpr{
+			Fun: &ast.FuncLit{
+				Type: &ast.FuncType{
+					Params: &ast.FieldList{
+						List: []*ast.Field{},
+					},
+				},
+				Body: funcBody,
+			},
+		},
+	}
 }
 
 // generateStatement generates code for a statement
@@ -3495,6 +3578,13 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 				},
 			})
 		}
+	}
+
+	// Execute goroutine statements (like React useEffect)
+	// These run after component mounts, allowing async initialization
+	for _, goStmt := range g.goroutines {
+		fmt.Printf("[DEBUG generateBindAppMethod] Generating goroutine execution\n")
+		stmts = append(stmts, g.generateGoStatement(goStmt))
 	}
 
 	// Set flag after starting listeners
