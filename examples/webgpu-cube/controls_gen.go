@@ -50,12 +50,6 @@ func NewControls(opts ...ControlsOption) *Controls {
 	for _, opt := range opts {
 		opt(c)
 	}
-	if c.Commands != nil {
-		c.currentCommands = <-c.Commands
-	}
-	if c.State != nil {
-		c.currentState = <-c.State
-	}
 	return c
 }
 func (c *Controls) BindApp(app *runtime.App) {

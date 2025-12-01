@@ -34,9 +34,6 @@ func NewCounter(opts ...CounterOption) *Counter {
 	for _, opt := range opts {
 		opt(c)
 	}
-	if c.CounterChannel != nil {
-		c.currentCounterChannel = <-c.CounterChannel
-	}
 	return c
 }
 func (c *Counter) BindApp(app *runtime.App) {
