@@ -41,9 +41,11 @@ func TestGenerateSimpleComponent(t *testing.T) {
 			source: `package main
 
 @props func Counter(counterChannel chan int) (Component) {
+	count := <-counterChannel
+
 	Div(Class("counter-display")) {
 		Span(Class("counter-value")) {
-			` + "`Counter: {<-counterChannel}`" + `
+			` + "`Counter: {count}`" + `
 		}
 	}
 }`,
@@ -52,12 +54,12 @@ func TestGenerateSimpleComponent(t *testing.T) {
 				"CounterChannel chan int",
 				"type Counter struct",
 				"CounterChannel chan int",
-				"currentCounterChannel int",
+				"count",
 				"func (c *Counter) BindApp(app *runtime.App)",
 				"func (c *Counter) startCounterChannelListener()",
 				"go func() {",
 				"for val := range c.CounterChannel {",
-				"c.currentCounterChannel = val",
+				"c.count = val",
 				"c.app.Update()",
 				"func WithCounterChannel(v chan int) CounterOption",
 			},
@@ -67,12 +69,15 @@ func TestGenerateSimpleComponent(t *testing.T) {
 			source: `package main
 
 @props func Dashboard(dataChannel chan string, statusChannel chan int) (Component) {
+	data := <-dataChannel
+	status := <-statusChannel
+
 	Div {
 		Span {
-			` + "`Data: {<-dataChannel}`" + `
+			` + "`Data: {data}`" + `
 		}
 		Span {
-			` + "`Status: {<-statusChannel}`" + `
+			` + "`Status: {status}`" + `
 		}
 	}
 }`,
@@ -83,8 +88,8 @@ func TestGenerateSimpleComponent(t *testing.T) {
 				"StatusChannel",
 				"chan int",
 				"type Dashboard struct",
-				"currentDataChannel",
-				"currentStatusChannel",
+				"data",
+				"status",
 				"func (c *Dashboard) BindApp(app *runtime.App)",
 				"if c.DataChannel != nil {",
 				"c.startDataChannelListener()",
@@ -92,10 +97,10 @@ func TestGenerateSimpleComponent(t *testing.T) {
 				"c.startStatusChannelListener()",
 				"func (c *Dashboard) startDataChannelListener()",
 				"for val := range c.DataChannel {",
-				"c.currentDataChannel = val",
+				"c.data = val",
 				"func (c *Dashboard) startStatusChannelListener()",
 				"for val := range c.StatusChannel {",
-				"c.currentStatusChannel = val",
+				"c.status = val",
 			},
 		},
 		{
