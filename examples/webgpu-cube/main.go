@@ -27,11 +27,6 @@ func main() {
 		appComponent := NewApp()
 		log("[Go] App created")
 
-		// Start command processor (uses hoisted variables from component)
-		log("[Go] Starting command processor...")
-		appComponent.StartCommandProcessor()
-		log("[Go] Command processor started")
-
 		// Create runtime app
 		log("[Go] Creating runtime app...")
 		runtimeApp := runtime.NewApp(appComponent)

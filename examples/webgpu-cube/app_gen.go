@@ -40,10 +40,28 @@ func (c *App) BindApp(app *runtime.App) {
 	go func() {
 		c.controlState <- ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
 	}()
+	go func() {
+		for cmd := range c.commands {
+			switch cmd.Type {
+			case "rotX":
+				c.rotationX += float64(cmd.Value)
+			case "rotY":
+				c.rotationY += float64(cmd.Value)
+			case "autoRotate":
+				c.autoRotate = !c.autoRotate
+			case "speed":
+				c.speed = float64(cmd.Value)
+			}
+			select {
+			case c.controlState <- ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}:
+			default:
+			}
+		}
+	}()
 }
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
-		return runtime.Div(runtime.Class("webgpu-container"), runtime.TabIndex(0), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(c.rotationX, c.rotationY))), c.controlsInstance.Render())
+		return runtime.Div(runtime.Class("webgpu-container"), runtime.TabIndex(0), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(float32(c.rotationX), float32(c.rotationY)))), c.controlsInstance.Render())
 	}()
 }
 func (c *App) Mount(parent js.Value) {

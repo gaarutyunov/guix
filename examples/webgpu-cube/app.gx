@@ -12,6 +12,26 @@ func App() (Component) {
 		controlState <- ControlState{AutoRotate: autoRotate, Speed: float32(speed)}
 	}()
 
+	go func() {
+		for cmd := range commands {
+			switch cmd.Type {
+			case "rotX":
+				rotationX += float64(cmd.Value)
+			case "rotY":
+				rotationY += float64(cmd.Value)
+			case "autoRotate":
+				autoRotate = !autoRotate
+			case "speed":
+				speed = float64(cmd.Value)
+			}
+
+			select {
+			case controlState <- ControlState{AutoRotate: autoRotate, Speed: float32(speed)}:
+			default:
+			}
+		}
+	}()
+
 	Div(
 		Class("webgpu-container"),
 		TabIndex(0)
@@ -21,7 +41,7 @@ func App() (Component) {
 			Width(600),
 			Height(400)
 		) {
-			GPUScene(NewCubeScene(rotationX, rotationY))
+			GPUScene(NewCubeScene(float32(rotationX), float32(rotationY)))
 		}
 		Controls(WithCommands(commands), WithState(controlState))
 	}

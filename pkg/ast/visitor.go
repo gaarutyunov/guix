@@ -25,6 +25,13 @@ type Visitor interface {
 	VisitVarDecl(*VarDecl) interface{}
 	VisitAssignment(*Assignment) interface{}
 	VisitGoStmt(*GoStmt) interface{}
+	VisitSwitchStmt(*SwitchStmt) interface{}
+	VisitCaseClause(*CaseClause) interface{}
+	VisitSelectStmt(*SelectStmt) interface{}
+	VisitCommClause(*CommClause) interface{}
+	VisitCommCase(*CommCase) interface{}
+	VisitSendStmt(*SendStmt) interface{}
+	VisitRecvStmt(*RecvStmt) interface{}
 	VisitReturn(*Return) interface{}
 	VisitIfStmt(*IfStmt) interface{}
 	VisitElse(*Else) interface{}

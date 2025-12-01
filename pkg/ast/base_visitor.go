@@ -113,6 +113,12 @@ func (v *BaseVisitor) VisitBodyStatement(node *BodyStatement) interface{} {
 	if node.For != nil {
 		node.For.Accept(v)
 	}
+	if node.Switch != nil {
+		node.Switch.Accept(v)
+	}
+	if node.Select != nil {
+		node.Select.Accept(v)
+	}
 	if node.GoStmt != nil {
 		node.GoStmt.Accept(v)
 	}
@@ -144,6 +150,12 @@ func (v *BaseVisitor) VisitStatement(node *Statement) interface{} {
 	}
 	if node.For != nil {
 		node.For.Accept(v)
+	}
+	if node.Switch != nil {
+		node.Switch.Accept(v)
+	}
+	if node.Select != nil {
+		node.Select.Accept(v)
 	}
 	if node.GoStmt != nil {
 		node.GoStmt.Accept(v)
@@ -200,6 +212,70 @@ func (v *BaseVisitor) VisitGoStmt(node *GoStmt) interface{} {
 	if node.Func != nil {
 		node.Func.Accept(v)
 	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitSwitchStmt(node *SwitchStmt) interface{} {
+	if node.Expr != nil {
+		node.Expr.Accept(v)
+	}
+	for _, caseClause := range node.Cases {
+		caseClause.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitCaseClause(node *CaseClause) interface{} {
+	for _, val := range node.Values {
+		val.Accept(v)
+	}
+	for _, stmt := range node.Statements {
+		stmt.Accept(v)
+	}
+	for _, stmt := range node.DefStmts {
+		stmt.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitSelectStmt(node *SelectStmt) interface{} {
+	for _, commClause := range node.Cases {
+		commClause.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitCommClause(node *CommClause) interface{} {
+	if node.Comm != nil {
+		node.Comm.Accept(v)
+	}
+	for _, stmt := range node.Statements {
+		stmt.Accept(v)
+	}
+	for _, stmt := range node.DefStmts {
+		stmt.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitCommCase(node *CommCase) interface{} {
+	if node.Send != nil {
+		node.Send.Accept(v)
+	}
+	if node.Recv != nil {
+		node.Recv.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitSendStmt(node *SendStmt) interface{} {
+	if node.Value != nil {
+		node.Value.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitRecvStmt(node *RecvStmt) interface{} {
 	return nil
 }
 

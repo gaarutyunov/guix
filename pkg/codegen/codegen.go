@@ -2922,6 +2922,14 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 		return g.generateForLoopStmt(stmt.For)
 	}
 
+	if stmt.Switch != nil {
+		return g.generateSwitchStmt(stmt.Switch)
+	}
+
+	if stmt.Select != nil {
+		return g.generateSelectStmt(stmt.Select)
+	}
+
 	return &ast.EmptyStmt{}
 }
 
@@ -2932,11 +2940,14 @@ func (g *Generator) generateForLoopStmt(forLoop *guixast.ForLoop) ast.Stmt {
 		// Range-based for loop: for key, val in range
 		var key, val ast.Expr
 		if forLoop.Key != "" {
+			// Two variables: for key, val := range expr
 			key = ast.NewIdent(forLoop.Key)
 			val = ast.NewIdent(forLoop.Val)
 		} else {
-			key = ast.NewIdent("_")
-			val = ast.NewIdent(forLoop.Val)
+			// Single variable: for val := range expr (e.g., channels)
+			// In Go AST, single-variable range uses Key field, not Value
+			key = ast.NewIdent(forLoop.Val)
+			val = nil
 		}
 
 		// Generate range statement
@@ -2996,6 +3007,158 @@ func (g *Generator) generateForLoopStmt(forLoop *guixast.ForLoop) ast.Stmt {
 			Post: post,
 			Body: g.generateFuncBody(forLoop.CBody),
 		}
+	}
+}
+
+// generateSwitchStmt generates a switch statement
+func (g *Generator) generateSwitchStmt(switchStmt *guixast.SwitchStmt) ast.Stmt {
+	var tagExpr ast.Expr
+	if switchStmt.Expr != nil {
+		tagExpr = g.generateExpr(switchStmt.Expr)
+	}
+
+	// Generate case clauses
+	var body []ast.Stmt
+	for _, caseClause := range switchStmt.Cases {
+		var caseStmt *ast.CaseClause
+
+		if caseClause.Default {
+			// Default case
+			caseStmt = &ast.CaseClause{
+				List: nil, // nil indicates default case
+			}
+
+			// Generate statements for default case
+			for _, stmt := range caseClause.DefStmts {
+				if goStmt := g.generateStatement(stmt); goStmt != nil {
+					caseStmt.Body = append(caseStmt.Body, goStmt)
+				}
+			}
+		} else {
+			// Regular case with values
+			caseExprs := make([]ast.Expr, len(caseClause.Values))
+			for i, val := range caseClause.Values {
+				caseExprs[i] = g.generateExpr(val)
+			}
+
+			caseStmt = &ast.CaseClause{
+				List: caseExprs,
+			}
+
+			// Generate statements for this case
+			for _, stmt := range caseClause.Statements {
+				if goStmt := g.generateStatement(stmt); goStmt != nil {
+					caseStmt.Body = append(caseStmt.Body, goStmt)
+				}
+			}
+		}
+
+		body = append(body, caseStmt)
+	}
+
+	return &ast.SwitchStmt{
+		Tag: tagExpr,
+		Body: &ast.BlockStmt{
+			List: body,
+		},
+	}
+}
+
+// generateSelectStmt generates a select statement for channel operations
+func (g *Generator) generateSelectStmt(selectStmt *guixast.SelectStmt) ast.Stmt {
+	var body []ast.Stmt
+
+	for _, commClause := range selectStmt.Cases {
+		var caseStmt *ast.CommClause
+
+		if commClause.Default {
+			// Default case
+			caseStmt = &ast.CommClause{
+				Comm: nil, // nil indicates default case
+			}
+
+			// Generate statements for default case
+			for _, stmt := range commClause.DefStmts {
+				if goStmt := g.generateStatement(stmt); goStmt != nil {
+					caseStmt.Body = append(caseStmt.Body, goStmt)
+				}
+			}
+		} else {
+			// Regular case with channel operation
+			caseStmt = &ast.CommClause{}
+
+			if commClause.Comm != nil {
+				if commClause.Comm.Send != nil {
+					// Send operation: ch <- value
+					send := commClause.Comm.Send
+					var chanExpr ast.Expr = ast.NewIdent(send.Channel)
+
+					// Check if hoisted variable needs c. prefix
+					if g.hoistedVars != nil && g.hoistedVars[send.Channel] {
+						chanExpr = &ast.SelectorExpr{
+							X:   ast.NewIdent("c"),
+							Sel: ast.NewIdent(send.Channel),
+						}
+					}
+
+					caseStmt.Comm = &ast.SendStmt{
+						Chan:  chanExpr,
+						Value: g.generateExpr(send.Value),
+					}
+				} else if commClause.Comm.Recv != nil {
+					// Receive operation: x := <-ch or <-ch
+					recv := commClause.Comm.Recv
+					var chanExpr ast.Expr = ast.NewIdent(recv.Channel)
+
+					// Check if hoisted variable needs c. prefix
+					if g.hoistedVars != nil && g.hoistedVars[recv.Channel] {
+						chanExpr = &ast.SelectorExpr{
+							X:   ast.NewIdent("c"),
+							Sel: ast.NewIdent(recv.Channel),
+						}
+					}
+
+					recvExpr := &ast.UnaryExpr{
+						Op: token.ARROW,
+						X:  chanExpr,
+					}
+
+					if len(recv.Names) > 0 {
+						// Assignment: x := <-ch or x, ok := <-ch
+						lhs := make([]ast.Expr, len(recv.Names))
+						for i, name := range recv.Names {
+							lhs[i] = ast.NewIdent(name)
+						}
+
+						caseStmt.Comm = &ast.AssignStmt{
+							Lhs: lhs,
+							Tok: token.DEFINE,
+							Rhs: []ast.Expr{recvExpr},
+						}
+					} else {
+						// Just receive without assignment: <-ch
+						caseStmt.Comm = &ast.ExprStmt{
+							X: recvExpr,
+						}
+					}
+				}
+			}
+
+			// Generate statements for this case
+			for _, stmt := range commClause.Statements {
+				if goStmt := g.generateStatement(stmt); goStmt != nil {
+					caseStmt.Body = append(caseStmt.Body, goStmt)
+				}
+			}
+		}
+
+		body = append(body, caseStmt)
+	}
+
+	return &ast.SelectStmt{
+		Body: &ast.BlockStmt{
+			List: body,
+		},
 	}
 }
 
@@ -3224,6 +3387,14 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 
 	if stmt.For != nil {
 		return g.generateForLoopStmt(stmt.For)
+	}
+
+	if stmt.Switch != nil {
+		return g.generateSwitchStmt(stmt.Switch)
+	}
+
+	if stmt.Select != nil {
+		return g.generateSelectStmt(stmt.Select)
 	}
 
 	return &ast.EmptyStmt{}

@@ -93,6 +93,8 @@ type BodyStatement struct {
 	Return     *Return         `| @@`
 	If         *IfStmt         `| @@`
 	For        *ForLoop        `| @@`
+	Switch     *SwitchStmt     `| @@` // Switch statement
+	Select     *SelectStmt     `| @@` // Select statement
 	GoStmt     *GoStmt         `| @@` // Goroutine statement
 	Assignment *Assignment     `| @@` // Deprecated
 	CallStmt   *CallStmt       `| @@` // Last to minimize conflicts with Elements
@@ -272,6 +274,8 @@ type Statement struct {
 	Return     *Return         `| @@`
 	If         *IfStmt         `| @@`
 	For        *ForLoop        `| @@`
+	Switch     *SwitchStmt     `| @@` // Switch statement
+	Select     *SelectStmt     `| @@` // Select statement
 	GoStmt     *GoStmt         `| @@` // Goroutine statement
 	Assignment *Assignment     `| @@` // Deprecated: kept for backward compatibility
 	Expr       *Expr           `| @@` // Deprecated: kept for backward compatibility
@@ -376,6 +380,62 @@ type GoStmt struct {
 	Pos  lexer.Position
 	Func *FuncLit `"go" @@`
 	Call bool     `"(" ")"` // Function call
+}
+
+// SwitchStmt represents a switch statement
+// Example: switch expr { case val1: stmts... case val2: stmts... default: stmts... }
+type SwitchStmt struct {
+	Pos   lexer.Position
+	Expr  *Expr         `"switch" @@?` // Optional expression
+	Cases []*CaseClause `"{" @@* "}"`
+}
+
+// CaseClause represents a case or default clause in a switch statement
+type CaseClause struct {
+	Pos        lexer.Position
+	Values     []*Expr      `("case" @@ ("," @@)*`
+	Statements []*Statement `":" @@*)`
+	Default    bool         `| ("default"`
+	DefStmts   []*Statement `":" @@*)`
+}
+
+// SelectStmt represents a select statement for channel operations
+// Example: select { case x := <-ch: stmts... case ch <- val: stmts... default: stmts... }
+type SelectStmt struct {
+	Pos   lexer.Position
+	Cases []*CommClause `"select" "{" @@* "}"`
+}
+
+// CommClause represents a case or default clause in a select statement
+type CommClause struct {
+	Pos        lexer.Position
+	Comm       *CommCase    `("case" @@`
+	Statements []*Statement `":" @@*)`
+	Default    bool         `| ("default"`
+	DefStmts   []*Statement `":" @@*)`
+}
+
+// CommCase represents a channel send or receive operation in a select case
+type CommCase struct {
+	Pos  lexer.Position
+	Send *SendStmt `@@`
+	Recv *RecvStmt `| @@`
+}
+
+// SendStmt represents a channel send operation
+// Example: ch <- value
+type SendStmt struct {
+	Pos     lexer.Position
+	Channel string `@Ident "<-"`
+	Value   *Expr  `@@`
+}
+
+// RecvStmt represents a channel receive operation with optional assignment
+// Example: x := <-ch or <-ch
+type RecvStmt struct {
+	Pos     lexer.Position
+	Names   []string `(@Ident ("," @Ident)* ":=")?`
+	Channel string   `"<-" @Ident`
 }
 
 // Return represents a return statement
@@ -491,6 +551,13 @@ func (n *AssignmentStmt) Accept(v Visitor) interface{} { return v.VisitAssignmen
 func (n *VarDecl) Accept(v Visitor) interface{}        { return v.VisitVarDecl(n) }
 func (n *Assignment) Accept(v Visitor) interface{}     { return v.VisitAssignment(n) }
 func (n *GoStmt) Accept(v Visitor) interface{}         { return v.VisitGoStmt(n) }
+func (n *SwitchStmt) Accept(v Visitor) interface{}     { return v.VisitSwitchStmt(n) }
+func (n *CaseClause) Accept(v Visitor) interface{}     { return v.VisitCaseClause(n) }
+func (n *SelectStmt) Accept(v Visitor) interface{}     { return v.VisitSelectStmt(n) }
+func (n *CommClause) Accept(v Visitor) interface{}     { return v.VisitCommClause(n) }
+func (n *CommCase) Accept(v Visitor) interface{}       { return v.VisitCommCase(n) }
+func (n *SendStmt) Accept(v Visitor) interface{}       { return v.VisitSendStmt(n) }
+func (n *RecvStmt) Accept(v Visitor) interface{}       { return v.VisitRecvStmt(n) }
 func (n *Return) Accept(v Visitor) interface{}         { return v.VisitReturn(n) }
 func (n *IfStmt) Accept(v Visitor) interface{}         { return v.VisitIfStmt(n) }
 func (n *Else) Accept(v Visitor) interface{}           { return v.VisitElse(n) }
