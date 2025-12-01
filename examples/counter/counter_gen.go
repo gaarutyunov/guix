@@ -23,10 +23,9 @@ func WithCounterChannel(v chan int) CounterOption {
 }
 
 type Counter struct {
-	app                   *runtime.App
-	CounterChannel        chan int
-	currentCounterChannel int
-	listenersStarted      bool
+	app              *runtime.App
+	CounterChannel   chan int
+	listenersStarted bool
 }
 
 func NewCounter(opts ...CounterOption) *Counter {
@@ -41,23 +40,10 @@ func (c *Counter) BindApp(app *runtime.App) {
 	if c.listenersStarted {
 		return
 	}
-	if c.CounterChannel != nil {
-		c.startCounterChannelListener()
-	}
 	c.listenersStarted = true
 }
-func (c *Counter) startCounterChannelListener() {
-	go func() {
-		for val := range c.CounterChannel {
-			c.currentCounterChannel = val
-			if c.app != nil {
-				c.app.Update()
-			}
-		}
-	}()
-}
 func (c *Counter) Render() *runtime.VNode {
-	return runtime.Div(runtime.Class("counter-display"), runtime.Span(runtime.Class("counter-value"), runtime.Text("Counter: "+fmt.Sprint(c.currentCounterChannel))))
+	return runtime.Div(runtime.Class("counter-display"), runtime.Span(runtime.Class("counter-value"), runtime.Text("Counter: "+fmt.Sprint(<-c.CounterChannel))))
 }
 func (c *Counter) Mount(parent js.Value) {
 	runtime.Mount(c.Render(), parent)

@@ -39,7 +39,6 @@ func WithState(v chan ControlState) ControlsOption {
 type Controls struct {
 	app              *runtime.App
 	Commands         chan ControlCommand
-	currentCommands  ControlCommand
 	State            chan ControlState
 	currentState     ControlState
 	listenersStarted bool

@@ -371,12 +371,15 @@ func (g *Generator) analyzeComponentBody(comp *guixast.Component) {
 	if comp.Body != nil {
 		for _, varDecl := range comp.Body.VarDecls {
 			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 {
-				if g.inferTypeFromExpr(varDecl.Values[0]) != nil {
-					g.hoistedVars[varDecl.Names[0]] = true
-				} else if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
+				// Track channel receives first
+				if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
 					// Track channel receive: currentState := <-stateChannel
 					channelName := varDecl.Values[0].Left.ChannelOp.Channel
 					g.channelReceiveVars[varDecl.Names[0]] = capitalize(channelName)
+				}
+				// Also track as hoisted if type can be inferred (not mutually exclusive)
+				if g.inferTypeFromExpr(varDecl.Values[0]) != nil {
+					g.hoistedVars[varDecl.Names[0]] = true
 				}
 			}
 		}
@@ -950,22 +953,6 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 			Names: []*ast.Ident{ast.NewIdent(capitalize(param.Name))},
 			Type:  paramType,
 		})
-
-		// For channel parameters, add a current value field
-		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
-			// Extract the element type from the channel
-			var elemType ast.Expr
-			if param.Type.Generic != nil {
-				elemType = g.typeToAST(param.Type.Generic)
-			} else {
-				elemType = g.typeToAST(&guixast.Type{Name: param.Type.Name})
-			}
-
-			fields = append(fields, &ast.Field{
-				Names: []*ast.Ident{ast.NewIdent("current" + capitalize(param.Name))},
-				Type:  elemType,
-			})
-		}
 	}
 
 	// Add VarDecl fields from component body (for stateful variables)
@@ -1180,18 +1167,8 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 		for _, varDecl := range comp.Body.VarDecls {
 			// Only initialize single-variable declarations with inferable types
 			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 {
-				varType := g.inferTypeFromExpr(varDecl.Values[0])
-				if varType != nil {
-					// Generate: c.varName = make(chan Type, size)
-					bodyStmts = append(bodyStmts, &ast.AssignStmt{
-						Lhs: []ast.Expr{&ast.SelectorExpr{
-							X:   ast.NewIdent("c"),
-							Sel: ast.NewIdent(varDecl.Names[0]),
-						}},
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{g.generateExpr(varDecl.Values[0])},
-					})
-				} else if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
+				// Check for channel receives FIRST (before varType check)
+				if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
 					// This is a channel receive: varName := <-channelName
 					channelName := varDecl.Values[0].Left.ChannelOp.Channel
 
@@ -1205,8 +1182,8 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					}
 
 					if isParam {
-						// Generate: if c.ChannelName != nil { c.currentChannelName = <-c.ChannelName }
-						// The field "currentChannelName" was already created in generateComponentStruct
+						// Generate: if c.ChannelName != nil { c.varName = <-c.ChannelName }
+						// The field "varName" was already created in generateComponentStruct
 
 						// Build the channel read statements (with optional logging)
 						channelReadStmts := []ast.Stmt{}
@@ -1231,7 +1208,7 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 							Lhs: []ast.Expr{
 								&ast.SelectorExpr{
 									X:   ast.NewIdent("c"),
-									Sel: ast.NewIdent("current" + capitalize(channelName)),
+									Sel: ast.NewIdent(varDecl.Names[0]),
 								},
 							},
 							Tok: token.ASSIGN,
@@ -1273,6 +1250,20 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 							Body: &ast.BlockStmt{
 								List: channelReadStmts,
 							},
+						})
+					}
+				} else {
+					// Not a channel receive - check if it has an inferable type
+					varType := g.inferTypeFromExpr(varDecl.Values[0])
+					if varType != nil {
+						// Generate: c.varName = make(chan Type, size) or other initialization
+						bodyStmts = append(bodyStmts, &ast.AssignStmt{
+							Lhs: []ast.Expr{&ast.SelectorExpr{
+								X:   ast.NewIdent("c"),
+								Sel: ast.NewIdent(varDecl.Names[0]),
+							}},
+							Tok: token.ASSIGN,
+							Rhs: []ast.Expr{g.generateExpr(varDecl.Values[0])},
 						})
 					}
 				}
@@ -1323,8 +1314,8 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					}
 
 					if isParam {
-						// Generate: if c.ChannelName != nil { c.currentChannelName = <-c.ChannelName }
-						// The field "currentChannelName" was already created in generateComponentStruct
+						// Generate: if c.ChannelName != nil { c.varName = <-c.ChannelName }
+						// The field "varName" was already created in generateComponentStruct
 
 						// Build the channel read statements (with optional logging)
 						channelReadStmts := []ast.Stmt{}
@@ -1349,7 +1340,7 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 							Lhs: []ast.Expr{
 								&ast.SelectorExpr{
 									X:   ast.NewIdent("c"),
-									Sel: ast.NewIdent("current" + capitalize(channelName)),
+									Sel: ast.NewIdent(stmt.Assignment.Left),
 								},
 							},
 							Tok: token.ASSIGN,
@@ -2247,16 +2238,8 @@ func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
 	}
 
 	if primary.Ident != "" {
-		// Check if it's a channel receive variable (e.g., currentState -> c.currentStateChannel)
-		if g.channelReceiveVars != nil {
-			if channelName, ok := g.channelReceiveVars[primary.Ident]; ok {
-				return &ast.SelectorExpr{
-					X:   ast.NewIdent("c"),
-					Sel: ast.NewIdent("current" + channelName),
-				}
-			}
-		}
 		// Check if it's a hoisted variable (stored as-is in component struct)
+		// This includes channel receive variables like currentState := <-stateChannel
 		if g.hoistedVars != nil && g.hoistedVars[primary.Ident] {
 			return &ast.SelectorExpr{
 				X:   ast.NewIdent("c"),
@@ -2283,11 +2266,37 @@ func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
 	}
 
 	if primary.ChannelOp != nil {
-		// Instead of reading from the channel (which would block),
-		// use the current value field that's updated by the channel listener
-		return &ast.SelectorExpr{
-			X:   ast.NewIdent("c"),
-			Sel: ast.NewIdent("current" + capitalize(primary.ChannelOp.Channel)),
+		// Check if this channel receive has a hoisted variable (e.g., currentState := <-stateChannel)
+		// by looking for a variable that receives from this channel
+		capitalizedChannelName := capitalize(primary.ChannelOp.Channel)
+		var varName string
+		for vName, channelName := range g.channelReceiveVars {
+			// Skip inline receives (they start with "__inline_")
+			if strings.HasPrefix(vName, "__inline_") {
+				continue
+			}
+			if channelName == capitalizedChannelName {
+				varName = vName
+				break
+			}
+		}
+
+		if varName != "" {
+			// Use the hoisted variable that's updated by the channel listener
+			return &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(varName),
+			}
+		} else {
+			// Inline channel receive - generate actual channel receive expression
+			// This will block, so use with caution
+			return &ast.UnaryExpr{
+				Op: token.ARROW,
+				X: &ast.SelectorExpr{
+					X:   ast.NewIdent("c"),
+					Sel: ast.NewIdent(capitalizedChannelName),
+				},
+			}
 		}
 	}
 
@@ -3286,15 +3295,20 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 	for _, param := range comp.Params {
 		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
 			// Only start listener if this channel is received from in the component body
+			// and has a hoisted variable (not an inline receive)
 			capitalizedParamName := capitalize(param.Name)
-			isReceived := false
-			for _, channelName := range g.channelReceiveVars {
+			hasHoistedVariable := false
+			for vName, channelName := range g.channelReceiveVars {
+				// Skip inline receives
+				if strings.HasPrefix(vName, "__inline_") {
+					continue
+				}
 				if channelName == capitalizedParamName {
-					isReceived = true
+					hasHoistedVariable = true
 					break
 				}
 			}
-			if !isReceived {
+			if !hasHoistedVariable {
 				continue
 			}
 
@@ -3413,18 +3427,23 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
 			// Only generate listener if this channel is received from in the component body
 			capitalizedParamName := capitalize(param.Name)
-			isReceived := false
-			for _, channelName := range g.channelReceiveVars {
+			var varName string
+			for vName, channelName := range g.channelReceiveVars {
+				// Skip inline channel receives (they don't have a hoisted variable)
+				if strings.HasPrefix(vName, "__inline_") {
+					continue
+				}
 				if channelName == capitalizedParamName {
-					isReceived = true
+					varName = vName
 					break
 				}
 			}
-			if !isReceived {
+			if varName == "" {
+				// Channel not received from, skip listener
 				continue
 			}
 
-			// Generate: func (c *Component) startChannelNameListener() { go func() { for val := range c.ChannelName { c.currentChannelName = val; c.app.Update() } }() }
+			// Generate: func (c *Component) startChannelNameListener() { go func() { for val := range c.ChannelName { c.varName = val; c.app.Update() } }() }
 			decls = append(decls, &ast.FuncDecl{
 				Recv: &ast.FieldList{
 					List: []*ast.Field{
@@ -3458,12 +3477,12 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 												},
 												Body: &ast.BlockStmt{
 													List: []ast.Stmt{
-														// c.currentChannelName = val
+														// c.varName = val
 														&ast.AssignStmt{
 															Lhs: []ast.Expr{
 																&ast.SelectorExpr{
 																	X:   ast.NewIdent("c"),
-																	Sel: ast.NewIdent("current" + capitalize(param.Name)),
+																	Sel: ast.NewIdent(varName),
 																},
 															},
 															Tok: token.ASSIGN,
