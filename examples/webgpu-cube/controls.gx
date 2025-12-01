@@ -13,6 +13,8 @@ type ControlState struct {
 }
 
 @props func Controls(commands chan ControlCommand, state chan ControlState) (Component) {
+	currentState := <-state
+
 	Div(ID("controls"), Class("controls-panel")) {
 		// Arrow buttons
 		Div(Class("arrow-buttons")) {

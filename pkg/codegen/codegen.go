@@ -955,29 +955,22 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 		})
 
 		// For channel parameters, add a current value field for inline receives
-		// but only if there isn't already an explicit variable receiving from this channel
+		// ONLY if there's an actual inline receive (<-) in template expressions
 		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
 			currentFieldName := "current" + capitalize(param.Name)
 
-			// Check if any VarDecl receives from this channel parameter
-			hasExplicitReceive := false
-			if comp.Body != nil {
-				for _, varDecl := range comp.Body.VarDecls {
-					// Check each value to see if it's a channel receive from this parameter
-					for _, value := range varDecl.Values {
-						if isChannelReceiveFrom(value, param.Name) {
-							hasExplicitReceive = true
-							break
-						}
-					}
-					if hasExplicitReceive {
-						break
-					}
+			// Check if there's an inline receive from this channel (e.g., {<-channelParam})
+			hasInlineReceive := false
+			capitalizedParamName := capitalize(param.Name)
+			for vName, channelName := range g.channelReceiveVars {
+				if strings.HasPrefix(vName, "__inline_") && channelName == capitalizedParamName {
+					hasInlineReceive = true
+					break
 				}
 			}
 
-			// Only add the field if there's no explicit variable receiving from this channel
-			if !hasExplicitReceive {
+			// Only add the field if there's an actual inline receive in templates
+			if hasInlineReceive {
 				// Extract the element type from the channel
 				var elemType ast.Expr
 				if param.Type.Generic != nil {
@@ -3431,7 +3424,7 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 				}
 			}
 
-			// Check for inline receive
+			// Check for inline receive in templates
 			for vName, channelName := range g.channelReceiveVars {
 				if strings.HasPrefix(vName, "__inline_") && channelName == capitalizedParamName {
 					hasInlineReceive = true
@@ -3439,7 +3432,7 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 				}
 			}
 
-			// Skip if channel is not used at all
+			// Skip if channel is not used at all (no explicit var and no inline receive)
 			if !hasExplicitVar && !hasInlineReceive {
 				continue
 			}
@@ -3570,7 +3563,7 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 				}
 			}
 
-			// Check for inline receive
+			// Check for inline receive in templates
 			for vName, channelName := range g.channelReceiveVars {
 				if strings.HasPrefix(vName, "__inline_") && channelName == capitalizedParamName {
 					hasInlineReceive = true
@@ -3578,7 +3571,7 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 				}
 			}
 
-			// Skip if channel is not used at all
+			// Skip if channel is not used at all (no explicit var and no inline receive)
 			if varName == "" && !hasInlineReceive {
 				continue
 			}
