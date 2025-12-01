@@ -1474,6 +1474,13 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 			}
 		}
 
+		// Execute goroutine statements before child component initialization
+		// This ensures channels have data before child components try to receive from them
+		for _, goStmt := range g.goroutines {
+			fmt.Printf("[DEBUG generateConstructor] Generating goroutine execution before child init\n")
+			bodyStmts = append(bodyStmts, g.generateGoStatement(goStmt))
+		}
+
 		// Initialize child component instances
 		childComponents := g.collectChildComponents(comp.Body.Children)
 		for _, childInfo := range childComponents {
@@ -3749,13 +3756,6 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 				},
 			})
 		}
-	}
-
-	// Execute goroutine statements (like React useEffect)
-	// These run after component mounts, allowing async initialization
-	for _, goStmt := range g.goroutines {
-		fmt.Printf("[DEBUG generateBindAppMethod] Generating goroutine execution\n")
-		stmts = append(stmts, g.generateGoStatement(goStmt))
 	}
 
 	// Set flag after starting listeners

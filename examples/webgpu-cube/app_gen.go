@@ -29,14 +29,6 @@ func NewApp() *App {
 	c.speed = 1.0
 	c.commands = make(chan ControlCommand, 10)
 	c.controlState = make(chan ControlState, 10)
-	c.controlsInstance = NewControls(WithCommands(c.commands), WithState(c.controlState))
-	return c
-}
-func (c *App) BindApp(app *runtime.App) {
-	c.app = app
-	if c.controlsInstance != nil {
-		c.controlsInstance.BindApp(app)
-	}
 	go func() {
 		c.controlState <- ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
 	}()
@@ -58,6 +50,14 @@ func (c *App) BindApp(app *runtime.App) {
 			}
 		}
 	}()
+	c.controlsInstance = NewControls(WithCommands(c.commands), WithState(c.controlState))
+	return c
+}
+func (c *App) BindApp(app *runtime.App) {
+	c.app = app
+	if c.controlsInstance != nil {
+		c.controlsInstance.BindApp(app)
+	}
 }
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
