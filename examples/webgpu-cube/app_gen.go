@@ -30,10 +30,19 @@ func NewApp() *App {
 	c.commands = make(chan ControlCommand, 10)
 	c.controlState = make(chan ControlState, 10)
 	go func() {
-		c.controlState <- ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
+		log("[Goroutine] Initial state sender starting")
+		state := ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
+		logStateSend(state)
+		c.controlState <- state
+		log("[Goroutine] Initial state sent successfully")
 	}()
 	go func() {
+		log("[Goroutine] Command processor starting")
 		for cmd := range c.commands {
+			logCommand(cmd)
+			oldAutoRotate := c.autoRotate
+			oldSpeed := c.speed
+
 			switch cmd.Type {
 			case "rotX":
 				c.rotationX += float64(cmd.Value)
@@ -41,12 +50,19 @@ func NewApp() *App {
 				c.rotationY += float64(cmd.Value)
 			case "autoRotate":
 				c.autoRotate = !c.autoRotate
+				logStateChange("autoRotate", oldAutoRotate, c.autoRotate)
 			case "speed":
 				c.speed = float64(cmd.Value)
+				logStateChange("speed", oldSpeed, c.speed)
 			}
+
+			state := ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
 			select {
-			case c.controlState <- ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}:
+			case c.controlState <- state:
+				logStateSend(state)
+				log("[State] Successfully sent state update")
 			default:
+				log("[State] Channel full, skipping state update")
 			}
 		}
 	}()

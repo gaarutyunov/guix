@@ -45,13 +45,18 @@ type Controls struct {
 }
 
 func NewControls(opts ...ControlsOption) *Controls {
+	log("[Controls.NewControls] Creating Controls component")
 	c := &Controls{}
 	for _, opt := range opts {
 		opt(c)
 	}
 	if c.State != nil {
+		log("[Controls.NewControls] State channel provided, waiting for initial state...")
 		c.currentState = <-c.State
+		logStateReceive(c.currentState)
+		log("[Controls.NewControls] Initial state received successfully")
 	}
+	log("[Controls.NewControls] Controls component created")
 	return c
 }
 func (c *Controls) BindApp(app *runtime.App) {
@@ -66,22 +71,34 @@ func (c *Controls) BindApp(app *runtime.App) {
 }
 func (c *Controls) startStateListener() {
 	go func() {
+		log("[Controls] State listener starting")
 		for val := range c.State {
+			logStateReceive(val)
+			log("[Controls] Updating currentState")
 			c.currentState = val
 			if c.app != nil {
+				log("[Controls] Triggering app.Update()")
 				c.app.Update()
+				log("[Controls] app.Update() completed")
+			} else {
+				log("[Controls] WARNING: app is nil, cannot update")
 			}
 		}
 	}()
 }
 func (c *Controls) Render() *runtime.VNode {
 	return func() *runtime.VNode {
+		log("[Controls.Render] Rendering with state - AutoRotate:", c.currentState.AutoRotate, "Speed:", c.currentState.Speed)
 		return runtime.Div(runtime.ID("controls"), runtime.Class("controls-panel"), runtime.Div(runtime.Class("arrow-buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.ID("btn-up"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {
+			log("[Controls] Up button clicked")
 			c.Commands <- ControlCommand{Type: "rotX", Value: -0.2}
 		}), runtime.Text("↑"))), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.ID("btn-left"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {
+			log("[Controls] Left button clicked")
 			c.Commands <- ControlCommand{Type: "rotY", Value: -0.2}
 		}), runtime.Text("←")), runtime.Button(runtime.ID("btn-toggle"), runtime.Class("control-button toggle"), runtime.OnClick(func(e runtime.Event) {
+			log("[Controls] Toggle button clicked, current autoRotate:", c.currentState.AutoRotate)
 			c.Commands <- ControlCommand{Type: "autoRotate"}
+			log("[Controls] AutoRotate command sent to channel")
 		}), func() *runtime.VNode {
 			if c.currentState.AutoRotate {
 				return runtime.Text("⏸")
@@ -89,16 +106,21 @@ func (c *Controls) Render() *runtime.VNode {
 				return runtime.Text("▶")
 			}
 		}()), runtime.Button(runtime.ID("btn-right"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {
+			log("[Controls] Right button clicked")
 			c.Commands <- ControlCommand{Type: "rotY", Value: 0.2}
 		}), runtime.Text("→"))), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.ID("btn-down"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {
+			log("[Controls] Down button clicked")
 			c.Commands <- ControlCommand{Type: "rotX", Value: 0.2}
 		}), runtime.Text("↓")))), func() *runtime.VNode {
 			if c.currentState.AutoRotate {
+				log("[Controls.Render] AutoRotate is ON, rendering speed control")
 				return runtime.Div(runtime.ID("speed-control"), runtime.Class("speed-control"), runtime.Span(runtime.Class("speed-label"), runtime.Text("Speed:")), runtime.Input(runtime.ID("speed-slider"), runtime.Type("range"), runtime.Class("speed-slider"), runtime.Min("0.1"), runtime.Max("3.0"), runtime.Step("0.1"), runtime.Value("1.0"), runtime.OnInput(func(e runtime.Event) {
 					val, _ := strconv.ParseFloat(e.Target.Value, 32)
+					log("[Controls] Speed slider changed to:", val)
 					c.Commands <- ControlCommand{Type: "speed", Value: float32(val)}
 				})), runtime.Span(runtime.ID("speed-value"), runtime.Class("speed-value"), runtime.Text("1.0")))
 			} else {
+				log("[Controls.Render] AutoRotate is OFF, rendering empty div (speed control hidden)")
 				return runtime.Div()
 			}
 		}(), runtime.P(runtime.Class("instructions"), runtime.Text("Use arrow keys or buttons to rotate. Space to toggle auto-rotation.")))
