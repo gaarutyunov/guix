@@ -49,9 +49,11 @@ func (c *Counter) BindApp(app *runtime.App) {
 func (c *Counter) startCounterChannelListener() {
 	go func() {
 		for val := range c.CounterChannel {
+			log("[Counter] Received update from counterChannel channel: " + fmt.Sprintf("%+v", val))
 			c.currentCounterChannel = val
 			if c.app != nil {
 				c.app.Update()
+				log("[Counter] Called app.Update() after counterChannel update")
 			}
 		}
 	}()

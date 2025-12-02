@@ -68,9 +68,11 @@ func (c *Controls) BindApp(app *runtime.App) {
 func (c *Controls) startStateListener() {
 	go func() {
 		for val := range c.State {
+			log("[Controls] Received update from state channel: " + fmt.Sprintf("%+v", val))
 			c.currentState = val
 			if c.app != nil {
 				c.app.Update()
+				log("[Controls] Called app.Update() after state update")
 			}
 		}
 	}()
@@ -83,7 +85,11 @@ func (c *Controls) Render() *runtime.VNode {
 		}), runtime.Text("↑"))), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.ID("btn-left"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {
 			c.Commands <- ControlCommand{Type: "rotY", Value: -0.2}
 		}), runtime.Text("←")), runtime.Button(runtime.ID("btn-toggle"), runtime.Class("control-button toggle"), runtime.OnClick(func(e runtime.Event) {
-			c.Commands <- ControlCommand{Type: "autoRotate"}
+			log("[Controls] Toggle button clicked!")
+			cmd := ControlCommand{Type: "autoRotate"}
+			log(fmt.Sprintf("[Controls] Sending command: %s", cmd.String()))
+			c.Commands <- cmd
+			log("[Controls] Command sent to channel")
 		}), func() *runtime.VNode {
 			if c.currentState.AutoRotate {
 				return runtime.Text("⏸")

@@ -3920,7 +3920,36 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 			}
 
 			// Build list of assignments to update in the listener
-			updateStmts := []ast.Stmt{}
+			updateStmts := []ast.Stmt{
+				// Add logging to trace state updates
+				&ast.ExprStmt{
+					X: &ast.CallExpr{
+						Fun: ast.NewIdent("log"),
+						Args: []ast.Expr{
+							&ast.BinaryExpr{
+								X: &ast.BasicLit{
+									Kind:  token.STRING,
+									Value: `"[` + comp.Name + `] Received update from ` + param.Name + ` channel: "`,
+								},
+								Op: token.ADD,
+								Y: &ast.CallExpr{
+									Fun: &ast.SelectorExpr{
+										X:   ast.NewIdent("fmt"),
+										Sel: ast.NewIdent("Sprintf"),
+									},
+									Args: []ast.Expr{
+										&ast.BasicLit{
+											Kind:  token.STRING,
+											Value: `"%+v"`,
+										},
+										ast.NewIdent("val"),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
 
 			// If there's an explicit variable, update it
 			if varName != "" {
@@ -3968,6 +3997,18 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 										Sel: ast.NewIdent("app"),
 									},
 									Sel: ast.NewIdent("Update"),
+								},
+							},
+						},
+						// Add logging after update
+						&ast.ExprStmt{
+							X: &ast.CallExpr{
+								Fun: ast.NewIdent("log"),
+								Args: []ast.Expr{
+									&ast.BasicLit{
+										Kind:  token.STRING,
+										Value: `"[` + comp.Name + `] Called app.Update() after ` + param.Name + ` update"`,
+									},
 								},
 							},
 						},

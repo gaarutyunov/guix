@@ -45,7 +45,11 @@ type ControlState struct {
 					ID("btn-toggle"),
 					Class("control-button toggle"),
 					OnClick(func(e Event) {
-						commands <- ControlCommand{Type: "autoRotate"}
+						log("[Controls] Toggle button clicked!")
+						cmd := ControlCommand{Type: "autoRotate"}
+						log(fmt.Sprintf("[Controls] Sending command: %s", cmd.String()))
+						commands <- cmd
+						log("[Controls] Command sent to channel")
 					})
 				) {
 					if currentState.AutoRotate {

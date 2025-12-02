@@ -36,17 +36,22 @@ func NewApp() *App {
 		c.controlState <- state
 	}()
 	go func() {
+		log("[App] Command processing goroutine started")
 		for cmd := range c.commands {
 			log(fmt.Sprintf("[App] Received command: %s", cmd.String()))
 			switch cmd.Type {
 			case "rotX":
 				c.rotationX += float64(cmd.Value)
+				log(fmt.Sprintf("[App] Updated rotationX to: %.2f", c.rotationX))
 			case "rotY":
 				c.rotationY += float64(cmd.Value)
+				log(fmt.Sprintf("[App] Updated rotationY to: %.2f", c.rotationY))
 			case "autoRotate":
 				c.autoRotate = !c.autoRotate
+				log(fmt.Sprintf("[App] Toggled autoRotate to: %t", c.autoRotate))
 			case "speed":
 				c.speed = float64(cmd.Value)
+				log(fmt.Sprintf("[App] Updated speed to: %.2f", c.speed))
 			}
 			state := ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
 			select {
@@ -55,6 +60,7 @@ func NewApp() *App {
 			default:
 			}
 		}
+		log("[App] Command processing goroutine ended")
 	}()
 	c.controlsInstance = NewControls(WithCommands(c.commands), WithState(c.controlState))
 	return c

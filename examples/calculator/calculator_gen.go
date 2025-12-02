@@ -60,9 +60,11 @@ func (c *Calculator) BindApp(app *runtime.App) {
 func (c *Calculator) startStateChannelListener() {
 	go func() {
 		for val := range c.StateChannel {
+			log("[Calculator] Received update from stateChannel channel: " + fmt.Sprintf("%+v", val))
 			c.currentState = val
 			if c.app != nil {
 				c.app.Update()
+				log("[Calculator] Called app.Update() after stateChannel update")
 			}
 		}
 	}()
