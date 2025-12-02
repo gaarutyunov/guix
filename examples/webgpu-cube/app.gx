@@ -33,8 +33,7 @@ func App() (Component) {
 	}()
 
 	Div(
-		Class("webgpu-container"),
-		TabIndex(0)
+		Class("webgpu-container")
 	) {
 		Canvas(
 			ID("webgpu-canvas"),

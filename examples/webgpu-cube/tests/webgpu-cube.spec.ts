@@ -268,52 +268,6 @@ test.describe('WebGPU Rotating Cube', () => {
     expect(speedControlCount).toBe(0);
   });
 
-  test('should handle keyboard controls', async ({ page }) => {
-    // Collect all console messages for debugging
-    const allMessages: string[] = [];
-    page.on('console', msg => {
-      allMessages.push(`[${msg.type()}] ${msg.text()}`);
-    });
-
-    // Navigate to the page
-    await page.goto('http://localhost:8080');
-
-    // Wait for canvas to be rendered
-    await page.waitForSelector('canvas', { timeout: 5000 });
-
-    // Wait for either controls or error to appear
-    await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 5000 });
-
-    // Print all console messages for debugging
-    console.log('\n=== Console Messages (should handle keyboard controls) ===');
-    allMessages.forEach(msg => console.log(msg));
-    console.log('==========================================================\n');
-
-    // Check that no error occurred
-    const errorDivs = await page.locator('div[style*="background: #ff4444"]');
-    const errorCount = await errorDivs.count();
-    expect(errorCount).toBe(0);
-
-    // Press space to toggle auto-rotation
-    await page.keyboard.press('Space');
-    await page.waitForTimeout(100);
-
-    // Check that toggle button changed
-    const toggleButton = await page.locator('#btn-toggle');
-    const text = await toggleButton.textContent();
-    expect(text).toBe('▶'); // Should be play icon after toggling
-
-    // Press arrow keys (just verify no errors)
-    await page.keyboard.press('ArrowLeft');
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowUp');
-    await page.keyboard.press('ArrowDown');
-
-    // Wait briefly and verify page still works
-    await page.waitForTimeout(500);
-    await expect(toggleButton).toBeVisible();
-  });
-
   test('should render scene and capture screenshot', async ({ page }) => {
     // Collect all console messages for debugging
     const allMessages: string[] = [];

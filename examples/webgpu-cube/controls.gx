@@ -102,7 +102,7 @@ type ControlState struct {
 
 		// Instructions
 		P(Class("instructions")) {
-			"Use arrow keys or buttons to rotate. Space to toggle auto-rotation."
+			"Use arrow buttons to rotate the cube. Click the play/pause button to toggle auto-rotation."
 		}
 	}
 }
