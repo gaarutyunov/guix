@@ -80,6 +80,170 @@
         .footer a:hover {
             text-decoration: underline;
         }
+
+        /* Controls Panel */
+        .controls-panel {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Arrow Buttons Layout */
+        .arrow-buttons {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        /* Control Buttons */
+        .control-button {
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .control-button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #e94560;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(233, 69, 96, 0.3);
+        }
+
+        .control-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(233, 69, 96, 0.2);
+        }
+
+        .control-button.toggle {
+            background: #e94560;
+            border-color: #e94560;
+        }
+
+        .control-button.toggle:hover {
+            background: #ff5670;
+            border-color: #ff5670;
+        }
+
+        /* Speed Control */
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .speed-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.8);
+            min-width: 50px;
+        }
+
+        .speed-slider {
+            flex: 1;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .speed-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .speed-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 4px rgba(233, 69, 96, 0.2);
+        }
+
+        .speed-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #e94560;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .speed-slider::-moz-range-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 4px rgba(233, 69, 96, 0.2);
+        }
+
+        .speed-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e94560;
+            min-width: 35px;
+            text-align: right;
+        }
+
+        /* Instructions */
+        .instructions {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 24px;
+            }
+
+            #app {
+                padding: 16px;
+            }
+
+            .control-button {
+                width: 44px;
+                height: 44px;
+                font-size: 18px;
+            }
+
+            .controls-panel {
+                padding: 16px;
+            }
+
+            .instructions {
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 <body>
