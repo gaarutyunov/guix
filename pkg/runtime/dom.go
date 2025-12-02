@@ -225,7 +225,7 @@ func Unmount(vnode *VNode) {
 }
 
 // UpdateElement updates a DOM element based on attribute/property changes
-func UpdateElement(vnode *VNode, oldAttrs, newAttrs map[string]string, oldProps, newProps map[string]interface{}) {
+func UpdateElement(vnode *VNode, oldAttrs, newAttrs map[string]string, oldProps, newProps map[string]interface{}, oldEvents, newEvents map[string]EventHandler) {
 	if vnode.DOMNode.IsUndefined() {
 		return
 	}
@@ -249,6 +249,52 @@ func UpdateElement(vnode *VNode, oldAttrs, newAttrs map[string]string, oldProps,
 	// Update properties
 	for key, value := range newProps {
 		elem.Set(key, value)
+	}
+
+	// Update event handlers
+	// Remove old handlers
+	for name, oldHandler := range oldEvents {
+		if _, exists := newEvents[name]; !exists {
+			// Event no longer exists, clean up
+			if oldHandler.jsFunc.Value.Truthy() {
+				oldHandler.jsFunc.Release()
+			}
+		}
+	}
+
+	// Add/update new handlers
+	for name, newHandler := range newEvents {
+		if oldHandler, exists := oldEvents[name]; exists {
+			// Handler exists, clean up old one first
+			if oldHandler.jsFunc.Value.Truthy() {
+				oldHandler.jsFunc.Release()
+			}
+		}
+
+		// Attach new handler
+		jsFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if len(args) > 0 {
+				event := args[0]
+				newHandler.Handler(Event{
+					Native: event,
+					Target: EventTarget{
+						Value:   event.Get("target").Get("value").String(),
+						Checked: event.Get("target").Get("checked").Bool(),
+						Native:  event.Get("target"),
+					},
+					Type:     event.Get("type").String(),
+					Key:      event.Get("key").String(),
+					Code:     event.Get("code").String(),
+					CtrlKey:  event.Get("ctrlKey").Bool(),
+					ShiftKey: event.Get("shiftKey").Bool(),
+					AltKey:   event.Get("altKey").Bool(),
+					MetaKey:  event.Get("metaKey").Bool(),
+				})
+			}
+			return nil
+		})
+		elem.Call("addEventListener", name, jsFunc)
+		newHandler.jsFunc = jsFunc
 	}
 }
 

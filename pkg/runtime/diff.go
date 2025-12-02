@@ -87,9 +87,10 @@ func Diff(oldNode, newNode *VNode) []Patch {
 			}}
 		}
 
-		// Check attributes
+		// Check attributes, properties, and events
 		if attrsChanged(oldNode.Attributes, newNode.Attributes) ||
-			propsChanged(oldNode.Properties, newNode.Properties) {
+			propsChanged(oldNode.Properties, newNode.Properties) ||
+			eventsChanged(oldNode.Events, newNode.Events) {
 			patches = append(patches, Patch{
 				Type:    PatchUpdateAttrs,
 				OldNode: oldNode,
@@ -227,10 +228,13 @@ func ApplyPatch(patch Patch) error {
 			patch.NewNode.Attributes,
 			patch.OldNode.Properties,
 			patch.NewNode.Properties,
+			patch.OldNode.Events,
+			patch.NewNode.Events,
 		)
-		// Update the old node's attributes to match new
+		// Update the old node's attributes and events to match new
 		patch.OldNode.Attributes = patch.NewNode.Attributes
 		patch.OldNode.Properties = patch.NewNode.Properties
+		patch.OldNode.Events = patch.NewNode.Events
 
 	case PatchUpdateText:
 		SetTextContent(patch.OldNode, patch.NewNode.Text)
@@ -318,4 +322,22 @@ func propsChanged(old, new map[string]interface{}) bool {
 	}
 
 	return false
+}
+
+func eventsChanged(old, new map[string]EventHandler) bool {
+	// Event handlers are closures and can't be compared directly
+	// If the maps have different keys, they've changed
+	if len(old) != len(new) {
+		return true
+	}
+
+	for k := range old {
+		if _, exists := new[k]; !exists {
+			return true
+		}
+	}
+
+	// If both maps have the same keys, assume handlers have changed
+	// (closures may capture updated state)
+	return len(new) > 0
 }
