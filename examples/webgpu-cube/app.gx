@@ -53,6 +53,7 @@ func App() (Component) {
 			rotationY = rotationY + (delta * speed)
 			rotationX = rotationX + (delta * speed * 0.5)
 		}
+		updateMeshTransform(rendererInterface, rotationX, rotationY)
 	}
 
 	Div(

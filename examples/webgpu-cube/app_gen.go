@@ -79,15 +79,7 @@ func (c *App) Render() *runtime.VNode {
 				c.rotationY = c.rotationY + (delta * c.speed)
 				c.rotationX = c.rotationX + (delta * c.speed * 0.5)
 			}
-
-			// Update mesh transform with new rotation values
-			if renderer, ok := rendererInterface.(*runtime.SceneRenderer); ok && len(renderer.Meshes) > 0 {
-				transform := runtime.NewTransform()
-				transform.Position = runtime.Vec3{X: 0, Y: 0, Z: 0}
-				transform.Rotation = runtime.Vec3{X: float32(c.rotationX), Y: float32(c.rotationY), Z: 0}
-				transform.Scale = runtime.Vec3{X: 1, Y: 1, Z: 1}
-				renderer.UpdateMeshTransform(0, transform)
-			}
+			updateMeshTransform(rendererInterface, c.rotationX, c.rotationY)
 		}
 		return runtime.Div(runtime.Class("webgpu-container"), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(500), runtime.Height(500), runtime.GPURenderUpdate(renderUpdate), runtime.GPUScene(NewCubeScene(float32(c.rotationX), float32(c.rotationY)))), c.controlsInstance.Render())
 	}()
