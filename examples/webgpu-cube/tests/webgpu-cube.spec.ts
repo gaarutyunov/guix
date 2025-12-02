@@ -43,22 +43,30 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should load without errors', async ({ page }) => {
+    // Collect all console messages for debugging
+    const allMessages: string[] = [];
+    const errors: string[] = [];
+    page.on('console', msg => {
+      const msgText = `[${msg.type()}] ${msg.text()}`;
+      allMessages.push(msgText);
+      if (msg.type() === 'error') {
+        errors.push(msg.text());
+      }
+    });
+
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
     // Wait for the page to load
     await page.waitForLoadState('networkidle');
 
-    // Check for console errors
-    const errors: string[] = [];
-    page.on('console', msg => {
-      if (msg.type() === 'error') {
-        errors.push(msg.text());
-      }
-    });
-
     // Wait a bit for any errors to appear
     await page.waitForTimeout(1000);
+
+    // Print all console messages for debugging
+    console.log('\n=== Console Messages (should load without errors) ===');
+    allMessages.forEach(msg => console.log(msg));
+    console.log('====================================================\n');
 
     // Filter out known acceptable errors
     const criticalErrors = errors.filter(err =>
@@ -70,19 +78,27 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should display WebGPU support message', async ({ page }) => {
-    // Navigate to the page
-    await page.goto('http://localhost:8080');
-
-    // Check that WebGPU initialization messages appear in console
+    // Collect all console messages for debugging
+    const allMessages: string[] = [];
     const initMessages: string[] = [];
     page.on('console', msg => {
+      const msgText = `[${msg.type()}] ${msg.text()}`;
+      allMessages.push(msgText);
       if (msg.type() === 'log') {
         initMessages.push(msg.text());
       }
     });
 
+    // Navigate to the page
+    await page.goto('http://localhost:8080');
+
     // Wait for initialization
     await page.waitForTimeout(1000);
+
+    // Print all console messages for debugging
+    console.log('\n=== Console Messages (should display WebGPU support message) ===');
+    allMessages.forEach(msg => console.log(msg));
+    console.log('==============================================================\n');
 
     // Check for key initialization messages
     const hasWebGPUMessage = initMessages.some(msg =>
@@ -98,11 +114,22 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should render canvas element', async ({ page }) => {
+    // Collect all console messages for debugging
+    const allMessages: string[] = [];
+    page.on('console', msg => {
+      allMessages.push(`[${msg.type()}] ${msg.text()}`);
+    });
+
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
     // Wait for canvas to be created
     await page.waitForSelector('canvas', { timeout: 5000 });
+
+    // Print all console messages for debugging
+    console.log('\n=== Console Messages (should render canvas element) ===');
+    allMessages.forEach(msg => console.log(msg));
+    console.log('======================================================\n');
 
     // Check canvas dimensions
     const canvas = await page.locator('canvas');
@@ -115,6 +142,12 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should display control buttons', async ({ page }) => {
+    // Collect all console messages for debugging
+    const allMessages: string[] = [];
+    page.on('console', msg => {
+      allMessages.push(`[${msg.type()}] ${msg.text()}`);
+    });
+
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
@@ -123,6 +156,11 @@ test.describe('WebGPU Rotating Cube', () => {
 
     // Wait for either controls or error to appear
     await page.waitForSelector('#controls, div[style*="background: #ff4444"]', { timeout: 5000 });
+
+    // Print all console messages for debugging
+    console.log('\n=== Console Messages (should display control buttons) ===');
+    allMessages.forEach(msg => console.log(msg));
+    console.log('=========================================================\n');
 
     // Check that no error occurred
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
@@ -144,6 +182,12 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should respond to button clicks', async ({ page }) => {
+    // Collect all console messages for debugging
+    const allMessages: string[] = [];
+    page.on('console', msg => {
+      allMessages.push(`[${msg.type()}] ${msg.text()}`);
+    });
+
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
@@ -152,6 +196,11 @@ test.describe('WebGPU Rotating Cube', () => {
 
     // Wait for either controls or error to appear
     await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 5000 });
+
+    // Print all console messages for debugging
+    console.log('\n=== Console Messages (should respond to button clicks) ===');
+    allMessages.forEach(msg => console.log(msg));
+    console.log('=========================================================\n');
 
     // Check that no error occurred
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
@@ -180,6 +229,12 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should show speed control when auto-rotate is enabled', async ({ page }) => {
+    // Collect all console messages for debugging
+    const allMessages: string[] = [];
+    page.on('console', msg => {
+      allMessages.push(`[${msg.type()}] ${msg.text()}`);
+    });
+
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
@@ -188,6 +243,11 @@ test.describe('WebGPU Rotating Cube', () => {
 
     // Wait for either controls or error to appear
     await page.waitForSelector('#speed-control, div[style*="background: #ff4444"]', { timeout: 5000 });
+
+    // Print all console messages for debugging
+    console.log('\n=== Console Messages (should show speed control when auto-rotate is enabled) ===');
+    allMessages.forEach(msg => console.log(msg));
+    console.log('===============================================================================\n');
 
     // Check that no error occurred
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
@@ -211,6 +271,12 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should handle keyboard controls', async ({ page }) => {
+    // Collect all console messages for debugging
+    const allMessages: string[] = [];
+    page.on('console', msg => {
+      allMessages.push(`[${msg.type()}] ${msg.text()}`);
+    });
+
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
@@ -219,6 +285,11 @@ test.describe('WebGPU Rotating Cube', () => {
 
     // Wait for either controls or error to appear
     await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 5000 });
+
+    // Print all console messages for debugging
+    console.log('\n=== Console Messages (should handle keyboard controls) ===');
+    allMessages.forEach(msg => console.log(msg));
+    console.log('==========================================================\n');
 
     // Check that no error occurred
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
@@ -246,6 +317,12 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should render scene and capture screenshot', async ({ page }) => {
+    // Collect all console messages for debugging
+    const allMessages: string[] = [];
+    page.on('console', msg => {
+      allMessages.push(`[${msg.type()}] ${msg.text()}`);
+    });
+
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
@@ -254,6 +331,11 @@ test.describe('WebGPU Rotating Cube', () => {
 
     // Wait a bit more for animation
     await page.waitForTimeout(1000);
+
+    // Print all console messages for debugging
+    console.log('\n=== Console Messages (should render scene and capture screenshot) ===');
+    allMessages.forEach(msg => console.log(msg));
+    console.log('====================================================================\n');
 
     // Take full page screenshot for debugging
     await page.screenshot({ path: 'test-results/webgpu-rendering.png', fullPage: true });
@@ -270,11 +352,22 @@ test.describe('WebGPU Rotating Cube', () => {
   });
 
   test('should not show error messages', async ({ page }) => {
+    // Collect all console messages for debugging
+    const allMessages: string[] = [];
+    page.on('console', msg => {
+      allMessages.push(`[${msg.type()}] ${msg.text()}`);
+    });
+
     // Navigate to the page
     await page.goto('http://localhost:8080');
 
     // Wait for page to load
     await page.waitForTimeout(1000);
+
+    // Print all console messages for debugging
+    console.log('\n=== Console Messages (should not show error messages) ===');
+    allMessages.forEach(msg => console.log(msg));
+    console.log('=========================================================\n');
 
     // Check that no error divs are present
     const errorDivs = await page.locator('div[style*="background: #ff4444"]');
