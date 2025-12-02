@@ -3941,15 +3941,6 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 
 // Helper functions
 
-// isChannelReceiveFrom checks if an expression is a channel receive from a specific channel parameter
-func isChannelReceiveFrom(expr *guixast.Expr, channelName string) bool {
-	if expr == nil || expr.Left == nil || expr.Left.ChannelOp == nil {
-		return false
-	}
-	// Check if the channel operation is receiving from the specified channel
-	return expr.Left.ChannelOp.Channel == channelName
-}
-
 func capitalize(s string) string {
 	if s == "" {
 		return ""
