@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 func App() (Component) {
 	rotationX := 0.0
 	rotationY := 0.0
@@ -9,11 +11,15 @@ func App() (Component) {
 	controlState := make(chan ControlState, 10)
 
 	go func() {
-		controlState <- ControlState{AutoRotate: autoRotate, Speed: float32(speed)}
+		state := ControlState{AutoRotate: autoRotate, Speed: float32(speed)}
+		log(fmt.Sprintf("[App] Sending initial state: %s", state.String()))
+		controlState <- state
 	}()
 
 	go func() {
 		for cmd := range commands {
+			log(fmt.Sprintf("[App] Received command: %s", cmd.String()))
+
 			switch cmd.Type {
 			case "rotX":
 				rotationX += float64(cmd.Value)
@@ -25,9 +31,12 @@ func App() (Component) {
 				speed = float64(cmd.Value)
 			}
 
+			state := ControlState{AutoRotate: autoRotate, Speed: float32(speed)}
 			select {
-			case controlState <- ControlState{AutoRotate: autoRotate, Speed: float32(speed)}:
+			case controlState <- state:
+				log(fmt.Sprintf("[App] Sent state update: %s", state.String()))
 			default:
+				log("[App] Channel full, skipping state update")
 			}
 		}
 	}()

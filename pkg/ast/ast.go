@@ -13,6 +13,7 @@ type File struct {
 	Imports    []*Import    `@@*`
 	Types      []*TypeDef   `@@*`
 	Components []*Component `@@*`
+	Methods    []*Method    `@@*`
 }
 
 // TypeDef represents a type definition
@@ -51,6 +52,24 @@ type Component struct {
 	Params    []*Parameter `"(" (@@ ("," @@)*)? ")"`
 	Results   []*Type      `("(" (@@ ("," @@)*)? ")")?`
 	Body      *Body        `@@`
+}
+
+// Method represents a method with a receiver (e.g., func (c *MyType) String() string)
+type Method struct {
+	Pos      lexer.Position
+	Receiver *Receiver    `"func" @@`
+	Name     string       `@Ident`
+	Params   []*Parameter `"(" (@@ ("," @@)*)? ")"`
+	Results  []*Type      `("(" (@@ ("," @@)*)? ")")?`
+	Body     *Body        `@@`
+}
+
+// Receiver represents a method receiver
+type Receiver struct {
+	Pos       lexer.Position
+	Name      string `"(" @Ident`
+	IsPointer bool   `@"*"?`
+	Type      string `@Ident ")"`
 }
 
 // Parameter represents a component parameter with name and type
@@ -214,11 +233,12 @@ type Literal struct {
 // CallOrSelect represents either a selector (obj.field.field) or a call (func() or obj.method())
 // This unifies both to avoid grammar ambiguity
 type CallOrSelect struct {
-	Pos      lexer.Position
-	Base     string   `@Ident`
-	Fields   []string `("." @Ident)*`
-	Args     []*Expr  `("(" (@@ ("," @@)*)? ")")?`
-	Variadic bool     `@("..." Punct)?` // Variadic call with ... operator
+	Pos       lexer.Position
+	Base      string   `@Ident`
+	Fields    []string `("." @Ident)*`
+	HasParens bool     `(@"("`
+	Args      []*Expr  `(@@ ("," @@)*)? ")")?`
+	Variadic  bool     `@("..." Punct)?` // Variadic call with ... operator
 }
 
 // Selector represents a selector expression - deprecated, use CallOrSelect
@@ -539,6 +559,8 @@ func (n *TypeDef) Accept(v Visitor) interface{}     { return v.VisitTypeDef(n) }
 func (n *StructType) Accept(v Visitor) interface{}  { return v.VisitStructType(n) }
 func (n *StructField) Accept(v Visitor) interface{} { return v.VisitStructField(n) }
 func (n *Component) Accept(v Visitor) interface{}   { return v.VisitComponent(n) }
+func (n *Method) Accept(v Visitor) interface{}      { return v.VisitMethod(n) }
+func (n *Receiver) Accept(v Visitor) interface{}    { return v.VisitReceiver(n) }
 func (n *Parameter) Accept(v Visitor) interface{}   { return v.VisitParameter(n) }
 func (n *Type) Accept(v Visitor) interface{}        { return v.VisitType(n) }
 

@@ -13,6 +13,8 @@ type Visitor interface {
 	VisitStructType(*StructType) interface{}
 	VisitStructField(*StructField) interface{}
 	VisitComponent(*Component) interface{}
+	VisitMethod(*Method) interface{}
+	VisitReceiver(*Receiver) interface{}
 	VisitParameter(*Parameter) interface{}
 	VisitType(*Type) interface{}
 

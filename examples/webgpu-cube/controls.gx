@@ -1,6 +1,7 @@
 package main
 
 import "strconv"
+import "fmt"
 
 type ControlCommand struct {
 	Type  string
@@ -14,6 +15,7 @@ type ControlState struct {
 
 @props func Controls(commands chan ControlCommand, state chan ControlState) (Component) {
 	currentState := <-state
+	log(fmt.Sprintf("[Controls] Received state: %s", currentState.String()))
 
 	Div(ID("controls"), Class("controls-panel")) {
 		// Arrow buttons
@@ -105,4 +107,12 @@ type ControlState struct {
 			"Use arrow buttons to rotate the cube. Click the play/pause button to toggle auto-rotation."
 		}
 	}
+}
+
+func (c ControlCommand) String() (string) {
+	return fmt.Sprintf("Command{Type: %s, Value: %.2f}", c.Type, c.Value)
+}
+
+func (s ControlState) String() (string) {
+	return fmt.Sprintf("State{AutoRotate: %t, Speed: %.1f}", s.AutoRotate, s.Speed)
 }

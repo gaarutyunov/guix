@@ -6,6 +6,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gaarutyunov/guix/pkg/runtime"
 	"syscall/js"
 )
@@ -30,10 +31,13 @@ func NewApp() *App {
 	c.commands = make(chan ControlCommand, 10)
 	c.controlState = make(chan ControlState, 10)
 	go func() {
-		c.controlState <- ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
+		state := ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
+		log(fmt.Sprintf("[App] Sending initial state: %s", state.String()))
+		c.controlState <- state
 	}()
 	go func() {
 		for cmd := range c.commands {
+			log(fmt.Sprintf("[App] Received command: %s", cmd.String()))
 			switch cmd.Type {
 			case "rotX":
 				c.rotationX += float64(cmd.Value)
@@ -44,8 +48,10 @@ func NewApp() *App {
 			case "speed":
 				c.speed = float64(cmd.Value)
 			}
+			state := ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
 			select {
-			case c.controlState <- ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}:
+			case c.controlState <- state:
+				log(fmt.Sprintf("[App] Sent state update: %s", state.String()))
 			default:
 			}
 		}

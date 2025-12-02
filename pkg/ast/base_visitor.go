@@ -21,6 +21,9 @@ func (v *BaseVisitor) VisitFile(node *File) interface{} {
 	for _, comp := range node.Components {
 		comp.Accept(v)
 	}
+	for _, method := range node.Methods {
+		method.Accept(v)
+	}
 	return nil
 }
 
@@ -59,6 +62,26 @@ func (v *BaseVisitor) VisitComponent(node *Component) interface{} {
 	if node.Body != nil {
 		node.Body.Accept(v)
 	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitMethod(node *Method) interface{} {
+	if node.Receiver != nil {
+		node.Receiver.Accept(v)
+	}
+	for _, param := range node.Params {
+		param.Accept(v)
+	}
+	for _, result := range node.Results {
+		result.Accept(v)
+	}
+	if node.Body != nil {
+		node.Body.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitReceiver(node *Receiver) interface{} {
 	return nil
 }
 

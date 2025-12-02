@@ -82,6 +82,11 @@ func (g *Generator) VisitFile(file *guixast.File) interface{} {
 		comp.Accept(g)
 	}
 
+	// Visit methods
+	for _, method := range file.Methods {
+		method.Accept(g)
+	}
+
 	return nil
 }
 
@@ -106,6 +111,19 @@ func (g *Generator) VisitComponent(comp *guixast.Component) interface{} {
 		decls = []ast.Decl{g.generateFunction(comp)}
 	}
 	g.generatedDecls = append(g.generatedDecls, decls...)
+	return nil
+}
+
+// VisitMethod implements the visitor pattern for Method nodes
+func (g *Generator) VisitMethod(method *guixast.Method) interface{} {
+	decl := g.generateMethod(method)
+	g.generatedDecls = append(g.generatedDecls, decl)
+	return nil
+}
+
+// VisitReceiver implements the visitor pattern for Receiver nodes
+func (g *Generator) VisitReceiver(node *guixast.Receiver) interface{} {
+	// Receiver is metadata, no code generation needed
 	return nil
 }
 
@@ -311,6 +329,67 @@ func (g *Generator) generateFunction(comp *guixast.Component) *ast.FuncDecl {
 
 	return &ast.FuncDecl{
 		Name: ast.NewIdent(comp.Name),
+		Type: &ast.FuncType{
+			Params:  &ast.FieldList{List: params},
+			Results: results,
+		},
+		Body: &ast.BlockStmt{
+			List: bodyStmts,
+		},
+	}
+}
+
+// generateMethod generates code for a method (function with receiver)
+func (g *Generator) generateMethod(method *guixast.Method) *ast.FuncDecl {
+	// Set up context
+	g.hoistedVars = make(map[string]bool)
+	g.componentParams = nil
+	g.currentCompBody = method.Body
+
+	// Generate receiver
+	var recv *ast.FieldList
+	if method.Receiver != nil {
+		var recvType ast.Expr = ast.NewIdent(method.Receiver.Type)
+		if method.Receiver.IsPointer {
+			recvType = &ast.StarExpr{X: recvType}
+		}
+		recv = &ast.FieldList{
+			List: []*ast.Field{
+				{
+					Names: []*ast.Ident{ast.NewIdent(method.Receiver.Name)},
+					Type:  recvType,
+				},
+			},
+		}
+	}
+
+	// Generate parameters
+	params := make([]*ast.Field, len(method.Params))
+	for i, param := range method.Params {
+		params[i] = &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent(param.Name)},
+			Type:  g.typeToAST(param.Type),
+		}
+	}
+
+	// Generate result types
+	var results *ast.FieldList
+	if len(method.Results) > 0 {
+		resultFields := make([]*ast.Field, len(method.Results))
+		for i, result := range method.Results {
+			resultFields[i] = &ast.Field{
+				Type: g.typeToAST(result),
+			}
+		}
+		results = &ast.FieldList{List: resultFields}
+	}
+
+	// Generate function body as statements
+	bodyStmts := g.generateFunctionBodyStmts(method.Body)
+
+	return &ast.FuncDecl{
+		Recv: recv,
+		Name: ast.NewIdent(method.Name),
 		Type: &ast.FuncType{
 			Params:  &ast.FieldList{List: params},
 			Results: results,
@@ -2698,8 +2777,8 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 		}
 	}
 
-	// If there are args, wrap in a call expression
-	if cos.Args != nil {
+	// If there are parentheses, wrap in a call expression (even if no args)
+	if cos.HasParens {
 		args := make([]ast.Expr, len(cos.Args))
 		for i, arg := range cos.Args {
 			args[i] = g.generateExpr(arg)

@@ -6,6 +6,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gaarutyunov/guix/pkg/runtime"
 	"strconv"
 	"syscall/js"
@@ -76,6 +77,7 @@ func (c *Controls) startStateListener() {
 }
 func (c *Controls) Render() *runtime.VNode {
 	return func() *runtime.VNode {
+		log(fmt.Sprintf("[Controls] Received state: %s", c.currentState.String()))
 		return runtime.Div(runtime.ID("controls"), runtime.Class("controls-panel"), runtime.Div(runtime.Class("arrow-buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.ID("btn-up"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {
 			c.Commands <- ControlCommand{Type: "rotX", Value: -0.2}
 		}), runtime.Text("↑"))), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.ID("btn-left"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {
@@ -113,4 +115,10 @@ func (c *Controls) Update() {
 	if c.app != nil {
 		c.app.Update()
 	}
+}
+func (c ControlCommand) String() string {
+	return fmt.Sprintf("Command{Type: %s, Value: %.2f}", c.Type, c.Value)
+}
+func (s ControlState) String() string {
+	return fmt.Sprintf("State{AutoRotate: %t, Speed: %.1f}", s.AutoRotate, s.Speed)
 }
