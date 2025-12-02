@@ -86,7 +86,8 @@ type Type struct {
 	IsChannel   bool   `@("<-")?`
 	IsChan      bool   `@("chan")?`
 	IsSlice     bool   `@("[" "]")?`
-	Name        string `@Ident`
+	IsInterface bool   `@("interface" "{" "}")?` // Empty interface type
+	Name        string `@Ident?`
 	Generic     *Type  `("[" @@ "]")?`
 	IsPointer   bool   `@("*")?`
 	IsFunc      bool   `@("func")?`

@@ -17,7 +17,7 @@ var guixLexer = lexer.MustStateful(lexer.Rules{
 		{"Whitespace", `\s+`, nil},
 		{"Directive", `@props\b`, nil},
 		{"Ellipsis", `\.\.\.`, nil},
-		{"Keyword", `\b(package|import|type|struct|if|else|for|in|range|return|func|chan|true|false|make|go|switch|case|default|select)\b`, nil},
+		{"Keyword", `\b(package|import|type|struct|if|else|for|in|range|return|func|chan|true|false|make|go|switch|case|default|select|interface)\b`, nil},
 		{"Op", `(<-|:=|\+=|-=|\*=|/=|==|!=|<=|>=|&&|\|\||[+\-*/<>&|!.=])`, nil},
 		{"Ident", `[a-zA-Z_][a-zA-Z0-9_]*`, nil},
 		{"Number", `\d+\.?\d*`, nil},

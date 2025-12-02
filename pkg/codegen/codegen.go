@@ -3494,6 +3494,13 @@ func (g *Generator) typeToAST(t *guixast.Type) ast.Expr {
 		return ast.NewIdent("interface{}")
 	}
 
+	// Handle empty interface type
+	if t.IsInterface {
+		return &ast.InterfaceType{
+			Methods: &ast.FieldList{},
+		}
+	}
+
 	var base ast.Expr
 	// Use runtime.TypeName for known runtime types
 	if runtimeTypes[t.Name] {
