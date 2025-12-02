@@ -50,9 +50,6 @@ func NewControls(opts ...ControlsOption) *Controls {
 	for _, opt := range opts {
 		opt(c)
 	}
-	if c.State != nil {
-		c.currentState = <-c.State
-	}
 	return c
 }
 func (c *Controls) BindApp(app *runtime.App) {
@@ -79,7 +76,7 @@ func (c *Controls) startStateListener() {
 }
 func (c *Controls) Render() *runtime.VNode {
 	return func() *runtime.VNode {
-		log(fmt.Sprintf("[Controls] Received state: %s", c.currentState.String()))
+		log(fmt.Sprintf("[Controls] Received initial state: %s", c.currentState.String()))
 		return runtime.Div(runtime.ID("controls"), runtime.Class("controls-panel"), runtime.Div(runtime.Class("arrow-buttons"), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.ID("btn-up"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {
 			c.Commands <- ControlCommand{Type: "rotX", Value: -0.2}
 		}), runtime.Text("↑"))), runtime.Div(runtime.Class("button-row"), runtime.Button(runtime.ID("btn-left"), runtime.Class("control-button"), runtime.OnClick(func(e runtime.Event) {

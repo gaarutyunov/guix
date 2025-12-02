@@ -15,7 +15,7 @@ type ControlState struct {
 
 @props func Controls(commands chan ControlCommand, state chan ControlState) (Component) {
 	currentState := <-state
-	log(fmt.Sprintf("[Controls] Received state: %s", currentState.String()))
+	log(fmt.Sprintf("[Controls] Received initial state: %s", currentState.String()))
 
 	Div(ID("controls"), Class("controls-panel")) {
 		// Arrow buttons

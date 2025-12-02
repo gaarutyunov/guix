@@ -214,11 +214,15 @@ test.describe('WebGPU Rotating Cube', () => {
     const toggleButton = page.locator('#btn-toggle');
     await expect(toggleButton).toBeVisible();
 
+    // Scroll button into view to ensure it's clickable
+    await toggleButton.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(100);
+
     const initialText = await toggleButton.textContent();
     expect(initialText).toBe('⏸'); // Should be pause icon initially
 
-    // Click toggle button with force to ensure it registers
-    await toggleButton.click({ force: true });
+    // Click toggle button
+    await toggleButton.click();
     await page.waitForTimeout(300);
 
     // Check that button text changed
@@ -226,7 +230,7 @@ test.describe('WebGPU Rotating Cube', () => {
     expect(newText).toBe('▶'); // Should be play icon now
 
     // Click again to toggle back
-    await toggleButton.click({ force: true });
+    await toggleButton.click();
     await page.waitForTimeout(300);
 
     const finalText = await toggleButton.textContent();
@@ -269,7 +273,9 @@ test.describe('WebGPU Rotating Cube', () => {
     // Toggle auto-rotate off
     const toggleButton = page.locator('#btn-toggle');
     await expect(toggleButton).toBeVisible();
-    await toggleButton.click({ force: true });
+    await toggleButton.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(100);
+    await toggleButton.click();
     await page.waitForTimeout(300);
 
     // Speed control should not be rendered (not in DOM) when auto-rotate is off
