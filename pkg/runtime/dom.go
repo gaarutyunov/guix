@@ -62,8 +62,14 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 			elem.Call("setAttribute", key, value)
 		}
 
-		// Set properties
+		// Set properties (skip functions, they're stored in VNode for later use)
 		for key, value := range vnode.Properties {
+			// Skip function properties - they're not DOM attributes
+			switch value.(type) {
+			case func(float64, interface{}), func(*GPUCanvas), func(*GPUCanvas, float64):
+				// Skip function callbacks - they're handled by the runtime
+				continue
+			}
 			elem.Set(key, value)
 		}
 
