@@ -1,9 +1,14 @@
 import { test, expect } from '@playwright/test';
 
+// Helper function to get URL with cache buster
+function getTestUrl(): string {
+  return `http://localhost:8080?t=${Date.now()}`;
+}
+
 test.describe('WebGPU Rotating Cube', () => {
-  test.beforeEach(async ({ page }) => {
-    // Only navigate if not the initialization logs test
-    // (that test needs to set up listeners before navigation)
+  test.beforeEach(async ({ page, context }) => {
+    // Clear cookies between tests
+    await context.clearCookies();
   });
 
   test('should show initialization logs', async ({ page }) => {
@@ -13,8 +18,8 @@ test.describe('WebGPU Rotating Cube', () => {
       consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
     });
 
-    // NOW navigate to the page
-    await page.goto('http://localhost:8080');
+    // NOW navigate to the page with cache buster
+    await page.goto(getTestUrl());
 
     // Wait for canvas to be rendered (indicates WebGPU initialization)
     await page.waitForSelector('canvas', { timeout: 5000 });
@@ -48,7 +53,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should load without errors', async ({ page }) => {
     // Navigate to the page
-    await page.goto('http://localhost:8080');
+    await page.goto(getTestUrl());
 
     // Wait for the page to load
     await page.waitForLoadState('networkidle');
@@ -75,7 +80,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should display WebGPU support message', async ({ page }) => {
     // Navigate to the page
-    await page.goto('http://localhost:8080');
+    await page.goto(getTestUrl());
 
     // Check that WebGPU initialization messages appear in console
     const initMessages: string[] = [];
@@ -103,7 +108,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should render canvas element', async ({ page }) => {
     // Navigate to the page
-    await page.goto('http://localhost:8080');
+    await page.goto(getTestUrl());
 
     // Wait for canvas to be created
     await page.waitForSelector('canvas', { timeout: 5000 });
@@ -120,7 +125,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should display control buttons', async ({ page }) => {
     // Navigate to the page
-    await page.goto('http://localhost:8080');
+    await page.goto(getTestUrl());
 
     // Wait for canvas to be rendered
     await page.waitForSelector('canvas', { timeout: 5000 });
@@ -149,7 +154,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should respond to button clicks', async ({ page }) => {
     // Navigate to the page
-    await page.goto('http://localhost:8080');
+    await page.goto(getTestUrl());
 
     // Wait for canvas to be rendered
     await page.waitForSelector('canvas', { timeout: 5000 });
@@ -185,7 +190,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should show speed control when auto-rotate is enabled', async ({ page }) => {
     // Navigate to the page
-    await page.goto('http://localhost:8080');
+    await page.goto(getTestUrl());
 
     // Wait for canvas to be rendered
     await page.waitForSelector('canvas', { timeout: 5000 });
@@ -216,7 +221,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should handle keyboard controls', async ({ page }) => {
     // Navigate to the page
-    await page.goto('http://localhost:8080');
+    await page.goto(getTestUrl());
 
     // Wait for canvas to be rendered
     await page.waitForSelector('canvas', { timeout: 5000 });
@@ -251,7 +256,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should render scene and capture screenshot', async ({ page }) => {
     // Navigate to the page
-    await page.goto('http://localhost:8080');
+    await page.goto(getTestUrl());
 
     // Wait for canvas to be rendered
     await page.waitForSelector('canvas', { timeout: 5000 });
@@ -275,7 +280,7 @@ test.describe('WebGPU Rotating Cube', () => {
 
   test('should not show error messages', async ({ page }) => {
     // Navigate to the page
-    await page.goto('http://localhost:8080');
+    await page.goto(getTestUrl());
 
     // Wait for page to load
     await page.waitForTimeout(1000);
