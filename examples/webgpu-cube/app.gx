@@ -17,18 +17,23 @@ func App() (Component) {
 	}()
 
 	go func() {
+		log("[App] Command processing goroutine started")
 		for cmd := range commands {
 			log(fmt.Sprintf("[App] Received command: %s", cmd.String()))
 
 			switch cmd.Type {
 			case "rotX":
 				rotationX += float64(cmd.Value)
+				log(fmt.Sprintf("[App] Updated rotationX to: %.2f", rotationX))
 			case "rotY":
 				rotationY += float64(cmd.Value)
+				log(fmt.Sprintf("[App] Updated rotationY to: %.2f", rotationY))
 			case "autoRotate":
 				autoRotate = !autoRotate
+				log(fmt.Sprintf("[App] Toggled autoRotate to: %t", autoRotate))
 			case "speed":
 				speed = float64(cmd.Value)
+				log(fmt.Sprintf("[App] Updated speed to: %.2f", speed))
 			}
 
 			state := ControlState{AutoRotate: autoRotate, Speed: float32(speed)}
@@ -39,15 +44,24 @@ func App() (Component) {
 				log("[App] Channel full, skipping state update")
 			}
 		}
+		log("[App] Command processing goroutine ended")
 	}()
+
+	renderUpdate := func(delta float64, rendererInterface interface{}) {
+		if autoRotate {
+			rotationY = rotationY + (delta * speed)
+			rotationX = rotationX + (delta * speed * 0.5)
+		}
+	}
 
 	Div(
 		Class("webgpu-container")
 	) {
 		Canvas(
 			ID("webgpu-canvas"),
-			Width(600),
-			Height(400)
+			Width(500),
+			Height(375),
+			GPURenderUpdate(renderUpdate)
 		) {
 			GPUScene(NewCubeScene(float32(rotationX), float32(rotationY)))
 		}

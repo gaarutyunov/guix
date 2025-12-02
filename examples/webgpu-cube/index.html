@@ -36,12 +36,20 @@
             padding: 24px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             backdrop-filter: blur(10px);
+            max-width: 100%;
+            width: fit-content;
         }
 
         canvas {
             display: block;
             border-radius: 8px;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            max-width: 100%;
+            height: auto;
+        }
+
+        .webgpu-container {
+            max-width: 100%;
         }
 
         .loading {
@@ -88,6 +96,8 @@
             background: rgba(255, 255, 255, 0.03);
             border-radius: 12px;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 10;
         }
 
         /* Arrow Buttons Layout */
@@ -120,6 +130,9 @@
             align-items: center;
             justify-content: center;
             user-select: none;
+            pointer-events: auto;
+            position: relative;
+            z-index: 1;
         }
 
         .control-button:hover {

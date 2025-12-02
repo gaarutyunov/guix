@@ -36,17 +36,22 @@ func NewApp() *App {
 		c.controlState <- state
 	}()
 	go func() {
+		log("[App] Command processing goroutine started")
 		for cmd := range c.commands {
 			log(fmt.Sprintf("[App] Received command: %s", cmd.String()))
 			switch cmd.Type {
 			case "rotX":
 				c.rotationX += float64(cmd.Value)
+				log(fmt.Sprintf("[App] Updated rotationX to: %.2f", c.rotationX))
 			case "rotY":
 				c.rotationY += float64(cmd.Value)
+				log(fmt.Sprintf("[App] Updated rotationY to: %.2f", c.rotationY))
 			case "autoRotate":
 				c.autoRotate = !c.autoRotate
+				log(fmt.Sprintf("[App] Toggled autoRotate to: %t", c.autoRotate))
 			case "speed":
 				c.speed = float64(cmd.Value)
+				log(fmt.Sprintf("[App] Updated speed to: %.2f", c.speed))
 			}
 			state := ControlState{AutoRotate: c.autoRotate, Speed: float32(c.speed)}
 			select {
@@ -55,6 +60,7 @@ func NewApp() *App {
 			default:
 			}
 		}
+		log("[App] Command processing goroutine ended")
 	}()
 	c.controlsInstance = NewControls(WithCommands(c.commands), WithState(c.controlState))
 	return c
@@ -67,7 +73,14 @@ func (c *App) BindApp(app *runtime.App) {
 }
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
-		return runtime.Div(runtime.Class("webgpu-container"), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPUScene(NewCubeScene(float32(c.rotationX), float32(c.rotationY)))), c.controlsInstance.Render())
+		renderUpdate := func(delta float64, rendererInterface interface {
+		}) {
+			if c.autoRotate {
+				c.rotationY = c.rotationY + (delta * c.speed)
+				c.rotationX = c.rotationX + (delta * c.speed * 0.5)
+			}
+		}
+		return runtime.Div(runtime.Class("webgpu-container"), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(500), runtime.Height(375), runtime.GPURenderUpdate(renderUpdate), runtime.GPUScene(NewCubeScene(float32(c.rotationX), float32(c.rotationY)))), c.controlsInstance.Render())
 	}()
 }
 func (c *App) Mount(parent js.Value) {

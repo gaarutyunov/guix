@@ -67,6 +67,8 @@ func (a *App) render() error {
 	if !a.mounted {
 		// Initial render
 		log("App: Performing initial mount")
+		// Clear existing content (e.g., loading screen) before mounting
+		a.root.Set("innerHTML", "")
 		if err := Mount(newVNode, a.root); err != nil {
 			logError("App: Initial mount failed:", err)
 			return err

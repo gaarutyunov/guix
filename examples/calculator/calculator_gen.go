@@ -42,9 +42,6 @@ func NewCalculator(opts ...CalculatorOption) *Calculator {
 	for _, opt := range opts {
 		opt(c)
 	}
-	if c.StateChannel != nil {
-		c.currentState = <-c.StateChannel
-	}
 	return c
 }
 func (c *Calculator) BindApp(app *runtime.App) {
@@ -60,9 +57,11 @@ func (c *Calculator) BindApp(app *runtime.App) {
 func (c *Calculator) startStateChannelListener() {
 	go func() {
 		for val := range c.StateChannel {
+			log("[Calculator] Received update from stateChannel channel: " + fmt.Sprintf("%+v", val))
 			c.currentState = val
 			if c.app != nil {
 				c.app.Update()
+				log("[Calculator] Called app.Update() after stateChannel update")
 			}
 		}
 	}()

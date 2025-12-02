@@ -15,7 +15,7 @@ type ControlState struct {
 
 @props func Controls(commands chan ControlCommand, state chan ControlState) (Component) {
 	currentState := <-state
-	log(fmt.Sprintf("[Controls] Received state: %s", currentState.String()))
+	log(fmt.Sprintf("[Controls] Received initial state: %s", currentState.String()))
 
 	Div(ID("controls"), Class("controls-panel")) {
 		// Arrow buttons
@@ -45,7 +45,11 @@ type ControlState struct {
 					ID("btn-toggle"),
 					Class("control-button toggle"),
 					OnClick(func(e Event) {
-						commands <- ControlCommand{Type: "autoRotate"}
+						log("[Controls] Toggle button clicked!")
+						cmd := ControlCommand{Type: "autoRotate"}
+						log(fmt.Sprintf("[Controls] Sending command: %s", cmd.String()))
+						commands <- cmd
+						log("[Controls] Command sent to channel")
 					})
 				) {
 					if currentState.AutoRotate {
