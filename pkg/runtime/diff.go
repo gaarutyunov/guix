@@ -309,17 +309,49 @@ func attrsChanged(old, new map[string]string) bool {
 }
 
 func propsChanged(old, new map[string]interface{}) bool {
-	if len(old) != len(new) {
+	// Count non-function properties for length comparison
+	oldCount := 0
+	newCount := 0
+	for _, v := range old {
+		if !isFunction(v) {
+			oldCount++
+		}
+	}
+	for _, v := range new {
+		if !isFunction(v) {
+			newCount++
+		}
+	}
+
+	if oldCount != newCount {
 		return true
 	}
 
 	for k, v := range old {
+		// Skip function properties - they can't be compared
+		if isFunction(v) {
+			continue
+		}
+
 		if newV, exists := new[k]; !exists || newV != v {
 			return true
 		}
 	}
 
 	return false
+}
+
+// isFunction checks if a value is a function type
+func isFunction(v interface{}) bool {
+	if v == nil {
+		return false
+	}
+	switch v.(type) {
+	case func(float64, interface{}), func(*GPUCanvas), func(*GPUCanvas, float64):
+		return true
+	default:
+		return false
+	}
 }
 
 func eventsChanged(old, new map[string]EventHandler) bool {
