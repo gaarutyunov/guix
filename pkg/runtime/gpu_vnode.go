@@ -156,14 +156,34 @@ func OnGPURender(fn func(*GPUCanvas, float64)) GPUProp {
 	return GPUProp{Key: "onRender", Value: fn}
 }
 
-// GeometryProp wraps geometry for property passing
-func GeometryProp(geom Geometry) GPUProp {
+// WithGeometry wraps geometry for property passing
+func WithGeometry(geom Geometry) GPUProp {
 	return GPUProp{Key: "geometry", Value: geom}
 }
 
-// MaterialProp wraps material for property passing
-func MaterialProp(mat *Material) GPUProp {
+// GeometryProp is deprecated, use WithGeometry instead
+func GeometryProp(geom Geometry) GPUProp {
+	return WithGeometry(geom)
+}
+
+// WithMaterial wraps material for property passing
+func WithMaterial(mat *Material) GPUProp {
 	return GPUProp{Key: "material", Value: mat}
+}
+
+// MaterialProp is deprecated, use WithMaterial instead
+func MaterialProp(mat *Material) GPUProp {
+	return WithMaterial(mat)
+}
+
+// BindRotation creates a reactive binding for rotation values
+// The mesh will automatically update its rotation from these pointers each frame
+func BindRotation(x, y, z *float64) GPUProp {
+	return GPUProp{Key: "bindRotation", Value: &ReactiveBinding{
+		RotationX: x,
+		RotationY: y,
+		RotationZ: z,
+	}}
 }
 
 // GPU Node Builders

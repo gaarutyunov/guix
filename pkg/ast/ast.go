@@ -86,10 +86,10 @@ type Type struct {
 	IsChannel   bool   `@("<-")?`
 	IsChan      bool   `@("chan")?`
 	IsSlice     bool   `@("[" "]")?`
+	IsPointer   bool   `@("*")?`
 	IsInterface bool   `@("interface" "{" "}")?` // Empty interface type
 	Name        string `@Ident?`
 	Generic     *Type  `("[" @@ "]")?`
-	IsPointer   bool   `@("*")?`
 	IsFunc      bool   `@("func")?`
 	FuncParams  []*Type
 	FuncResults []*Type
@@ -219,7 +219,7 @@ type KeyValue struct {
 // UnaryExpr represents a unary expression (e.g., !x, -x)
 type UnaryExpr struct {
 	Pos   lexer.Position
-	Op    string   `@("!" | "-" | "+")`
+	Op    string   `@("!" | "-" | "+" | "&" | "*")`
 	Right *Primary `@@`
 }
 

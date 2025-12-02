@@ -1,16 +1,18 @@
 package main
 
-func CubeScene(rotX float32, rotY float32) (Scene) {
+func CubeScene(rotX *float64, rotY *float64) (Scene) {
+	rotZ := 0.0
+
 	Scene(Background(0.1, 0.1, 0.15, 1.0)) {
 		Mesh(
-			GeometryProp(NewBoxGeometry(2.0, 2.0, 2.0)),
-			MaterialProp(StandardMaterial(
+			WithGeometry(NewBoxGeometry(2.0, 2.0, 2.0)),
+			WithMaterial(StandardMaterial(
 				Color(0.91, 0.27, 0.38, 1.0),
 				Metalness(0.3),
 				Roughness(0.4)
 			)),
 			Position(0, 0, 0),
-			Rotation(rotX, rotY, 0),
+			BindRotation(rotX, rotY, &rotZ),
 			ScaleValue(1, 1, 1)
 		)
 

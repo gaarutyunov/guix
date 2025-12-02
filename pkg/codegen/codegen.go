@@ -2428,6 +2428,10 @@ func (g *Generator) unaryOpToToken(op string) token.Token {
 		return token.SUB
 	case "+":
 		return token.ADD
+	case "&":
+		return token.AND
+	case "*":
+		return token.MUL
 	default:
 		return token.NOT // Default fallback
 	}

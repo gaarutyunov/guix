@@ -73,15 +73,16 @@ func (c *App) BindApp(app *runtime.App) {
 }
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
+		rotXPtr := &c.rotationX
+		rotYPtr := &c.rotationY
 		renderUpdate := func(delta float64, rendererInterface interface {
 		}) {
 			if c.autoRotate {
 				c.rotationY = c.rotationY + (delta * c.speed)
 				c.rotationX = c.rotationX + (delta * c.speed * 0.5)
 			}
-			updateMeshTransform(rendererInterface, c.rotationX, c.rotationY)
 		}
-		return runtime.Div(runtime.Class("webgpu-container"), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(500), runtime.Height(500), runtime.GPURenderUpdate(renderUpdate), runtime.GPUScene(NewCubeScene(float32(c.rotationX), float32(c.rotationY)))), c.controlsInstance.Render())
+		return runtime.Div(runtime.Class("webgpu-container"), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(500), runtime.Height(500), runtime.GPURenderUpdate(renderUpdate), runtime.GPUScene(NewCubeScene(rotXPtr, rotYPtr))), c.controlsInstance.Render())
 	}()
 }
 func (c *App) Mount(parent js.Value) {
