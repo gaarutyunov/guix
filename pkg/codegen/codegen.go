@@ -32,6 +32,8 @@ type Generator struct {
 	currentComp         *guixast.Component                       // Current component being generated
 	componentParams     map[string]bool                          // Track current component's parameter names
 	channelReceiveVars  map[string]string                        // Map local var names to channel names (e.g., "currentState" -> "StateChannel")
+	goroutines          []*guixast.GoStmt                        // Track goroutine statements in current component
+	receiverName        string                                   // Current receiver name: "c" for Component, "s" for Scene
 	verbose             bool                                     // Generate verbose logging statements
 
 	// Result accumulation for visitor pattern
@@ -80,6 +82,11 @@ func (g *Generator) VisitFile(file *guixast.File) interface{} {
 		comp.Accept(g)
 	}
 
+	// Visit methods
+	for _, method := range file.Methods {
+		method.Accept(g)
+	}
+
 	return nil
 }
 
@@ -94,13 +101,29 @@ func (g *Generator) VisitTypeDef(node *guixast.TypeDef) interface{} {
 func (g *Generator) VisitComponent(comp *guixast.Component) interface{} {
 	var decls []ast.Decl
 	if g.isComponentFunc(comp) {
-		// Generate full component with struct, methods, etc.
+		// Generate full UI component with struct, methods, etc.
 		decls = g.generateComponent(comp)
+	} else if g.isSceneFunc(comp) {
+		// Generate Scene component (3D scene graph)
+		decls = g.generateSceneComponent(comp)
 	} else {
 		// Generate simple function
 		decls = []ast.Decl{g.generateFunction(comp)}
 	}
 	g.generatedDecls = append(g.generatedDecls, decls...)
+	return nil
+}
+
+// VisitMethod implements the visitor pattern for Method nodes
+func (g *Generator) VisitMethod(method *guixast.Method) interface{} {
+	decl := g.generateMethod(method)
+	g.generatedDecls = append(g.generatedDecls, decl)
+	return nil
+}
+
+// VisitReceiver implements the visitor pattern for Receiver nodes
+func (g *Generator) VisitReceiver(node *guixast.Receiver) interface{} {
+	// Receiver is metadata, no code generation needed
 	return nil
 }
 
@@ -115,6 +138,23 @@ func (g *Generator) isComponentFunc(comp *guixast.Component) bool {
 	// Check if any result is named "Component" (the interface)
 	for _, result := range comp.Results {
 		if result.Name == "Component" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isSceneFunc checks if a function is a Scene component (returns Scene interface)
+func (g *Generator) isSceneFunc(comp *guixast.Component) bool {
+	// If it has no return type, it's a regular function
+	if len(comp.Results) == 0 {
+		return false
+	}
+
+	// Check if any result is named "Scene" (the interface)
+	for _, result := range comp.Results {
+		if result.Name == "Scene" {
 			return true
 		}
 	}
@@ -157,15 +197,30 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 		&ast.ImportSpec{
 			Path: &ast.BasicLit{
 				Kind:  token.STRING,
-				Value: `"syscall/js"`,
-			},
-		},
-		&ast.ImportSpec{
-			Path: &ast.BasicLit{
-				Kind:  token.STRING,
 				Value: `"github.com/gaarutyunov/guix/pkg/runtime"`,
 			},
 		},
+	}
+
+	// Only add syscall/js if there are UI components (not Scene components or helper functions)
+	needsSyscallJS := false
+	for _, comp := range file.Components {
+		// Only UI components (returning Component interface) need syscall/js
+		if g.isComponentFunc(comp) && comp.Body != nil && len(comp.Body.Children) > 0 {
+			needsSyscallJS = true
+			break
+		}
+	}
+
+	if needsSyscallJS {
+		specs = append([]ast.Spec{
+			&ast.ImportSpec{
+				Path: &ast.BasicLit{
+					Kind:  token.STRING,
+					Value: `"syscall/js"`,
+				},
+			},
+		}, specs...)
 	}
 
 	// Only add fmt if there are template interpolations with expressions
@@ -245,6 +300,7 @@ func (g *Generator) generateTypeDef(typeDef *guixast.TypeDef) *ast.GenDecl {
 func (g *Generator) generateFunction(comp *guixast.Component) *ast.FuncDecl {
 	// Set up context
 	g.hoistedVars = make(map[string]bool)
+	g.componentParams = nil // Clear component params for regular functions
 	g.currentCompBody = comp.Body
 
 	// Generate parameters
@@ -273,6 +329,67 @@ func (g *Generator) generateFunction(comp *guixast.Component) *ast.FuncDecl {
 
 	return &ast.FuncDecl{
 		Name: ast.NewIdent(comp.Name),
+		Type: &ast.FuncType{
+			Params:  &ast.FieldList{List: params},
+			Results: results,
+		},
+		Body: &ast.BlockStmt{
+			List: bodyStmts,
+		},
+	}
+}
+
+// generateMethod generates code for a method (function with receiver)
+func (g *Generator) generateMethod(method *guixast.Method) *ast.FuncDecl {
+	// Set up context
+	g.hoistedVars = make(map[string]bool)
+	g.componentParams = nil
+	g.currentCompBody = method.Body
+
+	// Generate receiver
+	var recv *ast.FieldList
+	if method.Receiver != nil {
+		var recvType ast.Expr = ast.NewIdent(method.Receiver.Type)
+		if method.Receiver.IsPointer {
+			recvType = &ast.StarExpr{X: recvType}
+		}
+		recv = &ast.FieldList{
+			List: []*ast.Field{
+				{
+					Names: []*ast.Ident{ast.NewIdent(method.Receiver.Name)},
+					Type:  recvType,
+				},
+			},
+		}
+	}
+
+	// Generate parameters
+	params := make([]*ast.Field, len(method.Params))
+	for i, param := range method.Params {
+		params[i] = &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent(param.Name)},
+			Type:  g.typeToAST(param.Type),
+		}
+	}
+
+	// Generate result types
+	var results *ast.FieldList
+	if len(method.Results) > 0 {
+		resultFields := make([]*ast.Field, len(method.Results))
+		for i, result := range method.Results {
+			resultFields[i] = &ast.Field{
+				Type: g.typeToAST(result),
+			}
+		}
+		results = &ast.FieldList{List: resultFields}
+	}
+
+	// Generate function body as statements
+	bodyStmts := g.generateFunctionBodyStmts(method.Body)
+
+	return &ast.FuncDecl{
+		Recv: recv,
+		Name: ast.NewIdent(method.Name),
 		Type: &ast.FuncType{
 			Params:  &ast.FieldList{List: params},
 			Results: results,
@@ -323,12 +440,143 @@ func (g *Generator) generateFunctionBodyStmts(body *guixast.Body) []ast.Stmt {
 	return stmts
 }
 
+// analyzeComponentBody pre-analyzes the component body to collect information needed for code generation
+func (g *Generator) analyzeComponentBody(comp *guixast.Component) {
+	// Initialize maps
+	g.hoistedVars = make(map[string]bool)
+	g.channelReceiveVars = make(map[string]string)
+	g.goroutines = nil // Reset goroutines
+	g.currentCompBody = comp.Body
+
+	// Collect hoisted variable names and channel receive variables
+	if comp.Body != nil {
+		for _, varDecl := range comp.Body.VarDecls {
+			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 {
+				// Track channel receives first
+				if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
+					// Track channel receive: currentState := <-stateChannel
+					channelName := varDecl.Values[0].Left.ChannelOp.Channel
+					g.channelReceiveVars[varDecl.Names[0]] = capitalize(channelName)
+				}
+				// Also track as hoisted if type can be inferred (not mutually exclusive)
+				if g.inferTypeFromExpr(varDecl.Values[0]) != nil {
+					g.hoistedVars[varDecl.Names[0]] = true
+				}
+			}
+		}
+
+		// Collect goroutine statements from the body
+		for _, stmt := range comp.Body.Statements {
+			if stmt.GoStmt != nil {
+				fmt.Printf("[DEBUG analyzeComponentBody] Found goroutine statement\n")
+				g.goroutines = append(g.goroutines, stmt.GoStmt)
+			}
+		}
+
+		// Also scan for inline channel receives in the component body (e.g., in template interpolations)
+		g.scanForChannelReceives(comp.Body.Children)
+	}
+}
+
+// scanForChannelReceives recursively scans nodes for channel receive operations
+func (g *Generator) scanForChannelReceives(nodes []*guixast.Node) {
+	for _, node := range nodes {
+		// Check template for channel receives
+		if node.Template != nil && node.Template.Fragments != nil {
+			for _, frag := range node.Template.Fragments {
+				if frag.Expr != nil {
+					g.checkExprForChannelReceive(frag.Expr)
+				}
+			}
+		}
+
+		// Check element and its children
+		if node.Element != nil {
+			// Check element props for channel receives
+			for _, prop := range node.Element.Props {
+				if prop.Args != nil {
+					for _, arg := range prop.Args {
+						g.checkExprForChannelReceive(arg)
+					}
+				}
+			}
+
+			// Recurse into children
+			g.scanForChannelReceives(node.Element.Children)
+		}
+
+		// Check if expressions
+		if node.IfExpr != nil {
+			if node.IfExpr.Cond != nil {
+				g.checkExprForChannelReceive(node.IfExpr.Cond)
+			}
+			if node.IfExpr.TrueBody != nil && node.IfExpr.TrueBody.Children != nil {
+				g.scanForChannelReceives(node.IfExpr.TrueBody.Children)
+			}
+			if node.IfExpr.FalseBody != nil && node.IfExpr.FalseBody.Children != nil {
+				g.scanForChannelReceives(node.IfExpr.FalseBody.Children)
+			}
+		}
+	}
+}
+
+// checkExprForChannelReceive checks if an expression contains a channel receive
+func (g *Generator) checkExprForChannelReceive(expr *guixast.Expr) {
+	if expr == nil {
+		return
+	}
+
+	// Check if the left side is a channel receive
+	if expr.Left != nil && expr.Left.ChannelOp != nil {
+		// Found a channel receive like <-channelName
+		channelName := expr.Left.ChannelOp.Channel
+		// Use a dummy variable name to track that this channel is received from
+		g.channelReceiveVars["__inline_"+channelName] = capitalize(channelName)
+		return
+	}
+
+	// Recursively check primary expressions
+	g.checkPrimaryForChannelReceive(expr.Left)
+
+	// Check binary operation operands
+	for _, binOp := range expr.BinOps {
+		if binOp != nil && binOp.Right != nil {
+			g.checkPrimaryForChannelReceive(binOp.Right)
+		}
+	}
+}
+
+// checkPrimaryForChannelReceive recursively checks a primary expression for channel receives
+func (g *Generator) checkPrimaryForChannelReceive(primary *guixast.Primary) {
+	if primary == nil {
+		return
+	}
+
+	// Check channel operation
+	if primary.ChannelOp != nil {
+		channelName := primary.ChannelOp.Channel
+		g.channelReceiveVars["__inline_"+channelName] = capitalize(channelName)
+		return
+	}
+
+	// Check parenthesized expression
+	if primary.Paren != nil {
+		g.checkExprForChannelReceive(primary.Paren)
+	}
+
+	// Check unary expression
+	if primary.Unary != nil && primary.Unary.Right != nil {
+		g.checkPrimaryForChannelReceive(primary.Unary.Right)
+	}
+}
+
 // generateComponent generates code for a component
 func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	var decls []ast.Decl
 
 	// Set current component context
 	g.currentComp = comp
+	g.receiverName = "c" // UI components use "c" as receiver
 	g.componentParams = make(map[string]bool)
 	for _, param := range comp.Params {
 		g.componentParams[param.Name] = true
@@ -336,6 +584,9 @@ func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 
 	// Reset hoisted component map for this component
 	g.hoistedComponentMap = make(map[*guixast.Element]*childComponentInfo)
+
+	// Pre-analyze component body to collect hoisted variables and channel receives
+	g.analyzeComponentBody(comp)
 
 	// Generate Props struct and option functions only if @props directive is present
 	if comp.AutoProps && len(comp.Params) > 0 {
@@ -370,6 +621,179 @@ func (g *Generator) generateComponent(comp *guixast.Component) []ast.Decl {
 	decls = append(decls, g.generateUpdateMethod(comp))
 
 	return decls
+}
+
+// generateSceneComponent generates a Scene component (3D scene graph)
+func (g *Generator) generateSceneComponent(comp *guixast.Component) []ast.Decl {
+	var decls []ast.Decl
+
+	// Set current component context
+	g.currentComp = comp
+	g.receiverName = "s" // Scene components use "s" as receiver
+	g.componentParams = make(map[string]bool)
+	for _, param := range comp.Params {
+		g.componentParams[param.Name] = true
+	}
+
+	// Reset hoisted component map
+	g.hoistedComponentMap = make(map[*guixast.Element]*childComponentInfo)
+
+	// Generate Scene struct
+	decls = append(decls, g.generateSceneStruct(comp))
+
+	// Generate constructor
+	decls = append(decls, g.generateSceneConstructor(comp))
+
+	// Generate RenderScene method (returns *GPUNode)
+	decls = append(decls, g.generateRenderSceneMethod(comp))
+
+	return decls
+}
+
+// generateSceneStruct generates the struct for a Scene component
+func (g *Generator) generateSceneStruct(comp *guixast.Component) *ast.GenDecl {
+	var fields []*ast.Field
+
+	// Add parameter fields
+	for _, param := range comp.Params {
+		paramType := g.typeToAST(param.Type)
+
+		// For variadic parameters, wrap the type in a slice
+		if param.IsVariadic {
+			paramType = &ast.ArrayType{
+				Elt: paramType,
+			}
+		}
+
+		fields = append(fields, &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent(capitalize(param.Name))},
+			Type:  paramType,
+		})
+	}
+
+	return &ast.GenDecl{
+		Tok: token.TYPE,
+		Specs: []ast.Spec{
+			&ast.TypeSpec{
+				Name: ast.NewIdent(comp.Name),
+				Type: &ast.StructType{
+					Fields: &ast.FieldList{
+						List: fields,
+					},
+				},
+			},
+		},
+	}
+}
+
+// generateSceneConstructor generates the constructor function for a Scene
+func (g *Generator) generateSceneConstructor(comp *guixast.Component) *ast.FuncDecl {
+	// Build parameter list
+	params := make([]*ast.Field, len(comp.Params))
+	for i, param := range comp.Params {
+		paramType := g.typeToAST(param.Type)
+		if param.IsVariadic {
+			paramType = &ast.Ellipsis{Elt: paramType}
+		}
+		params[i] = &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent(param.Name)},
+			Type:  paramType,
+		}
+	}
+
+	// Build field assignments for struct initialization
+	var elts []ast.Expr
+	for _, param := range comp.Params {
+		elts = append(elts, &ast.KeyValueExpr{
+			Key:   ast.NewIdent(capitalize(param.Name)),
+			Value: ast.NewIdent(param.Name),
+		})
+	}
+
+	return &ast.FuncDecl{
+		Name: ast.NewIdent("New" + comp.Name),
+		Type: &ast.FuncType{
+			Params: &ast.FieldList{List: params},
+			Results: &ast.FieldList{
+				List: []*ast.Field{
+					{
+						Type: &ast.SelectorExpr{
+							X:   ast.NewIdent("runtime"),
+							Sel: ast.NewIdent("Scene"),
+						},
+					},
+				},
+			},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.ReturnStmt{
+					Results: []ast.Expr{
+						&ast.UnaryExpr{
+							Op: token.AND,
+							X: &ast.CompositeLit{
+								Type: ast.NewIdent(comp.Name),
+								Elts: elts,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// generateRenderSceneMethod generates the RenderScene method for a Scene component
+func (g *Generator) generateRenderSceneMethod(comp *guixast.Component) *ast.FuncDecl {
+	// Generate scene graph from body children
+	var sceneNode ast.Expr
+	if comp.Body != nil && len(comp.Body.Children) > 0 {
+		// The first (and should be only) child should be the Scene element
+		sceneNode = g.generateNode(comp.Body.Children[0])
+	} else {
+		// Empty scene
+		sceneNode = &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent("runtime"),
+				Sel: ast.NewIdent("SceneNode"),
+			},
+		}
+	}
+
+	return &ast.FuncDecl{
+		Recv: &ast.FieldList{
+			List: []*ast.Field{
+				{
+					Names: []*ast.Ident{ast.NewIdent("s")},
+					Type: &ast.StarExpr{
+						X: ast.NewIdent(comp.Name),
+					},
+				},
+			},
+		},
+		Name: ast.NewIdent("RenderScene"),
+		Type: &ast.FuncType{
+			Results: &ast.FieldList{
+				List: []*ast.Field{
+					{
+						Type: &ast.StarExpr{
+							X: &ast.SelectorExpr{
+								X:   ast.NewIdent("runtime"),
+								Sel: ast.NewIdent("GPUNode"),
+							},
+						},
+					},
+				},
+			},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.ReturnStmt{
+					Results: []ast.Expr{sceneNode},
+				},
+			},
+		},
+	}
 }
 
 // hasChannelParams checks if a component has any channel parameters
@@ -441,8 +865,8 @@ func (g *Generator) collectChildComponentsFromNodes(nodes []*guixast.Node, resul
 	for _, node := range nodes {
 		if node.Element != nil {
 			elem := node.Element
-			// Check if this is a component (capitalized tag name)
-			isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag])
+			// Check if this is a component (capitalized tag name, not a DOM/GPU element)
+			isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag] && !knownGPUElements[elem.Tag])
 
 			if isComponent {
 				// Generate a variable name for this component instance
@@ -619,20 +1043,36 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 			Type:  paramType,
 		})
 
-		// For channel parameters, add a current value field
+		// For channel parameters, add a current value field for inline receives
+		// ONLY if there's an actual inline receive (<-) in template expressions
 		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
-			// Extract the element type from the channel
-			var elemType ast.Expr
-			if param.Type.Generic != nil {
-				elemType = g.typeToAST(param.Type.Generic)
-			} else {
-				elemType = g.typeToAST(&guixast.Type{Name: param.Type.Name})
+			currentFieldName := "current" + capitalize(param.Name)
+
+			// Check if there's an inline receive from this channel (e.g., {<-channelParam})
+			hasInlineReceive := false
+			capitalizedParamName := capitalize(param.Name)
+			for vName, channelName := range g.channelReceiveVars {
+				if strings.HasPrefix(vName, "__inline_") && channelName == capitalizedParamName {
+					hasInlineReceive = true
+					break
+				}
 			}
 
-			fields = append(fields, &ast.Field{
-				Names: []*ast.Ident{ast.NewIdent("current" + capitalize(param.Name))},
-				Type:  elemType,
-			})
+			// Only add the field if there's an actual inline receive in templates
+			if hasInlineReceive {
+				// Extract the element type from the channel
+				var elemType ast.Expr
+				if param.Type.Generic != nil {
+					elemType = g.typeToAST(param.Type.Generic)
+				} else {
+					elemType = g.typeToAST(&guixast.Type{Name: param.Type.Name})
+				}
+
+				fields = append(fields, &ast.Field{
+					Names: []*ast.Ident{ast.NewIdent(currentFieldName)},
+					Type:  elemType,
+				})
+			}
 		}
 	}
 
@@ -692,21 +1132,93 @@ func (g *Generator) generateComponentStruct(comp *guixast.Component) *ast.GenDec
 // inferTypeFromExpr infers the Go AST type from a Guix expression
 func (g *Generator) inferTypeFromExpr(expr *guixast.Expr) ast.Expr {
 	if expr == nil || expr.Left == nil {
+		fmt.Printf("[DEBUG inferTypeFromExpr] expr or expr.Left is nil\n")
 		return nil
 	}
 
 	// Handle make(chan Type, size)
 	if expr.Left.MakeCall != nil {
+		fmt.Printf("[DEBUG inferTypeFromExpr] Found make() call, inferring chan type\n")
 		return &ast.ChanType{
 			Dir:   ast.SEND | ast.RECV,
 			Value: g.typeToAST(expr.Left.MakeCall.ChanType),
 		}
 	}
 
+	// Handle channel receive: varName := <-channelName
+	if expr.Left.ChannelOp != nil {
+		channelName := expr.Left.ChannelOp.Channel
+		fmt.Printf("[DEBUG inferTypeFromExpr] Found channel receive from '%s'\n", channelName)
+		// Find the channel parameter or hoisted channel to get its element type
+		if g.currentComp != nil {
+			for _, param := range g.currentComp.Params {
+				if param.Name == channelName && param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+					// Extract element type from channel
+					if param.Type.Generic != nil {
+						return g.typeToAST(param.Type.Generic)
+					}
+					return g.typeToAST(&guixast.Type{Name: param.Type.Name})
+				}
+			}
+
+			// Check hoisted channels (local make(chan ...) declarations)
+			if g.currentCompBody != nil {
+				for _, varDecl := range g.currentCompBody.VarDecls {
+					for i, name := range varDecl.Names {
+						if name == channelName && i < len(varDecl.Values) {
+							val := varDecl.Values[i]
+							if val.Left != nil && val.Left.MakeCall != nil && val.Left.MakeCall.ChanType != nil {
+								return g.typeToAST(val.Left.MakeCall.ChanType)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Handle literal values
+	if expr.Left.Literal != nil {
+		lit := expr.Left.Literal
+		if lit.Bool != nil {
+			fmt.Printf("[DEBUG inferTypeFromExpr] Found bool literal\n")
+			return ast.NewIdent("bool")
+		}
+		if lit.Number != nil {
+			// Check if it contains a decimal point
+			numStr := *lit.Number
+			if contains(numStr, ".") {
+				fmt.Printf("[DEBUG inferTypeFromExpr] Found float literal\n")
+				return ast.NewIdent("float64")
+			}
+			fmt.Printf("[DEBUG inferTypeFromExpr] Found int literal\n")
+			return ast.NewIdent("int")
+		}
+		if lit.String != nil {
+			fmt.Printf("[DEBUG inferTypeFromExpr] Found string literal\n")
+			return ast.NewIdent("string")
+		}
+	}
+
 	// For other expression types, we can't easily infer the type without more context
 	// For now, return nil and skip adding the field (will remain as local var)
-	// TODO: Add type inference for other expressions if needed
+	// TODO: Add type inference for function calls and other expressions
+	fmt.Printf("[DEBUG inferTypeFromExpr] Cannot infer type for expr (not literal/make/channel-recv)\n")
 	return nil
+}
+
+// contains checks if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
 // generateConstructor generates the New* constructor function
@@ -817,18 +1329,8 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 		for _, varDecl := range comp.Body.VarDecls {
 			// Only initialize single-variable declarations with inferable types
 			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 {
-				varType := g.inferTypeFromExpr(varDecl.Values[0])
-				if varType != nil {
-					// Generate: c.varName = make(chan Type, size)
-					bodyStmts = append(bodyStmts, &ast.AssignStmt{
-						Lhs: []ast.Expr{&ast.SelectorExpr{
-							X:   ast.NewIdent("c"),
-							Sel: ast.NewIdent(varDecl.Names[0]),
-						}},
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{g.generateExpr(varDecl.Values[0])},
-					})
-				} else if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
+				// Check for channel receives FIRST (before varType check)
+				if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
 					// This is a channel receive: varName := <-channelName
 					channelName := varDecl.Values[0].Left.ChannelOp.Channel
 
@@ -842,8 +1344,8 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					}
 
 					if isParam {
-						// Generate: if c.ChannelName != nil { c.currentChannelName = <-c.ChannelName }
-						// The field "currentChannelName" was already created in generateComponentStruct
+						// Generate: if c.ChannelName != nil { c.varName = <-c.ChannelName }
+						// The field "varName" was already created in generateComponentStruct
 
 						// Build the channel read statements (with optional logging)
 						channelReadStmts := []ast.Stmt{}
@@ -868,7 +1370,7 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 							Lhs: []ast.Expr{
 								&ast.SelectorExpr{
 									X:   ast.NewIdent("c"),
-									Sel: ast.NewIdent("current" + capitalize(channelName)),
+									Sel: ast.NewIdent(varDecl.Names[0]),
 								},
 							},
 							Tok: token.ASSIGN,
@@ -912,9 +1414,26 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 							},
 						})
 					}
+				} else {
+					// Not a channel receive - check if it has an inferable type
+					varType := g.inferTypeFromExpr(varDecl.Values[0])
+					if varType != nil {
+						// Generate: c.varName = make(chan Type, size) or other initialization
+						bodyStmts = append(bodyStmts, &ast.AssignStmt{
+							Lhs: []ast.Expr{&ast.SelectorExpr{
+								X:   ast.NewIdent("c"),
+								Sel: ast.NewIdent(varDecl.Names[0]),
+							}},
+							Tok: token.ASSIGN,
+							Rhs: []ast.Expr{g.generateExpr(varDecl.Values[0])},
+						})
+					}
 				}
 			}
 		}
+
+		// For inline receives (no explicit variable), we don't do a blocking read in the constructor.
+		// The field starts with its zero value and gets updated by the listener when values arrive.
 
 		// Process additional statements (like channel sends)
 		for _, stmt := range comp.Body.Statements {
@@ -960,8 +1479,8 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 					}
 
 					if isParam {
-						// Generate: if c.ChannelName != nil { c.currentChannelName = <-c.ChannelName }
-						// The field "currentChannelName" was already created in generateComponentStruct
+						// Generate: if c.ChannelName != nil { c.varName = <-c.ChannelName }
+						// The field "varName" was already created in generateComponentStruct
 
 						// Build the channel read statements (with optional logging)
 						channelReadStmts := []ast.Stmt{}
@@ -986,7 +1505,7 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 							Lhs: []ast.Expr{
 								&ast.SelectorExpr{
 									X:   ast.NewIdent("c"),
-									Sel: ast.NewIdent("current" + capitalize(channelName)),
+									Sel: ast.NewIdent(stmt.Assignment.Left),
 								},
 							},
 							Tok: token.ASSIGN,
@@ -1034,15 +1553,27 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 			}
 		}
 
+		// Execute goroutine statements before child component initialization
+		// This ensures channels have data before child components try to receive from them
+		for _, goStmt := range g.goroutines {
+			fmt.Printf("[DEBUG generateConstructor] Generating goroutine execution before child init\n")
+			bodyStmts = append(bodyStmts, g.generateGoStatement(goStmt))
+		}
+
 		// Initialize child component instances
 		childComponents := g.collectChildComponents(comp.Body.Children)
 		for _, childInfo := range childComponents {
 			// Generate option calls from props
 			optionCalls := []ast.Expr{}
 			for _, prop := range childInfo.element.Props {
+				// Generate option function call: PropName(args...)
+				args := make([]ast.Expr, len(prop.Args))
+				for i, arg := range prop.Args {
+					args[i] = g.generateExpr(arg)
+				}
 				optionCalls = append(optionCalls, &ast.CallExpr{
 					Fun:  ast.NewIdent(prop.Name),
-					Args: []ast.Expr{g.generateExpr(prop.Value)},
+					Args: args,
 				})
 			}
 
@@ -1089,25 +1620,7 @@ func (g *Generator) generateConstructor(comp *guixast.Component) *ast.FuncDecl {
 
 // generateRenderMethod generates the Render method
 func (g *Generator) generateRenderMethod(comp *guixast.Component) *ast.FuncDecl {
-	// Set up context for hoisted variable tracking
-	g.hoistedVars = make(map[string]bool)
-	g.channelReceiveVars = make(map[string]string)
-	g.currentCompBody = comp.Body
-
-	// Collect hoisted variable names and channel receive variables
-	if comp.Body != nil {
-		for _, varDecl := range comp.Body.VarDecls {
-			if len(varDecl.Names) == 1 && len(varDecl.Values) == 1 {
-				if g.inferTypeFromExpr(varDecl.Values[0]) != nil {
-					g.hoistedVars[varDecl.Names[0]] = true
-				} else if varDecl.Values[0].Left != nil && varDecl.Values[0].Left.ChannelOp != nil {
-					// Track channel receive: currentState := <-stateChannel
-					channelName := varDecl.Values[0].Left.ChannelOp.Channel
-					g.channelReceiveVars[varDecl.Names[0]] = capitalize(channelName)
-				}
-			}
-		}
-	}
+	// Note: hoistedVars and channelReceiveVars are already populated by analyzeComponentBody
 
 	// Populate hoisted component map for this component
 	if comp.Body != nil {
@@ -1240,7 +1753,10 @@ func (g *Generator) generateBody(body *guixast.Body) ast.Expr {
 					continue
 				}
 			}
-			stmts = append(stmts, g.generateBodyStatement(stmt))
+			genStmt := g.generateBodyStatement(stmt)
+			if genStmt != nil {
+				stmts = append(stmts, genStmt)
+			}
 		}
 
 		// Add expression statements (function calls)
@@ -1367,6 +1883,14 @@ func (g *Generator) generateNode(node *guixast.Node) ast.Expr {
 		return g.generateTemplate(node.Template)
 	}
 
+	if node.IfExpr != nil {
+		return g.generateIfExpr(node.IfExpr)
+	}
+
+	if node.ForLoop != nil {
+		return g.generateForLoop(node.ForLoop)
+	}
+
 	// Default: empty div
 	return &ast.CallExpr{
 		Fun: &ast.SelectorExpr{
@@ -1385,6 +1909,63 @@ var knownDOMElements = map[string]bool{
 	"Td": true, "Th": true, "Thead": true, "Tbody": true, "Tfoot": true,
 	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
 	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
+	// WebGPU Canvas
+	"Canvas": true, "GPUScene": true,
+}
+
+// Known WebGPU/3D element names - treated as runtime elements like DOM elements
+var knownGPUElements = map[string]bool{
+	// Scene graph elements
+	"Scene": true, "Mesh": true, "Group": true,
+	// Camera elements
+	"PerspectiveCamera": true, "OrthographicCamera": true,
+	// Light elements
+	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+}
+
+// Known runtime functions that need runtime. prefix when called in expressions
+var runtimeFunctions = map[string]bool{
+	// DOM elements
+	"Div": true, "Span": true, "P": true, "A": true, "Button": true, "Input": true,
+	"H1": true, "H2": true, "H3": true, "H4": true, "H5": true, "H6": true,
+	"Ul": true, "Li": true, "Ol": true, "Img": true, "Form": true, "Label": true,
+	"Select": true, "Option": true, "Textarea": true, "Table": true, "Tr": true,
+	"Td": true, "Th": true, "Thead": true, "Tbody": true, "Tfoot": true,
+	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
+	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
+	// WebGPU Canvas
+	"Canvas": true, "GPUScene": true,
+	// GPU elements
+	"Scene": true, "Mesh": true, "Group": true,
+	"PerspectiveCamera": true, "OrthographicCamera": true,
+	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+	// GPU properties
+	"Position": true, "Rotation": true, "ScaleValue": true,
+	"Color": true, "Metalness": true, "Roughness": true,
+	"Intensity": true, "FOV": true, "Near": true, "Far": true,
+	"LookAtPos": true, "Background": true,
+	"Width": true, "Height": true,
+	"GeometryProp": true, "MaterialProp": true, "GPURenderUpdate": true,
+	// GPU constructors
+	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
+	"StandardMaterial": true,
+	// Math functions
+	"DegreesToRadians": true, "RadiansToDegrees": true,
+	// Props and attributes
+	"Class": true, "ID": true, "Href": true, "Src": true,
+	"Type": true, "Placeholder": true, "Value": true, "Disabled": true, "Checked": true,
+	"Name": true, "Alt": true, "Title": true, "Style": true,
+	"Min": true, "Max": true, "Step": true, "TabIndex": true,
+	// Event handlers
+	"OnClick": true, "OnInput": true, "OnChange": true, "OnSubmit": true,
+	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,
+	"OnMouseOver": true, "OnMouseOut": true, "OnMouseEnter": true, "OnMouseLeave": true,
+	"OnFocus": true, "OnBlur": true,
+}
+
+// isRuntimeFunction checks if a function name is a known runtime function
+func isRuntimeFunction(name string) bool {
+	return runtimeFunctions[name]
 }
 
 // generateElement generates code for an element
@@ -1394,16 +1975,20 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 	// Check if this is a custom component
 	// A tag is a component if:
 	// 1. It's defined in the current file (in g.components map), OR
-	// 2. It starts with a capital letter AND is NOT a known DOM element
-	isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag])
+	// 2. It starts with a capital letter AND is NOT a known DOM/GPU element
+	isComponent := g.components[elem.Tag] || (len(elem.Tag) > 0 && elem.Tag[0] >= 'A' && elem.Tag[0] <= 'Z' && !knownDOMElements[elem.Tag] && !knownGPUElements[elem.Tag])
 
 	// Add props as arguments
 	for _, prop := range elem.Props {
 		if isComponent {
-			// For components, props are passed as option functions: WithProp(value)
+			// For components, props are passed as option functions: PropName(args...)
+			propArgs := make([]ast.Expr, len(prop.Args))
+			for i, arg := range prop.Args {
+				propArgs[i] = g.generateExpr(arg)
+			}
 			args = append(args, &ast.CallExpr{
 				Fun:  ast.NewIdent(prop.Name),
-				Args: []ast.Expr{g.generateExpr(prop.Value)},
+				Args: propArgs,
 			})
 		} else {
 			// For DOM elements, wrap in runtime.Prop()
@@ -1515,11 +2100,17 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 			},
 		}
 	} else {
-		// DOM element: call runtime.Element()
+		// DOM/GPU element: call runtime.Element()
+		// Special case: Scene element maps to SceneNode() function
+		runtimeFuncName := elem.Tag
+		if elem.Tag == "Scene" {
+			runtimeFuncName = "SceneNode"
+		}
+
 		return &ast.CallExpr{
 			Fun: &ast.SelectorExpr{
 				X:   ast.NewIdent("runtime"),
-				Sel: ast.NewIdent(elem.Tag),
+				Sel: ast.NewIdent(runtimeFuncName),
 			},
 			Args: args,
 		}
@@ -1528,12 +2119,25 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 
 // generateProp generates code for a prop/event handler
 func (g *Generator) generateProp(prop *guixast.Prop) ast.Expr {
-	return &ast.CallExpr{
-		Fun: &ast.SelectorExpr{
+	// Generate runtime.Name(args...)
+	var fun ast.Expr
+	if isRuntimeFunction(prop.Name) {
+		fun = &ast.SelectorExpr{
 			X:   ast.NewIdent("runtime"),
 			Sel: ast.NewIdent(prop.Name),
-		},
-		Args: []ast.Expr{g.generateExpr(prop.Value)},
+		}
+	} else {
+		fun = ast.NewIdent(prop.Name)
+	}
+
+	args := make([]ast.Expr, len(prop.Args))
+	for i, arg := range prop.Args {
+		args[i] = g.generateExpr(arg)
+	}
+
+	return &ast.CallExpr{
+		Fun:  fun,
+		Args: args,
 	}
 }
 
@@ -1598,6 +2202,145 @@ func (g *Generator) generateTemplate(tmpl *guixast.Template) ast.Expr {
 			Sel: ast.NewIdent("Text"),
 		},
 		Args: []ast.Expr{result},
+	}
+}
+
+// generateIfExpr generates code for a conditional expression (if/else)
+// Generates an IIFE that returns different VNodes based on the condition
+func (g *Generator) generateIfExpr(ifExpr *guixast.IfExpr) ast.Expr {
+	// Generate the condition expression
+	cond := g.generateExpr(ifExpr.Cond)
+
+	// Generate the true branch body
+	trueNodes := []ast.Expr{}
+	if ifExpr.TrueBody != nil {
+		for _, node := range ifExpr.TrueBody.Children {
+			trueNodes = append(trueNodes, g.generateNode(node))
+		}
+	}
+
+	// Generate the false branch body (if it exists)
+	var falseBody []ast.Stmt
+	if ifExpr.FalseBody != nil {
+		falseNodes := []ast.Expr{}
+		for _, node := range ifExpr.FalseBody.Children {
+			falseNodes = append(falseNodes, g.generateNode(node))
+		}
+
+		// If there are multiple nodes in false branch, wrap in fragment
+		var falseReturn ast.Expr
+		if len(falseNodes) == 0 {
+			falseReturn = &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent("Div"),
+				},
+			}
+		} else if len(falseNodes) == 1 {
+			falseReturn = falseNodes[0]
+		} else {
+			falseReturn = &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent("Fragment"),
+				},
+				Args: falseNodes,
+			}
+		}
+
+		falseBody = []ast.Stmt{
+			&ast.ReturnStmt{Results: []ast.Expr{falseReturn}},
+		}
+	} else {
+		// No else clause - return empty div
+		falseBody = []ast.Stmt{
+			&ast.ReturnStmt{
+				Results: []ast.Expr{
+					&ast.CallExpr{
+						Fun: &ast.SelectorExpr{
+							X:   ast.NewIdent("runtime"),
+							Sel: ast.NewIdent("Div"),
+						},
+					},
+				},
+			},
+		}
+	}
+
+	// Build the true body return statement
+	var trueReturn ast.Expr
+	if len(trueNodes) == 0 {
+		trueReturn = &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent("runtime"),
+				Sel: ast.NewIdent("Div"),
+			},
+		}
+	} else if len(trueNodes) == 1 {
+		trueReturn = trueNodes[0]
+	} else {
+		trueReturn = &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent("runtime"),
+				Sel: ast.NewIdent("Fragment"),
+			},
+			Args: trueNodes,
+		}
+	}
+
+	// Create the IIFE:
+	// func() *runtime.VNode {
+	//     if <condition> {
+	//         return <trueBody>
+	//     } else {
+	//         return <falseBody>
+	//     }
+	// }()
+	return &ast.CallExpr{
+		Fun: &ast.FuncLit{
+			Type: &ast.FuncType{
+				Results: &ast.FieldList{
+					List: []*ast.Field{
+						{
+							Type: &ast.StarExpr{
+								X: &ast.SelectorExpr{
+									X:   ast.NewIdent("runtime"),
+									Sel: ast.NewIdent("VNode"),
+								},
+							},
+						},
+					},
+				},
+			},
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.IfStmt{
+						Cond: cond,
+						Body: &ast.BlockStmt{
+							List: []ast.Stmt{
+								&ast.ReturnStmt{Results: []ast.Expr{trueReturn}},
+							},
+						},
+						Else: &ast.BlockStmt{
+							List: falseBody,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// generateForLoop generates code for a for loop expression
+// For now, this is a placeholder - proper implementation needed
+func (g *Generator) generateForLoop(forLoop *guixast.ForLoop) ast.Expr {
+	// TODO: Implement for loop rendering
+	// This would generate code that iterates and collects VNodes
+	return &ast.CallExpr{
+		Fun: &ast.SelectorExpr{
+			X:   ast.NewIdent("runtime"),
+			Sel: ast.NewIdent("Div"),
+		},
 	}
 }
 
@@ -1670,26 +2413,45 @@ func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
 	}
 
 	if primary.Ident != "" {
-		// Check if it's a channel receive variable (e.g., currentState -> c.currentStateChannel)
-		if g.channelReceiveVars != nil {
-			if channelName, ok := g.channelReceiveVars[primary.Ident]; ok {
-				return &ast.SelectorExpr{
-					X:   ast.NewIdent("c"),
-					Sel: ast.NewIdent("current" + channelName),
-				}
-			}
-		}
 		// Check if it's a hoisted variable (stored as-is in component struct)
+		// This includes channel receive variables like currentState := <-stateChannel
 		if g.hoistedVars != nil && g.hoistedVars[primary.Ident] {
 			return &ast.SelectorExpr{
 				X:   ast.NewIdent("c"),
 				Sel: ast.NewIdent(primary.Ident), // Use exact name, not capitalized
 			}
 		}
-		// Check if it's a component parameter (should be converted to c.FieldName)
+
+		// Check if it's an automatically generated channel field (e.g., currentState for state chan ControlState)
+		// Pattern: current + capitalize(paramName)
+		if g.currentComp != nil && strings.HasPrefix(primary.Ident, "current") && len(primary.Ident) > 7 {
+			// Extract the potential parameter name
+			potentialParamName := strings.ToLower(primary.Ident[7:8]) + primary.Ident[8:]
+
+			// Check if there's a channel parameter with this name
+			for _, param := range g.currentComp.Params {
+				if param.Name == potentialParamName && param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+					// This is an automatically generated field - use c.currentParamName
+					receiverName := g.receiverName
+					if receiverName == "" {
+						receiverName = "c"
+					}
+					return &ast.SelectorExpr{
+						X:   ast.NewIdent(receiverName),
+						Sel: ast.NewIdent(primary.Ident), // currentState
+					}
+				}
+			}
+		}
+
+		// Check if it's a component parameter (should be converted to receiver.FieldName)
 		if g.componentParams != nil && g.componentParams[primary.Ident] {
+			receiverName := g.receiverName
+			if receiverName == "" {
+				receiverName = "c" // Default to "c" for backwards compatibility
+			}
 			return &ast.SelectorExpr{
-				X:   ast.NewIdent("c"),
+				X:   ast.NewIdent(receiverName),
 				Sel: ast.NewIdent(capitalize(primary.Ident)),
 			}
 		}
@@ -1702,11 +2464,33 @@ func (g *Generator) generatePrimary(primary *guixast.Primary) ast.Expr {
 	}
 
 	if primary.ChannelOp != nil {
-		// Instead of reading from the channel (which would block),
-		// use the current value field that's updated by the channel listener
-		return &ast.SelectorExpr{
-			X:   ast.NewIdent("c"),
-			Sel: ast.NewIdent("current" + capitalize(primary.ChannelOp.Channel)),
+		// Check if this channel receive has a hoisted variable (e.g., currentState := <-stateChannel)
+		// by looking for a variable that receives from this channel
+		capitalizedChannelName := capitalize(primary.ChannelOp.Channel)
+		var varName string
+		for vName, channelName := range g.channelReceiveVars {
+			// Skip inline receives (they start with "__inline_")
+			if strings.HasPrefix(vName, "__inline_") {
+				continue
+			}
+			if channelName == capitalizedChannelName {
+				varName = vName
+				break
+			}
+		}
+
+		if varName != "" {
+			// Use the hoisted variable that's updated by the channel listener
+			return &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent(varName),
+			}
+		} else {
+			// Inline channel receive - use current + channelName field that's updated by listener
+			return &ast.SelectorExpr{
+				X:   ast.NewIdent("c"),
+				Sel: ast.NewIdent("current" + capitalizedChannelName),
+			}
 		}
 	}
 
@@ -1879,8 +2663,12 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 		}
 		// Check if it's a component parameter
 		if g.componentParams != nil && g.componentParams[cos.Base] {
+			receiverName := g.receiverName
+			if receiverName == "" {
+				receiverName = "c" // Default to "c" for backwards compatibility
+			}
 			return &ast.SelectorExpr{
-				X:   ast.NewIdent("c"),
+				X:   ast.NewIdent(receiverName),
 				Sel: ast.NewIdent(capitalize(cos.Base)),
 			}
 		}
@@ -1896,11 +2684,90 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 				X:   ast.NewIdent("c"),
 				Sel: ast.NewIdent("current" + channelName),
 			}
+		} else if g.currentComp != nil && strings.HasPrefix(cos.Base, "current") && len(cos.Base) > 7 {
+			// Check if it's an automatically generated channel field (e.g., currentState for state chan ControlState)
+			potentialParamName := strings.ToLower(cos.Base[7:8]) + cos.Base[8:]
+			isAutoGenField := false
+			for _, param := range g.currentComp.Params {
+				if param.Name == potentialParamName && param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+					isAutoGenField = true
+					break
+				}
+			}
+			if isAutoGenField {
+				// Use c.currentParamName as the base
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(cos.Base), // currentState
+				}
+			} else {
+				// Check if this is a GPU/runtime function that needs runtime. prefix
+				if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+					expr = &ast.SelectorExpr{
+						X:   ast.NewIdent("runtime"),
+						Sel: ast.NewIdent(cos.Base),
+					}
+				} else {
+					expr = ast.NewIdent(cos.Base)
+				}
+			}
 		} else {
-			expr = ast.NewIdent(cos.Base)
+			// Check if this is a GPU/runtime function that needs runtime. prefix
+			if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent(cos.Base),
+				}
+			} else {
+				expr = ast.NewIdent(cos.Base)
+			}
 		}
 	} else {
-		expr = ast.NewIdent(cos.Base)
+		// Check if it's an automatically generated channel field even when channelReceiveVars is nil
+		if g.currentComp != nil && strings.HasPrefix(cos.Base, "current") && len(cos.Base) > 7 {
+			potentialParamName := strings.ToLower(cos.Base[7:8]) + cos.Base[8:]
+			isAutoGenField := false
+			for _, param := range g.currentComp.Params {
+				if param.Name == potentialParamName && param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+					isAutoGenField = true
+					break
+				}
+			}
+			if isAutoGenField {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(cos.Base), // currentState
+				}
+			} else {
+				// Check if this is a GPU/runtime function that needs runtime. prefix
+				if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+					expr = &ast.SelectorExpr{
+						X:   ast.NewIdent("runtime"),
+						Sel: ast.NewIdent(cos.Base),
+					}
+				} else {
+					expr = ast.NewIdent(cos.Base)
+				}
+			}
+		} else {
+			// Check if this is a GPU/runtime function that needs runtime. prefix
+			if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent("runtime"),
+					Sel: ast.NewIdent(cos.Base),
+				}
+			} else {
+				expr = ast.NewIdent(cos.Base)
+			}
+		}
 	}
 
 	for _, field := range cos.Fields {
@@ -1910,8 +2777,8 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 		}
 	}
 
-	// If there are args, wrap in a call expression
-	if cos.Args != nil {
+	// If there are parentheses, wrap in a call expression (even if no args)
+	if cos.HasParens {
 		args := make([]ast.Expr, len(cos.Args))
 		for i, arg := range cos.Args {
 			args[i] = g.generateExpr(arg)
@@ -1967,6 +2834,11 @@ func (g *Generator) generateFuncBody(body *guixast.FuncBody) *ast.BlockStmt {
 
 // generateBodyStatement generates code for a body statement
 func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt {
+	// Skip goroutine statements - they're executed in BindApp, not in Render
+	if stmt.GoStmt != nil {
+		return nil
+	}
+
 	// Handle CallStmt (function call statements)
 	if stmt.CallStmt != nil {
 		// Build base expression (identifier or selector)
@@ -2029,6 +2901,18 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 
 		// Handle channel send operation
 		if stmt.AssignStmt.Op == "<-" {
+			// Check if component parameter needs c. prefix (capitalized) for channel sends
+			if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				baseExpr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
+				}
+			}
+
 			return &ast.SendStmt{
 				Chan:  baseExpr,
 				Value: g.generateExpr(stmt.AssignStmt.Right),
@@ -2124,6 +3008,14 @@ func (g *Generator) generateBodyStatement(stmt *guixast.BodyStatement) ast.Stmt 
 		return g.generateForLoopStmt(stmt.For)
 	}
 
+	if stmt.Switch != nil {
+		return g.generateSwitchStmt(stmt.Switch)
+	}
+
+	if stmt.Select != nil {
+		return g.generateSelectStmt(stmt.Select)
+	}
+
 	return &ast.EmptyStmt{}
 }
 
@@ -2134,11 +3026,14 @@ func (g *Generator) generateForLoopStmt(forLoop *guixast.ForLoop) ast.Stmt {
 		// Range-based for loop: for key, val in range
 		var key, val ast.Expr
 		if forLoop.Key != "" {
+			// Two variables: for key, val := range expr
 			key = ast.NewIdent(forLoop.Key)
 			val = ast.NewIdent(forLoop.Val)
 		} else {
-			key = ast.NewIdent("_")
-			val = ast.NewIdent(forLoop.Val)
+			// Single variable: for val := range expr (e.g., channels)
+			// In Go AST, single-variable range uses Key field, not Value
+			key = ast.NewIdent(forLoop.Val)
+			val = nil
 		}
 
 		// Generate range statement
@@ -2201,6 +3096,154 @@ func (g *Generator) generateForLoopStmt(forLoop *guixast.ForLoop) ast.Stmt {
 	}
 }
 
+// generateSwitchStmt generates a switch statement
+func (g *Generator) generateSwitchStmt(switchStmt *guixast.SwitchStmt) ast.Stmt {
+	var tagExpr ast.Expr
+	if switchStmt.Expr != nil {
+		tagExpr = g.generateExpr(switchStmt.Expr)
+	}
+
+	// Generate case clauses
+	var body []ast.Stmt
+	for _, caseClause := range switchStmt.Cases {
+		var caseStmt *ast.CaseClause
+
+		if caseClause.Default {
+			// Default case
+			caseStmt = &ast.CaseClause{
+				List: nil, // nil indicates default case
+			}
+
+			// Generate statements for default case
+			for _, stmt := range caseClause.DefStmts {
+				goStmt := g.generateStatement(stmt)
+				caseStmt.Body = append(caseStmt.Body, goStmt)
+			}
+		} else {
+			// Regular case with values
+			caseExprs := make([]ast.Expr, len(caseClause.Values))
+			for i, val := range caseClause.Values {
+				caseExprs[i] = g.generateExpr(val)
+			}
+
+			caseStmt = &ast.CaseClause{
+				List: caseExprs,
+			}
+
+			// Generate statements for this case
+			for _, stmt := range caseClause.Statements {
+				goStmt := g.generateStatement(stmt)
+				caseStmt.Body = append(caseStmt.Body, goStmt)
+			}
+		}
+
+		body = append(body, caseStmt)
+	}
+
+	return &ast.SwitchStmt{
+		Tag: tagExpr,
+		Body: &ast.BlockStmt{
+			List: body,
+		},
+	}
+}
+
+// generateSelectStmt generates a select statement for channel operations
+func (g *Generator) generateSelectStmt(selectStmt *guixast.SelectStmt) ast.Stmt {
+	var body []ast.Stmt
+
+	for _, commClause := range selectStmt.Cases {
+		var caseStmt *ast.CommClause
+
+		if commClause.Default {
+			// Default case
+			caseStmt = &ast.CommClause{
+				Comm: nil, // nil indicates default case
+			}
+
+			// Generate statements for default case
+			for _, stmt := range commClause.DefStmts {
+				goStmt := g.generateStatement(stmt)
+				caseStmt.Body = append(caseStmt.Body, goStmt)
+			}
+		} else {
+			// Regular case with channel operation
+			caseStmt = &ast.CommClause{}
+
+			if commClause.Comm != nil {
+				if commClause.Comm.Send != nil {
+					// Send operation: ch <- value
+					send := commClause.Comm.Send
+					var chanExpr ast.Expr = ast.NewIdent(send.Channel)
+
+					// Check if hoisted variable needs c. prefix
+					if g.hoistedVars != nil && g.hoistedVars[send.Channel] {
+						chanExpr = &ast.SelectorExpr{
+							X:   ast.NewIdent("c"),
+							Sel: ast.NewIdent(send.Channel),
+						}
+					}
+
+					caseStmt.Comm = &ast.SendStmt{
+						Chan:  chanExpr,
+						Value: g.generateExpr(send.Value),
+					}
+				} else if commClause.Comm.Recv != nil {
+					// Receive operation: x := <-ch or <-ch
+					recv := commClause.Comm.Recv
+					var chanExpr ast.Expr = ast.NewIdent(recv.Channel)
+
+					// Check if hoisted variable needs c. prefix
+					if g.hoistedVars != nil && g.hoistedVars[recv.Channel] {
+						chanExpr = &ast.SelectorExpr{
+							X:   ast.NewIdent("c"),
+							Sel: ast.NewIdent(recv.Channel),
+						}
+					}
+
+					recvExpr := &ast.UnaryExpr{
+						Op: token.ARROW,
+						X:  chanExpr,
+					}
+
+					if len(recv.Names) > 0 {
+						// Assignment: x := <-ch or x, ok := <-ch
+						lhs := make([]ast.Expr, len(recv.Names))
+						for i, name := range recv.Names {
+							lhs[i] = ast.NewIdent(name)
+						}
+
+						caseStmt.Comm = &ast.AssignStmt{
+							Lhs: lhs,
+							Tok: token.DEFINE,
+							Rhs: []ast.Expr{recvExpr},
+						}
+					} else {
+						// Just receive without assignment: <-ch
+						caseStmt.Comm = &ast.ExprStmt{
+							X: recvExpr,
+						}
+					}
+				}
+			}
+
+			// Generate statements for this case
+			for _, stmt := range commClause.Statements {
+				goStmt := g.generateStatement(stmt)
+				caseStmt.Body = append(caseStmt.Body, goStmt)
+			}
+		}
+
+		body = append(body, caseStmt)
+	}
+
+	return &ast.SelectStmt{
+		Body: &ast.BlockStmt{
+			List: body,
+		},
+	}
+}
+
 // generateBodyAsBlock converts a Body to a BlockStmt
 func (g *Generator) generateBodyAsBlock(body *guixast.Body) *ast.BlockStmt {
 	stmts := make([]ast.Stmt, 0)
@@ -2228,6 +3271,30 @@ func (g *Generator) generateBodyAsBlock(body *guixast.Body) *ast.BlockStmt {
 	}
 
 	return &ast.BlockStmt{List: stmts}
+}
+
+// generateGoStatement generates code for a go statement
+func (g *Generator) generateGoStatement(goStmt *guixast.GoStmt) ast.Stmt {
+	if goStmt == nil || goStmt.Func == nil {
+		return nil
+	}
+
+	// Generate the function literal body
+	funcBody := g.generateFuncBody(goStmt.Func.Body)
+
+	// Create go statement with anonymous function call
+	return &ast.GoStmt{
+		Call: &ast.CallExpr{
+			Fun: &ast.FuncLit{
+				Type: &ast.FuncType{
+					Params: &ast.FieldList{
+						List: []*ast.Field{},
+					},
+				},
+				Body: funcBody,
+			},
+		},
+	}
 }
 
 // generateStatement generates code for a statement
@@ -2294,6 +3361,18 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 
 		// Handle channel send operation
 		if stmt.AssignStmt.Op == "<-" {
+			// Check if component parameter needs c. prefix (capitalized) for channel sends
+			if len(stmt.AssignStmt.Fields) == 0 && g.componentParams != nil && g.componentParams[stmt.AssignStmt.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				baseExpr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(stmt.AssignStmt.Base)),
+				}
+			}
+
 			return &ast.SendStmt{
 				Chan:  baseExpr,
 				Value: g.generateExpr(stmt.AssignStmt.Right),
@@ -2392,13 +3471,22 @@ func (g *Generator) generateStatement(stmt *guixast.Statement) ast.Stmt {
 		return g.generateForLoopStmt(stmt.For)
 	}
 
+	if stmt.Switch != nil {
+		return g.generateSwitchStmt(stmt.Switch)
+	}
+
+	if stmt.Select != nil {
+		return g.generateSelectStmt(stmt.Select)
+	}
+
 	return &ast.EmptyStmt{}
 }
 
 // typeToAST converts a Guix type to Go AST type
 // Known runtime types that should be qualified with runtime package
 var runtimeTypes = map[string]bool{
-	"Event": true, "VNode": true, "App": true,
+	"Event": true, "VNode": true, "App": true, "Component": true,
+	"GPUNode": true, "GPUCanvas": true, "Scene": true,
 }
 
 func (g *Generator) typeToAST(t *guixast.Type) ast.Expr {
@@ -2656,15 +3744,41 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 		})
 	}
 
-	// For each channel parameter, start a listener
+	// For each channel parameter that is received from, start a listener
 	for _, param := range comp.Params {
 		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
+			// Check if this channel is received from (either explicitly or inline)
+			capitalizedParamName := capitalize(param.Name)
+			hasExplicitVar := false
+			hasInlineReceive := false
+
+			// Check for explicit variable declaration
+			for vName, channelName := range g.channelReceiveVars {
+				if !strings.HasPrefix(vName, "__inline_") && channelName == capitalizedParamName {
+					hasExplicitVar = true
+					break
+				}
+			}
+
+			// Check for inline receive in templates
+			for vName, channelName := range g.channelReceiveVars {
+				if strings.HasPrefix(vName, "__inline_") && channelName == capitalizedParamName {
+					hasInlineReceive = true
+					break
+				}
+			}
+
+			// Skip if channel is not used at all (no explicit var and no inline receive)
+			if !hasExplicitVar && !hasInlineReceive {
+				continue
+			}
+
 			// if c.ChannelName != nil { c.startChannelNameListener() }
 			stmts = append(stmts, &ast.IfStmt{
 				Cond: &ast.BinaryExpr{
 					X: &ast.SelectorExpr{
 						X:   ast.NewIdent("c"),
-						Sel: ast.NewIdent(capitalize(param.Name)),
+						Sel: ast.NewIdent(capitalizedParamName),
 					},
 					Op: token.NEQ,
 					Y:  ast.NewIdent("nil"),
@@ -2675,7 +3789,7 @@ func (g *Generator) generateBindAppMethod(comp *guixast.Component) *ast.FuncDecl
 							X: &ast.CallExpr{
 								Fun: &ast.SelectorExpr{
 									X:   ast.NewIdent("c"),
-									Sel: ast.NewIdent("start" + capitalize(param.Name) + "Listener"),
+									Sel: ast.NewIdent("start" + capitalizedParamName + "Listener"),
 								},
 							},
 						},
@@ -2772,7 +3886,89 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 
 	for _, param := range comp.Params {
 		if param.Type != nil && (param.Type.IsChannel || param.Type.IsChan) {
-			// Generate: func (c *Component) startChannelNameListener() { go func() { for val := range c.ChannelName { c.currentChannelName = val; c.app.Update() } }() }
+			// Check if this channel is received from (either explicitly or inline)
+			capitalizedParamName := capitalize(param.Name)
+			var varName string
+			hasInlineReceive := false
+
+			// Check for explicit variable declaration
+			for vName, channelName := range g.channelReceiveVars {
+				if !strings.HasPrefix(vName, "__inline_") && channelName == capitalizedParamName {
+					varName = vName
+					break
+				}
+			}
+
+			// Check for inline receive in templates
+			for vName, channelName := range g.channelReceiveVars {
+				if strings.HasPrefix(vName, "__inline_") && channelName == capitalizedParamName {
+					hasInlineReceive = true
+					break
+				}
+			}
+
+			// Skip if channel is not used at all (no explicit var and no inline receive)
+			if varName == "" && !hasInlineReceive {
+				continue
+			}
+
+			// Build list of assignments to update in the listener
+			updateStmts := []ast.Stmt{}
+
+			// If there's an explicit variable, update it
+			if varName != "" {
+				updateStmts = append(updateStmts, &ast.AssignStmt{
+					Lhs: []ast.Expr{
+						&ast.SelectorExpr{
+							X:   ast.NewIdent("c"),
+							Sel: ast.NewIdent(varName),
+						},
+					},
+					Tok: token.ASSIGN,
+					Rhs: []ast.Expr{ast.NewIdent("val")},
+				})
+			} else {
+				// Only update current + paramName for inline receives (no explicit variable)
+				updateStmts = append(updateStmts, &ast.AssignStmt{
+					Lhs: []ast.Expr{
+						&ast.SelectorExpr{
+							X:   ast.NewIdent("c"),
+							Sel: ast.NewIdent("current" + capitalizedParamName),
+						},
+					},
+					Tok: token.ASSIGN,
+					Rhs: []ast.Expr{ast.NewIdent("val")},
+				})
+			}
+
+			// Add app.Update() call
+			updateStmts = append(updateStmts, &ast.IfStmt{
+				Cond: &ast.BinaryExpr{
+					X: &ast.SelectorExpr{
+						X:   ast.NewIdent("c"),
+						Sel: ast.NewIdent("app"),
+					},
+					Op: token.NEQ,
+					Y:  ast.NewIdent("nil"),
+				},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.ExprStmt{
+							X: &ast.CallExpr{
+								Fun: &ast.SelectorExpr{
+									X: &ast.SelectorExpr{
+										X:   ast.NewIdent("c"),
+										Sel: ast.NewIdent("app"),
+									},
+									Sel: ast.NewIdent("Update"),
+								},
+							},
+						},
+					},
+				},
+			})
+
+			// Generate: func (c *Component) startChannelNameListener() { go func() { for val := range c.ChannelName { ... } }() }
 			decls = append(decls, &ast.FuncDecl{
 				Recv: &ast.FieldList{
 					List: []*ast.Field{
@@ -2805,45 +4001,7 @@ func (g *Generator) generateChannelListenerMethods(comp *guixast.Component) []as
 													Sel: ast.NewIdent(capitalize(param.Name)),
 												},
 												Body: &ast.BlockStmt{
-													List: []ast.Stmt{
-														// c.currentChannelName = val
-														&ast.AssignStmt{
-															Lhs: []ast.Expr{
-																&ast.SelectorExpr{
-																	X:   ast.NewIdent("c"),
-																	Sel: ast.NewIdent("current" + capitalize(param.Name)),
-																},
-															},
-															Tok: token.ASSIGN,
-															Rhs: []ast.Expr{ast.NewIdent("val")},
-														},
-														// if c.app != nil { c.app.Update() }
-														&ast.IfStmt{
-															Cond: &ast.BinaryExpr{
-																X: &ast.SelectorExpr{
-																	X:   ast.NewIdent("c"),
-																	Sel: ast.NewIdent("app"),
-																},
-																Op: token.NEQ,
-																Y:  ast.NewIdent("nil"),
-															},
-															Body: &ast.BlockStmt{
-																List: []ast.Stmt{
-																	&ast.ExprStmt{
-																		X: &ast.CallExpr{
-																			Fun: &ast.SelectorExpr{
-																				X: &ast.SelectorExpr{
-																					X:   ast.NewIdent("c"),
-																					Sel: ast.NewIdent("app"),
-																				},
-																				Sel: ast.NewIdent("Update"),
-																			},
-																		},
-																	},
-																},
-															},
-														},
-													},
+													List: updateStmts,
 												},
 											},
 										},

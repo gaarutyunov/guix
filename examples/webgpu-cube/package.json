@@ -4,6 +4,8 @@
   "description": "WebGPU rotating cube example for Guix",
   "private": true,
   "scripts": {
+    "build": "GOOS=js GOARCH=wasm go build -o main.wasm .",
+    "pretest": "npm run build",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug"

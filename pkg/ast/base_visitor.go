@@ -21,6 +21,9 @@ func (v *BaseVisitor) VisitFile(node *File) interface{} {
 	for _, comp := range node.Components {
 		comp.Accept(v)
 	}
+	for _, method := range node.Methods {
+		method.Accept(v)
+	}
 	return nil
 }
 
@@ -59,6 +62,26 @@ func (v *BaseVisitor) VisitComponent(node *Component) interface{} {
 	if node.Body != nil {
 		node.Body.Accept(v)
 	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitMethod(node *Method) interface{} {
+	if node.Receiver != nil {
+		node.Receiver.Accept(v)
+	}
+	for _, param := range node.Params {
+		param.Accept(v)
+	}
+	for _, result := range node.Results {
+		result.Accept(v)
+	}
+	if node.Body != nil {
+		node.Body.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitReceiver(node *Receiver) interface{} {
 	return nil
 }
 
@@ -113,6 +136,15 @@ func (v *BaseVisitor) VisitBodyStatement(node *BodyStatement) interface{} {
 	if node.For != nil {
 		node.For.Accept(v)
 	}
+	if node.Switch != nil {
+		node.Switch.Accept(v)
+	}
+	if node.Select != nil {
+		node.Select.Accept(v)
+	}
+	if node.GoStmt != nil {
+		node.GoStmt.Accept(v)
+	}
 	// Deprecated - kept for backward compatibility
 	if node.Assignment != nil {
 		node.Assignment.Accept(v)
@@ -141,6 +173,15 @@ func (v *BaseVisitor) VisitStatement(node *Statement) interface{} {
 	}
 	if node.For != nil {
 		node.For.Accept(v)
+	}
+	if node.Switch != nil {
+		node.Switch.Accept(v)
+	}
+	if node.Select != nil {
+		node.Select.Accept(v)
+	}
+	if node.GoStmt != nil {
+		node.GoStmt.Accept(v)
 	}
 	// Deprecated - kept for backward compatibility
 	if node.Assignment != nil {
@@ -187,6 +228,77 @@ func (v *BaseVisitor) VisitReturn(node *Return) interface{} {
 	for _, val := range node.Values {
 		val.Accept(v)
 	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGoStmt(node *GoStmt) interface{} {
+	if node.Func != nil {
+		node.Func.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitSwitchStmt(node *SwitchStmt) interface{} {
+	if node.Expr != nil {
+		node.Expr.Accept(v)
+	}
+	for _, caseClause := range node.Cases {
+		caseClause.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitCaseClause(node *CaseClause) interface{} {
+	for _, val := range node.Values {
+		val.Accept(v)
+	}
+	for _, stmt := range node.Statements {
+		stmt.Accept(v)
+	}
+	for _, stmt := range node.DefStmts {
+		stmt.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitSelectStmt(node *SelectStmt) interface{} {
+	for _, commClause := range node.Cases {
+		commClause.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitCommClause(node *CommClause) interface{} {
+	if node.Comm != nil {
+		node.Comm.Accept(v)
+	}
+	for _, stmt := range node.Statements {
+		stmt.Accept(v)
+	}
+	for _, stmt := range node.DefStmts {
+		stmt.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitCommCase(node *CommCase) interface{} {
+	if node.Send != nil {
+		node.Send.Accept(v)
+	}
+	if node.Recv != nil {
+		node.Recv.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitSendStmt(node *SendStmt) interface{} {
+	if node.Value != nil {
+		node.Value.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitRecvStmt(node *RecvStmt) interface{} {
 	return nil
 }
 
@@ -275,8 +387,10 @@ func (v *BaseVisitor) VisitElement(node *Element) interface{} {
 }
 
 func (v *BaseVisitor) VisitProp(node *Prop) interface{} {
-	if node.Value != nil {
-		node.Value.Accept(v)
+	for _, arg := range node.Args {
+		if arg != nil {
+			arg.Accept(v)
+		}
 	}
 	return nil
 }

@@ -454,8 +454,10 @@ func (s *SemanticAnalyzer) VisitElement(node *ast.Element) interface{} {
 }
 
 func (s *SemanticAnalyzer) VisitProp(node *ast.Prop) interface{} {
-	if node.Value != nil {
-		node.Value.Accept(s)
+	for _, arg := range node.Args {
+		if arg != nil {
+			arg.Accept(s)
+		}
 	}
 	return nil
 }

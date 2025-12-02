@@ -107,6 +107,58 @@ func CreateGPUCanvas(config GPUCanvasConfig) (*GPUCanvas, error) {
 	return gpuCanvas, nil
 }
 
+// createGPUCanvasFromElement creates a GPUCanvas from an existing canvas element
+func createGPUCanvasFromElement(canvasElem js.Value, config GPUCanvasConfig, gpuCtx *GPUContext) (*GPUCanvas, error) {
+	log("[Canvas] Creating GPU canvas from existing element")
+
+	if !canvasElem.Truthy() {
+		return nil, fmt.Errorf("invalid canvas element")
+	}
+
+	// Set canvas size
+	canvasElem.Set("width", config.Width)
+	canvasElem.Set("height", config.Height)
+	canvasElem.Get("style").Set("width", fmt.Sprintf("%dpx", config.Width))
+	canvasElem.Get("style").Set("height", fmt.Sprintf("%dpx", config.Height))
+	log(fmt.Sprintf("[Canvas] Canvas size set to %dx%d", config.Width, config.Height))
+
+	// Get WebGPU context
+	log("[Canvas] Getting WebGPU context from canvas")
+	gpuCanvasCtx := canvasElem.Call("getContext", "webgpu")
+	if !gpuCanvasCtx.Truthy() {
+		logError("[Canvas] Failed to get webgpu context")
+		return nil, fmt.Errorf("failed to get webgpu context from canvas")
+	}
+
+	// Get preferred format
+	format := GetPreferredCanvasFormat()
+	log(fmt.Sprintf("[Canvas] Using format: %s", format))
+
+	// Configure the canvas context
+	log("[Canvas] Configuring canvas context")
+	configObj := map[string]interface{}{
+		"device":    gpuCtx.Device,
+		"format":    format,
+		"alphaMode": config.AlphaMode,
+	}
+	gpuCanvasCtx.Call("configure", configObj)
+
+	gpuCanvas := &GPUCanvas{
+		Canvas:     canvasElem,
+		Context:    gpuCanvasCtx,
+		GPUContext: gpuCtx,
+		Width:      config.Width,
+		Height:     config.Height,
+		Format:     format,
+		Running:    false,
+		FrameCount: 0,
+		LastTime:   0,
+	}
+
+	log("[Canvas] GPU canvas created successfully from element")
+	return gpuCanvas, nil
+}
+
 // SetRenderFunc sets the function to be called on each frame
 func (gc *GPUCanvas) SetRenderFunc(renderFunc func(*GPUCanvas, float64)) {
 	gc.RenderFunc = renderFunc

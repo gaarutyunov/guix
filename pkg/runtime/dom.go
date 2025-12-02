@@ -73,14 +73,33 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 			attachEventHandler(elem, name, handler, vnode)
 		}
 
-		// Mount children
+		// Mount children (skip webgpu-scene wrappers)
+		var sceneComponent Scene
 		for _, child := range vnode.Children {
+			// Check if this is a webgpu-scene wrapper
+			if child.Type == ElementNode && child.Tag == "webgpu-scene" {
+				// Extract Scene from the wrapper
+				if sceneValue, hasScene := child.Properties["scene"]; hasScene {
+					if scene, ok := sceneValue.(Scene); ok {
+						sceneComponent = scene
+						log("DOM: Found Scene component in canvas children")
+					}
+				}
+				continue // Don't mount the wrapper as a DOM node
+			}
+
 			childNode, err := createDOMNode(child)
 			if err != nil {
 				return js.Undefined(), err
 			}
 			child.DOMNode = childNode
 			elem.Call("appendChild", childNode)
+		}
+
+		// Special handling for canvas elements with WebGPU scene
+		if vnode.Tag == "canvas" && sceneComponent != nil {
+			log("DOM: Initializing WebGPU canvas with scene")
+			go initializeWebGPUCanvas(elem, sceneComponent, vnode)
 		}
 
 		return elem, nil
@@ -134,6 +153,26 @@ func attachEventHandler(elem js.Value, eventName string, handler EventHandler, v
 		// Get checked if it exists
 		if target.Get("checked").Type() == js.TypeBoolean {
 			event.Target.Checked = target.Get("checked").Bool()
+		}
+
+		// Extract keyboard event fields if they exist
+		if jsEvent.Get("key").Type() == js.TypeString {
+			event.Key = jsEvent.Get("key").String()
+		}
+		if jsEvent.Get("code").Type() == js.TypeString {
+			event.Code = jsEvent.Get("code").String()
+		}
+		if jsEvent.Get("ctrlKey").Type() == js.TypeBoolean {
+			event.CtrlKey = jsEvent.Get("ctrlKey").Bool()
+		}
+		if jsEvent.Get("shiftKey").Type() == js.TypeBoolean {
+			event.ShiftKey = jsEvent.Get("shiftKey").Bool()
+		}
+		if jsEvent.Get("altKey").Type() == js.TypeBoolean {
+			event.AltKey = jsEvent.Get("altKey").Bool()
+		}
+		if jsEvent.Get("metaKey").Type() == js.TypeBoolean {
+			event.MetaKey = jsEvent.Get("metaKey").Bool()
 		}
 
 		log("DOM: Calling event handler in goroutine")
@@ -211,6 +250,10 @@ func UpdateElement(vnode *VNode, oldAttrs, newAttrs map[string]string, oldProps,
 	for key, value := range newProps {
 		elem.Set(key, value)
 	}
+
+	// Note: Event handlers are NOT updated here
+	// Handlers are attached once during Mount and reference component struct fields
+	// Since handlers access data through struct fields/channels, they don't need updates
 }
 
 // SetTextContent updates the text content of a text node
@@ -273,4 +316,117 @@ func MoveNode(vnode *VNode, parent js.Value, beforeNode js.Value) {
 	} else {
 		parent.Call("insertBefore", vnode.DOMNode, beforeNode)
 	}
+}
+
+// initializeWebGPUCanvas initializes WebGPU for a canvas element with a scene
+func initializeWebGPUCanvas(canvasElem js.Value, scene Scene, vnode *VNode) {
+	log("WebGPU: Initializing canvas")
+
+	// Check WebGPU support
+	if !IsWebGPUSupported() {
+		logError("WebGPU is not supported in this browser")
+		showCanvasError(canvasElem, "WebGPU is not supported. Please use Chrome 113+ or Edge 113+")
+		return
+	}
+
+	// Initialize WebGPU
+	log("WebGPU: Initializing WebGPU context")
+	gpuCtx, err := InitWebGPU()
+	if err != nil {
+		logError("WebGPU: Failed to initialize:", err)
+		showCanvasError(canvasElem, fmt.Sprintf("Failed to initialize WebGPU: %v", err))
+		return
+	}
+
+	log("WebGPU: WebGPU initialized successfully")
+
+	// Get canvas dimensions from attributes or use defaults
+	width := 800
+	height := 600
+	if w, ok := vnode.Properties["width"]; ok {
+		if wInt, ok := w.(int); ok {
+			width = wInt
+		}
+	}
+	if h, ok := vnode.Properties["height"]; ok {
+		if hInt, ok := h.(int); ok {
+			height = hInt
+		}
+	}
+
+	// Create GPU canvas
+	config := GPUCanvasConfig{
+		Width:            width,
+		Height:           height,
+		DevicePixelRatio: 1.0,
+		AlphaMode:        "premultiplied",
+		FrameLoop:        "always",
+	}
+
+	log("WebGPU: Creating GPU canvas with config:", fmt.Sprintf("width=%d, height=%d", width, height))
+	canvas, err := createGPUCanvasFromElement(canvasElem, config, gpuCtx)
+	if err != nil {
+		logError("WebGPU: Failed to create GPU canvas:", err)
+		showCanvasError(canvasElem, fmt.Sprintf("Failed to create GPU canvas: %v", err))
+		return
+	}
+
+	log("WebGPU: GPU canvas created successfully")
+
+	// Render the scene
+	sceneNode := scene.RenderScene()
+	if sceneNode == nil {
+		logError("WebGPU: Scene RenderScene() returned nil")
+		showCanvasError(canvasElem, "Scene rendering failed")
+		return
+	}
+
+	log("WebGPU: Creating scene renderer")
+	renderer, err := NewSceneRenderer(canvas, sceneNode)
+	if err != nil {
+		logError("WebGPU: Failed to create renderer:", err)
+		showCanvasError(canvasElem, fmt.Sprintf("Failed to create renderer: %v", err))
+		return
+	}
+
+	log("WebGPU: Scene renderer created successfully")
+
+	// Check for render update callback
+	var renderUpdate func(float64, interface{})
+	if updateValue, hasUpdate := vnode.Properties["gpuRenderUpdate"]; hasUpdate {
+		if callback, ok := updateValue.(func(float64, interface{})); ok {
+			renderUpdate = callback
+			log("WebGPU: Found render update callback")
+		}
+	}
+
+	// Set render function
+	canvas.SetRenderFunc(func(c *GPUCanvas, delta float64) {
+		// Call update callback if provided
+		if renderUpdate != nil {
+			renderUpdate(delta, renderer)
+		}
+		renderer.Render()
+	})
+
+	// Start render loop
+	canvas.Start()
+
+	log("WebGPU: Render loop started successfully")
+}
+
+// showCanvasError displays an error message on the canvas
+func showCanvasError(canvasElem js.Value, message string) {
+	parent := canvasElem.Get("parentElement")
+	if parent.IsUndefined() || parent.IsNull() {
+		return
+	}
+
+	doc := js.Global().Get("document")
+	errorDiv := doc.Call("createElement", "div")
+	errorDiv.Call("setAttribute", "style",
+		"padding: 20px; background: #ff4444; color: white; border-radius: 8px; margin: 10px;")
+	errorDiv.Set("innerHTML", fmt.Sprintf("<h3>WebGPU Error</h3><p>%s</p>", message))
+
+	parent.Call("insertBefore", errorDiv, canvasElem)
 }

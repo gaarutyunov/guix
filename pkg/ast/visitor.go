@@ -13,6 +13,8 @@ type Visitor interface {
 	VisitStructType(*StructType) interface{}
 	VisitStructField(*StructField) interface{}
 	VisitComponent(*Component) interface{}
+	VisitMethod(*Method) interface{}
+	VisitReceiver(*Receiver) interface{}
 	VisitParameter(*Parameter) interface{}
 	VisitType(*Type) interface{}
 
@@ -24,6 +26,14 @@ type Visitor interface {
 	VisitAssignmentStmt(*AssignmentStmt) interface{}
 	VisitVarDecl(*VarDecl) interface{}
 	VisitAssignment(*Assignment) interface{}
+	VisitGoStmt(*GoStmt) interface{}
+	VisitSwitchStmt(*SwitchStmt) interface{}
+	VisitCaseClause(*CaseClause) interface{}
+	VisitSelectStmt(*SelectStmt) interface{}
+	VisitCommClause(*CommClause) interface{}
+	VisitCommCase(*CommCase) interface{}
+	VisitSendStmt(*SendStmt) interface{}
+	VisitRecvStmt(*RecvStmt) interface{}
 	VisitReturn(*Return) interface{}
 	VisitIfStmt(*IfStmt) interface{}
 	VisitElse(*Else) interface{}

@@ -4,9 +4,27 @@ This document contains guidelines and rules for Claude when working on the Guix 
 
 ## Pre-Commit Requirements
 
-Before committing any changes, Claude must ensure the following checks pass:
+Before committing any changes, Claude must ensure the following checks pass.
 
-### 1. Code Formatting
+### Using Mage (Recommended)
+
+The easiest way to run all pre-commit checks is using Mage:
+
+```bash
+# Run all pre-commit checks (format, vet, test, build)
+go run github.com/magefile/mage@latest
+
+# Or if mage is installed locally
+mage
+```
+
+This will automatically run all the checks below in the correct order.
+
+### Manual Pre-Commit Checks
+
+If you prefer to run checks manually:
+
+#### 1. Code Formatting
 
 All Go files must be formatted with `gofmt`:
 
@@ -16,7 +34,7 @@ gofmt -w .
 
 This ensures consistent code style across the entire codebase.
 
-### 2. Linting
+#### 2. Linting
 
 Run `go vet` to catch common Go mistakes:
 
@@ -24,7 +42,7 @@ Run `go vet` to catch common Go mistakes:
 go vet ./...
 ```
 
-### 3. Testing
+#### 3. Testing
 
 Run all tests to ensure no regressions:
 
@@ -34,7 +52,7 @@ go test ./...
 
 All tests must pass before committing.
 
-### 4. Build Verification
+#### 4. Build Verification
 
 Verify the code compiles for both native and WASM targets:
 
@@ -46,9 +64,23 @@ go build ./...
 GOOS=js GOARCH=wasm go build ./pkg/runtime/...
 ```
 
-## Complete Pre-Commit Checklist
+## Available Mage Targets
 
-Run these commands before every commit:
+The following Mage targets are available:
+
+- `mage` or `mage preCommit` - Run all pre-commit checks (default)
+- `mage format` - Format all Go files
+- `mage vet` - Run go vet
+- `mage test` - Run all tests
+- `mage build` - Build all packages
+- `mage buildWasm` - Build WASM runtime
+- `mage generate` - Regenerate all example code
+- `mage clean` - Remove build artifacts
+- `mage ci` - Run all CI checks
+
+## Complete Pre-Commit Checklist (Manual)
+
+If not using Mage, run these commands before every commit:
 
 ```bash
 # Format all Go files

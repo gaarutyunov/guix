@@ -13,6 +13,7 @@ type File struct {
 	Imports    []*Import    `@@*`
 	Types      []*TypeDef   `@@*`
 	Components []*Component `@@*`
+	Methods    []*Method    `@@*`
 }
 
 // TypeDef represents a type definition
@@ -51,6 +52,24 @@ type Component struct {
 	Params    []*Parameter `"(" (@@ ("," @@)*)? ")"`
 	Results   []*Type      `("(" (@@ ("," @@)*)? ")")?`
 	Body      *Body        `@@`
+}
+
+// Method represents a method with a receiver (e.g., func (c *MyType) String() string)
+type Method struct {
+	Pos      lexer.Position
+	Receiver *Receiver    `"func" @@`
+	Name     string       `@Ident`
+	Params   []*Parameter `"(" (@@ ("," @@)*)? ")"`
+	Results  []*Type      `("(" (@@ ("," @@)*)? ")")?`
+	Body     *Body        `@@`
+}
+
+// Receiver represents a method receiver
+type Receiver struct {
+	Pos       lexer.Position
+	Name      string `"(" @Ident`
+	IsPointer bool   `@"*"?`
+	Type      string `@Ident ")"`
 }
 
 // Parameter represents a component parameter with name and type
@@ -93,6 +112,9 @@ type BodyStatement struct {
 	Return     *Return         `| @@`
 	If         *IfStmt         `| @@`
 	For        *ForLoop        `| @@`
+	Switch     *SwitchStmt     `| @@` // Switch statement
+	Select     *SelectStmt     `| @@` // Select statement
+	GoStmt     *GoStmt         `| @@` // Goroutine statement
 	Assignment *Assignment     `| @@` // Deprecated
 	CallStmt   *CallStmt       `| @@` // Last to minimize conflicts with Elements
 }
@@ -126,10 +148,11 @@ type Element struct {
 }
 
 // Prop represents a property or event handler
+// Props are function calls like Class("value") or Background(0.1, 0.1, 0.15, 1.0)
 type Prop struct {
-	Pos   lexer.Position
-	Name  string `@Ident`
-	Value *Expr  `"(" @@ ")"`
+	Pos  lexer.Position
+	Name string  `@Ident`
+	Args []*Expr `"(" (@@ ("," @@)*)? ")"`
 }
 
 // Expr represents an expression with optional binary operations
@@ -210,11 +233,12 @@ type Literal struct {
 // CallOrSelect represents either a selector (obj.field.field) or a call (func() or obj.method())
 // This unifies both to avoid grammar ambiguity
 type CallOrSelect struct {
-	Pos      lexer.Position
-	Base     string   `@Ident`
-	Fields   []string `("." @Ident)*`
-	Args     []*Expr  `("(" (@@ ("," @@)*)? ")")?`
-	Variadic bool     `@("..." Punct)?` // Variadic call with ... operator
+	Pos       lexer.Position
+	Base      string   `@Ident`
+	Fields    []string `("." @Ident)*`
+	HasParens bool     `(@"("`
+	Args      []*Expr  `(@@ ("," @@)*)? ")")?`
+	Variadic  bool     `@("..." Punct)?` // Variadic call with ... operator
 }
 
 // Selector represents a selector expression - deprecated, use CallOrSelect
@@ -270,6 +294,9 @@ type Statement struct {
 	Return     *Return         `| @@`
 	If         *IfStmt         `| @@`
 	For        *ForLoop        `| @@`
+	Switch     *SwitchStmt     `| @@` // Switch statement
+	Select     *SelectStmt     `| @@` // Select statement
+	GoStmt     *GoStmt         `| @@` // Goroutine statement
 	Assignment *Assignment     `| @@` // Deprecated: kept for backward compatibility
 	Expr       *Expr           `| @@` // Deprecated: kept for backward compatibility
 }
@@ -283,17 +310,35 @@ var RuntimeComponents = map[string]bool{
 	"Table": true, "Tr": true, "Td": true, "Th": true, "Thead": true, "Tbody": true,
 	"Header": true, "Footer": true, "Nav": true, "Main": true, "Section": true, "Article": true,
 	"Aside": true, "Select": true, "Option": true, "Textarea": true, "Label": true,
+	// WebGPU Canvas
+	"Canvas": true, "GPUScene": true,
 	// Runtime helpers
 	"Fragment": true, "Text": true, "El": true,
 	// Props and Attributes
 	"Class": true, "ID": true, "ClassAttr": true, "Href": true, "Src": true,
 	"Type": true, "Placeholder": true, "Value": true, "Disabled": true, "Checked": true,
 	"Name": true, "For": true, "Alt": true, "Title": true, "Style": true,
+	"Min": true, "Max": true, "Step": true, "TabIndex": true,
 	// Event Handlers
 	"OnClick": true, "OnInput": true, "OnChange": true, "OnSubmit": true,
 	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,
 	"OnMouseOver": true, "OnMouseOut": true, "OnMouseEnter": true, "OnMouseLeave": true,
 	"OnFocus": true, "OnBlur": true,
+	// WebGPU Elements
+	"Scene": true, "Mesh": true, "Group": true,
+	"PerspectiveCamera": true, "OrthographicCamera": true,
+	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+	// WebGPU Properties
+	"Position": true, "Rotation": true, "ScaleValue": true,
+	"Color": true, "Metalness": true, "Roughness": true,
+	"Intensity": true, "FOV": true, "Near": true, "Far": true,
+	"LookAtPos": true, "Background": true,
+	"Width": true, "Height": true,
+	"GeometryProp": true, "MaterialProp": true, "GPURenderUpdate": true,
+	// WebGPU Geometry Constructors
+	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
+	// WebGPU Material Constructors
+	"StandardMaterial": true,
 }
 
 // NonRuntimeIdent is a custom type that only captures identifiers that are NOT runtime components
@@ -347,6 +392,70 @@ type Assignment struct {
 	LeftSelector []string `("." @Ident)*`
 	Op           string   `@("<-" | ":=" | "=" | "+=" | "-=" | "*=" | "/=")`
 	Right        *Expr    `@@`
+}
+
+// GoStmt represents a goroutine statement
+// Example: go func() { state <- 42 }()
+type GoStmt struct {
+	Pos  lexer.Position
+	Func *FuncLit `"go" @@`
+	Call bool     `"(" ")"` // Function call
+}
+
+// SwitchStmt represents a switch statement
+// Example: switch expr { case val1: stmts... case val2: stmts... default: stmts... }
+type SwitchStmt struct {
+	Pos   lexer.Position
+	Expr  *Expr         `"switch" @@?` // Optional expression
+	Cases []*CaseClause `"{" @@* "}"`
+}
+
+// CaseClause represents a case or default clause in a switch statement
+type CaseClause struct {
+	Pos        lexer.Position
+	Values     []*Expr      `("case" @@ ("," @@)*`
+	Statements []*Statement `":" @@*)`
+	Default    bool         `| ("default"`
+	DefStmts   []*Statement `":" @@*)`
+}
+
+// SelectStmt represents a select statement for channel operations
+// Example: select { case x := <-ch: stmts... case ch <- val: stmts... default: stmts... }
+type SelectStmt struct {
+	Pos   lexer.Position
+	Cases []*CommClause `"select" "{" @@* "}"`
+}
+
+// CommClause represents a case or default clause in a select statement
+type CommClause struct {
+	Pos        lexer.Position
+	Comm       *CommCase    `("case" @@`
+	Statements []*Statement `":" @@*)`
+	Default    bool         `| ("default"`
+	DefStmts   []*Statement `":" @@*)`
+}
+
+// CommCase represents a channel send or receive operation in a select case
+type CommCase struct {
+	Pos  lexer.Position
+	Send *SendStmt `@@`
+	Recv *RecvStmt `| @@`
+}
+
+// SendStmt represents a channel send operation
+// Example: ch <- value
+type SendStmt struct {
+	Pos     lexer.Position
+	Channel string `@Ident "<-"`
+	Value   *Expr  `@@`
+}
+
+// RecvStmt represents a channel receive operation with optional assignment
+// Example: x := <-ch or <-ch
+type RecvStmt struct {
+	Pos     lexer.Position
+	Names   []string `(@Ident ("," @Ident)* ":=")?`
+	Channel string   `"<-" @Ident`
 }
 
 // Return represents a return statement
@@ -450,6 +559,8 @@ func (n *TypeDef) Accept(v Visitor) interface{}     { return v.VisitTypeDef(n) }
 func (n *StructType) Accept(v Visitor) interface{}  { return v.VisitStructType(n) }
 func (n *StructField) Accept(v Visitor) interface{} { return v.VisitStructField(n) }
 func (n *Component) Accept(v Visitor) interface{}   { return v.VisitComponent(n) }
+func (n *Method) Accept(v Visitor) interface{}      { return v.VisitMethod(n) }
+func (n *Receiver) Accept(v Visitor) interface{}    { return v.VisitReceiver(n) }
 func (n *Parameter) Accept(v Visitor) interface{}   { return v.VisitParameter(n) }
 func (n *Type) Accept(v Visitor) interface{}        { return v.VisitType(n) }
 
@@ -461,6 +572,14 @@ func (n *CallStmt) Accept(v Visitor) interface{}       { return v.VisitCallStmt(
 func (n *AssignmentStmt) Accept(v Visitor) interface{} { return v.VisitAssignmentStmt(n) }
 func (n *VarDecl) Accept(v Visitor) interface{}        { return v.VisitVarDecl(n) }
 func (n *Assignment) Accept(v Visitor) interface{}     { return v.VisitAssignment(n) }
+func (n *GoStmt) Accept(v Visitor) interface{}         { return v.VisitGoStmt(n) }
+func (n *SwitchStmt) Accept(v Visitor) interface{}     { return v.VisitSwitchStmt(n) }
+func (n *CaseClause) Accept(v Visitor) interface{}     { return v.VisitCaseClause(n) }
+func (n *SelectStmt) Accept(v Visitor) interface{}     { return v.VisitSelectStmt(n) }
+func (n *CommClause) Accept(v Visitor) interface{}     { return v.VisitCommClause(n) }
+func (n *CommCase) Accept(v Visitor) interface{}       { return v.VisitCommCase(n) }
+func (n *SendStmt) Accept(v Visitor) interface{}       { return v.VisitSendStmt(n) }
+func (n *RecvStmt) Accept(v Visitor) interface{}       { return v.VisitRecvStmt(n) }
 func (n *Return) Accept(v Visitor) interface{}         { return v.VisitReturn(n) }
 func (n *IfStmt) Accept(v Visitor) interface{}         { return v.VisitIfStmt(n) }
 func (n *Else) Accept(v Visitor) interface{}           { return v.VisitElse(n) }

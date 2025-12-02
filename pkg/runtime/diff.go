@@ -87,7 +87,8 @@ func Diff(oldNode, newNode *VNode) []Patch {
 			}}
 		}
 
-		// Check attributes
+		// Check attributes and properties
+		// Event handlers are not checked - they're attached once and reference struct fields
 		if attrsChanged(oldNode.Attributes, newNode.Attributes) ||
 			propsChanged(oldNode.Properties, newNode.Properties) {
 			patches = append(patches, Patch{
@@ -231,6 +232,7 @@ func ApplyPatch(patch Patch) error {
 		// Update the old node's attributes to match new
 		patch.OldNode.Attributes = patch.NewNode.Attributes
 		patch.OldNode.Properties = patch.NewNode.Properties
+		// Keep old event handlers - they reference struct fields and don't need updates
 
 	case PatchUpdateText:
 		SetTextContent(patch.OldNode, patch.NewNode.Text)
@@ -317,5 +319,23 @@ func propsChanged(old, new map[string]interface{}) bool {
 		}
 	}
 
+	return false
+}
+
+func eventsChanged(old, new map[string]EventHandler) bool {
+	// Event handlers are closures and can't be compared directly
+	// Only return true if the event keys differ (events added/removed)
+	if len(old) != len(new) {
+		return true
+	}
+
+	for k := range old {
+		if _, exists := new[k]; !exists {
+			return true
+		}
+	}
+
+	// Same event keys - don't force update just for events
+	// Events will be updated when attrs/props change
 	return false
 }

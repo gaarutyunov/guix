@@ -1,0 +1,56 @@
+package main
+
+import "fmt"
+
+func App() (Component) {
+	rotationX := 0.0
+	rotationY := 0.0
+	autoRotate := true
+	speed := 1.0
+	commands := make(chan ControlCommand, 10)
+	controlState := make(chan ControlState, 10)
+
+	go func() {
+		state := ControlState{AutoRotate: autoRotate, Speed: float32(speed)}
+		log(fmt.Sprintf("[App] Sending initial state: %s", state.String()))
+		controlState <- state
+	}()
+
+	go func() {
+		for cmd := range commands {
+			log(fmt.Sprintf("[App] Received command: %s", cmd.String()))
+
+			switch cmd.Type {
+			case "rotX":
+				rotationX += float64(cmd.Value)
+			case "rotY":
+				rotationY += float64(cmd.Value)
+			case "autoRotate":
+				autoRotate = !autoRotate
+			case "speed":
+				speed = float64(cmd.Value)
+			}
+
+			state := ControlState{AutoRotate: autoRotate, Speed: float32(speed)}
+			select {
+			case controlState <- state:
+				log(fmt.Sprintf("[App] Sent state update: %s", state.String()))
+			default:
+				log("[App] Channel full, skipping state update")
+			}
+		}
+	}()
+
+	Div(
+		Class("webgpu-container")
+	) {
+		Canvas(
+			ID("webgpu-canvas"),
+			Width(600),
+			Height(400)
+		) {
+			GPUScene(NewCubeScene(float32(rotationX), float32(rotationY)))
+		}
+		Controls(WithCommands(commands), WithState(controlState))
+	}
+}
