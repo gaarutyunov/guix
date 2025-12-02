@@ -3037,9 +3037,8 @@ func (g *Generator) generateSwitchStmt(switchStmt *guixast.SwitchStmt) ast.Stmt 
 
 			// Generate statements for default case
 			for _, stmt := range caseClause.DefStmts {
-				if goStmt := g.generateStatement(stmt); goStmt != nil {
-					caseStmt.Body = append(caseStmt.Body, goStmt)
-				}
+				goStmt := g.generateStatement(stmt)
+				caseStmt.Body = append(caseStmt.Body, goStmt)
 			}
 		} else {
 			// Regular case with values
@@ -3054,9 +3053,8 @@ func (g *Generator) generateSwitchStmt(switchStmt *guixast.SwitchStmt) ast.Stmt 
 
 			// Generate statements for this case
 			for _, stmt := range caseClause.Statements {
-				if goStmt := g.generateStatement(stmt); goStmt != nil {
-					caseStmt.Body = append(caseStmt.Body, goStmt)
-				}
+				goStmt := g.generateStatement(stmt)
+				caseStmt.Body = append(caseStmt.Body, goStmt)
 			}
 		}
 
@@ -3086,9 +3084,8 @@ func (g *Generator) generateSelectStmt(selectStmt *guixast.SelectStmt) ast.Stmt 
 
 			// Generate statements for default case
 			for _, stmt := range commClause.DefStmts {
-				if goStmt := g.generateStatement(stmt); goStmt != nil {
-					caseStmt.Body = append(caseStmt.Body, goStmt)
-				}
+				goStmt := g.generateStatement(stmt)
+				caseStmt.Body = append(caseStmt.Body, goStmt)
 			}
 		} else {
 			// Regular case with channel operation
@@ -3153,9 +3150,8 @@ func (g *Generator) generateSelectStmt(selectStmt *guixast.SelectStmt) ast.Stmt 
 
 			// Generate statements for this case
 			for _, stmt := range commClause.Statements {
-				if goStmt := g.generateStatement(stmt); goStmt != nil {
-					caseStmt.Body = append(caseStmt.Body, goStmt)
-				}
+				goStmt := g.generateStatement(stmt)
+				caseStmt.Body = append(caseStmt.Body, goStmt)
 			}
 		}
 
