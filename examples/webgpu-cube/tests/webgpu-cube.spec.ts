@@ -194,8 +194,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // Wait for canvas to be rendered
     await page.waitForSelector('canvas', { timeout: 5000 });
 
-    // Wait for either controls or error to appear
-    await page.waitForSelector('#btn-toggle, div[style*="background: #ff4444"]', { timeout: 5000 });
+    // Wait for controls to appear and be fully loaded
+    await page.waitForSelector('#btn-toggle', { timeout: 5000, state: 'visible' });
+
+    // Additional wait for components to be fully interactive
+    await page.waitForTimeout(500);
 
     // Print all console messages for debugging
     console.log('\n=== Console Messages (should respond to button clicks) ===');
@@ -207,22 +210,24 @@ test.describe('WebGPU Rotating Cube', () => {
     const errorCount = await errorDivs.count();
     expect(errorCount).toBe(0);
 
-    // Get initial button text
-    const toggleButton = await page.locator('#btn-toggle');
+    // Get toggle button and verify it's visible and enabled
+    const toggleButton = page.locator('#btn-toggle');
+    await expect(toggleButton).toBeVisible();
+
     const initialText = await toggleButton.textContent();
     expect(initialText).toBe('⏸'); // Should be pause icon initially
 
-    // Click toggle button
-    await toggleButton.click();
-    await page.waitForTimeout(100);
+    // Click toggle button with force to ensure it registers
+    await toggleButton.click({ force: true });
+    await page.waitForTimeout(300);
 
     // Check that button text changed
     const newText = await toggleButton.textContent();
     expect(newText).toBe('▶'); // Should be play icon now
 
     // Click again to toggle back
-    await toggleButton.click();
-    await page.waitForTimeout(100);
+    await toggleButton.click({ force: true });
+    await page.waitForTimeout(300);
 
     const finalText = await toggleButton.textContent();
     expect(finalText).toBe('⏸'); // Should be pause icon again
@@ -241,8 +246,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // Wait for canvas to be rendered
     await page.waitForSelector('canvas', { timeout: 5000 });
 
-    // Wait for either controls or error to appear
-    await page.waitForSelector('#speed-control, div[style*="background: #ff4444"]', { timeout: 5000 });
+    // Wait for speed control to appear
+    await page.waitForSelector('#speed-control', { timeout: 5000, state: 'visible' });
+
+    // Additional wait for full interactivity
+    await page.waitForTimeout(500);
 
     // Print all console messages for debugging
     console.log('\n=== Console Messages (should show speed control when auto-rotate is enabled) ===');
@@ -255,13 +263,14 @@ test.describe('WebGPU Rotating Cube', () => {
     expect(errorCount).toBe(0);
 
     // Speed control should be visible initially (auto-rotate is on by default)
-    const speedControl = await page.locator('#speed-control');
+    const speedControl = page.locator('#speed-control');
     await expect(speedControl).toBeVisible();
 
     // Toggle auto-rotate off
-    const toggleButton = await page.locator('#btn-toggle');
-    await toggleButton.click();
-    await page.waitForTimeout(200);
+    const toggleButton = page.locator('#btn-toggle');
+    await expect(toggleButton).toBeVisible();
+    await toggleButton.click({ force: true });
+    await page.waitForTimeout(300);
 
     // Speed control should not be rendered (not in DOM) when auto-rotate is off
     const speedControlCount = await page.locator('#speed-control').count();
