@@ -261,13 +261,11 @@ test.describe('WebGPU Rotating Cube', () => {
     // Toggle auto-rotate off
     const toggleButton = await page.locator('#btn-toggle');
     await toggleButton.click();
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(200);
 
-    // Speed control should be hidden
-    const display = await speedControl.evaluate(el =>
-      window.getComputedStyle(el).display
-    );
-    expect(display).toBe('none');
+    // Speed control should not be rendered (not in DOM) when auto-rotate is off
+    const speedControlCount = await page.locator('#speed-control').count();
+    expect(speedControlCount).toBe(0);
   });
 
   test('should handle keyboard controls', async ({ page }) => {
