@@ -1,6 +1,7 @@
 package main
 
 import "fmt"
+import "github.com/gaarutyunov/guix/pkg/runtime"
 
 func App() (Component) {
 	rotationX := 0.0
@@ -9,6 +10,8 @@ func App() (Component) {
 	speed := 1.0
 	commands := make(chan ControlCommand, 10)
 	controlState := make(chan ControlState, 10)
+	rotXPtr := &rotationX
+	rotYPtr := &rotationY
 
 	go func() {
 		state := ControlState{AutoRotate: autoRotate, Speed: float32(speed)}
@@ -60,10 +63,10 @@ func App() (Component) {
 		Canvas(
 			ID("webgpu-canvas"),
 			Width(500),
-			Height(375),
+			Height(500),
 			GPURenderUpdate(renderUpdate)
 		) {
-			GPUScene(NewCubeScene(float32(rotationX), float32(rotationY)))
+			GPUScene(NewCubeScene(rotXPtr, rotYPtr))
 		}
 		Controls(WithCommands(commands), WithState(controlState))
 	}

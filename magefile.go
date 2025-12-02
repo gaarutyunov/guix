@@ -39,16 +39,44 @@ func Vet() error {
 	return sh.RunWith(env, "go", "vet", "./pkg/runtime/...")
 }
 
-// Test runs all tests
+// Test runs all tests (excluding WASM-only packages)
 func Test() error {
 	fmt.Println("Running tests...")
-	return sh.RunV("go", "test", "./...")
+	// Test non-WASM packages (exclude runtime which requires WASM runtime to execute)
+	packages := []string{
+		"./cmd/...",
+		"./internal/...",
+		"./pkg/ast",
+		"./pkg/codegen",
+		"./pkg/parser",
+		"./pkg/visitors",
+	}
+	for _, pkg := range packages {
+		if err := sh.RunV("go", "test", pkg); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// Build builds all packages for native target
+// Build builds all packages for native target (excluding WASM-only packages)
 func Build() error {
 	fmt.Println("Building native packages...")
-	return sh.RunV("go", "build", "./...")
+	// Build non-WASM packages (exclude runtime which is WASM-only)
+	packages := []string{
+		"./cmd/...",
+		"./internal/...",
+		"./pkg/ast",
+		"./pkg/codegen",
+		"./pkg/parser",
+		"./pkg/visitors",
+	}
+	for _, pkg := range packages {
+		if err := sh.RunV("go", "build", pkg); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // BuildWasm builds the runtime package for WebAssembly

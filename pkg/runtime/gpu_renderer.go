@@ -20,14 +20,22 @@ type SceneRenderer struct {
 	AmbientLight  *Light
 }
 
+// ReactiveBinding holds pointers to values that should be synced to transform
+type ReactiveBinding struct {
+	RotationX *float64
+	RotationY *float64
+	RotationZ *float64
+}
+
 // MeshInstance represents an instantiated mesh with buffers
 type MeshInstance struct {
-	Transform    Transform
-	Geometry     Geometry
-	Material     *Material
-	VertexBuffer *GPUBuffer
-	IndexBuffer  *GPUBuffer
-	IndexCount   int
+	Transform       Transform
+	Geometry        Geometry
+	Material        *Material
+	VertexBuffer    *GPUBuffer
+	IndexBuffer     *GPUBuffer
+	IndexCount      int
+	ReactiveBinding *ReactiveBinding // Reactive binding for auto-updates
 }
 
 // NewSceneRenderer creates a new scene renderer
@@ -160,13 +168,22 @@ func (sr *SceneRenderer) createMeshInstance(node *GPUNode) (*MeshInstance, error
 		}
 	}
 
+	// Check for reactive binding
+	var binding *ReactiveBinding
+	if node.Properties != nil {
+		if b, ok := node.Properties["bindRotation"].(*ReactiveBinding); ok {
+			binding = b
+		}
+	}
+
 	return &MeshInstance{
-		Transform:    node.Transform,
-		Geometry:     node.Geometry,
-		Material:     material,
-		VertexBuffer: vertexBuffer,
-		IndexBuffer:  indexBuffer,
-		IndexCount:   len(indices),
+		Transform:       node.Transform,
+		Geometry:        node.Geometry,
+		Material:        material,
+		VertexBuffer:    vertexBuffer,
+		IndexBuffer:     indexBuffer,
+		IndexCount:      len(indices),
+		ReactiveBinding: binding,
 	}, nil
 }
 
@@ -227,8 +244,28 @@ func (sr *SceneRenderer) createPipeline() error {
 	return nil
 }
 
+// syncReactiveBindings updates mesh transforms from reactive bindings
+func (sr *SceneRenderer) syncReactiveBindings() {
+	for _, mesh := range sr.Meshes {
+		if binding := mesh.ReactiveBinding; binding != nil {
+			if binding.RotationX != nil {
+				mesh.Transform.Rotation.X = float32(*binding.RotationX)
+			}
+			if binding.RotationY != nil {
+				mesh.Transform.Rotation.Y = float32(*binding.RotationY)
+			}
+			if binding.RotationZ != nil {
+				mesh.Transform.Rotation.Z = float32(*binding.RotationZ)
+			}
+		}
+	}
+}
+
 // Render renders the scene
 func (sr *SceneRenderer) Render() {
+	// Sync reactive bindings before rendering
+	sr.syncReactiveBindings()
+
 	if sr.ActiveCamera == nil {
 		logError("No active camera in scene")
 		return

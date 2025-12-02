@@ -745,6 +745,27 @@ func (g *Generator) generateSceneConstructor(comp *guixast.Component) *ast.FuncD
 
 // generateRenderSceneMethod generates the RenderScene method for a Scene component
 func (g *Generator) generateRenderSceneMethod(comp *guixast.Component) *ast.FuncDecl {
+	// Generate variable declarations first
+	var stmts []ast.Stmt
+	if comp.Body != nil && len(comp.Body.VarDecls) > 0 {
+		for _, varDecl := range comp.Body.VarDecls {
+			// Generate: varName := value
+			var lhs []ast.Expr
+			for _, name := range varDecl.Names {
+				lhs = append(lhs, ast.NewIdent(name))
+			}
+			var rhs []ast.Expr
+			for _, value := range varDecl.Values {
+				rhs = append(rhs, g.generateExpr(value))
+			}
+			stmts = append(stmts, &ast.AssignStmt{
+				Lhs: lhs,
+				Tok: token.DEFINE, // :=
+				Rhs: rhs,
+			})
+		}
+	}
+
 	// Generate scene graph from body children
 	var sceneNode ast.Expr
 	if comp.Body != nil && len(comp.Body.Children) > 0 {
@@ -759,6 +780,11 @@ func (g *Generator) generateRenderSceneMethod(comp *guixast.Component) *ast.Func
 			},
 		}
 	}
+
+	// Add return statement
+	stmts = append(stmts, &ast.ReturnStmt{
+		Results: []ast.Expr{sceneNode},
+	})
 
 	return &ast.FuncDecl{
 		Recv: &ast.FieldList{
@@ -787,11 +813,7 @@ func (g *Generator) generateRenderSceneMethod(comp *guixast.Component) *ast.Func
 			},
 		},
 		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				&ast.ReturnStmt{
-					Results: []ast.Expr{sceneNode},
-				},
-			},
+			List: stmts,
 		},
 	}
 }
@@ -1867,6 +1889,7 @@ var runtimeFunctions = map[string]bool{
 	"LookAtPos": true, "Background": true,
 	"Width": true, "Height": true,
 	"GeometryProp": true, "MaterialProp": true, "GPURenderUpdate": true,
+	"WithGeometry": true, "WithMaterial": true, "BindRotation": true,
 	// GPU constructors
 	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
 	"StandardMaterial": true,
@@ -2428,6 +2451,10 @@ func (g *Generator) unaryOpToToken(op string) token.Token {
 		return token.SUB
 	case "+":
 		return token.ADD
+	case "&":
+		return token.AND
+	case "*":
+		return token.MUL
 	default:
 		return token.NOT // Default fallback
 	}
