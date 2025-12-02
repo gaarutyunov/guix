@@ -60,7 +60,7 @@ func App() (Component) {
 		Canvas(
 			ID("webgpu-canvas"),
 			Width(500),
-			Height(375),
+			Height(500),
 			GPURenderUpdate(renderUpdate)
 		) {
 			GPUScene(NewCubeScene(float32(rotationX), float32(rotationY)))
