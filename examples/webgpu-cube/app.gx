@@ -1,6 +1,7 @@
 package main
 
 import "fmt"
+import "github.com/gaarutyunov/guix/pkg/runtime"
 
 func App() (Component) {
 	rotationX := 0.0
