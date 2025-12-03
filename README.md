@@ -12,6 +12,7 @@
 - 🛠️ **Developer Tools** - Watch mode, incremental compilation, and hot reload
 - 🎨 **Template Interpolation** - Backtick strings with expression interpolation
 - 🎮 **WebGPU Support** - First-class 3D graphics with scene graphs, PBR materials, and lighting
+- 📊 **2D Charts** - GPU-accelerated charting with candlestick, line, and bar charts
 
 ## Quick Start
 
@@ -485,6 +486,64 @@ To run:
 cd examples/webgpu-cube
 cp $(go env GOROOT)/misc/wasm/wasm_exec.js .
 GOOS=js GOARCH=wasm go build -o main.wasm
+python3 -m http.server 8080
+# Open http://localhost:8080
+```
+
+**Requirements**: Chrome 113+, Edge 113+, or Safari Technology Preview with WebGPU support.
+
+### WebGPU Chart Example
+
+See `examples/webgpu-chart/` for a complete 2D charting example demonstrating:
+
+- GPU-accelerated rendering for high-performance charts
+- Candlestick charts for OHLCV (Open-High-Low-Close-Volume) data
+- Declarative chart definition with Guix components
+- Time-based X-axis with automatic formatting
+- Price formatting on Y-axis
+- Grid lines and axis labels
+- Responsive design
+
+**Quick example**:
+
+```go
+// Define chart data
+chartData := []chart.OHLCV{
+    {Timestamp: 1701388800000, Open: 37500, High: 38200, Low: 37100, Close: 37800, Volume: 28500000000},
+    {Timestamp: 1701475200000, Open: 37800, High: 39100, Low: 37600, Close: 38900, Volume: 32100000000},
+    // ... more data
+}
+
+// Create chart declaratively
+Chart(ChartBackground(0.08, 0.09, 0.12, 1.0)) {
+    XAxis(
+        AxisPosition("bottom"),
+        TimeScale(true),
+        GridLines(true),
+    )
+
+    YAxis(
+        AxisPosition("right"),
+        GridLines(true),
+    )
+
+    CandlestickSeries(
+        ChartData(chartData),
+        UpColor(0.18, 0.80, 0.44, 1.0),   // Green for bullish candles
+        DownColor(0.91, 0.27, 0.38, 1.0), // Red for bearish candles
+        WickColor(0.6, 0.6, 0.65, 1.0),
+        BarWidth(0.8),
+    )
+}
+```
+
+To run:
+
+```bash
+cd examples/webgpu-chart
+go generate
+GOOS=js GOARCH=wasm go build -o main.wasm
+cp $(go env GOROOT)/misc/wasm/wasm_exec.js .
 python3 -m http.server 8080
 # Open http://localhost:8080
 ```
