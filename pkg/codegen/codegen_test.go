@@ -740,13 +740,14 @@ func Handler(e Event) (Component) {
 	generatedStr := string(generated)
 
 	// Verify selector expression is generated correctly
-	if !strings.Contains(generatedStr, "e.Target.Value") {
-		t.Errorf("Generated code does not contain 'e.Target.Value'\nGenerated:\n%s", generatedStr)
+	// Parameters are stored as struct fields, so e becomes c.E
+	if !strings.Contains(generatedStr, "c.E.Target.Value") {
+		t.Errorf("Generated code does not contain 'c.E.Target.Value'\nGenerated:\n%s", generatedStr)
 	}
 
 	// Verify it's in the right context (variable declaration)
-	if !strings.Contains(generatedStr, "value := e.Target.Value") {
-		t.Errorf("Generated code does not contain 'value := e.Target.Value'")
+	if !strings.Contains(generatedStr, "value := c.E.Target.Value") {
+		t.Errorf("Generated code does not contain 'value := c.E.Target.Value'")
 	}
 }
 
@@ -780,8 +781,9 @@ func Widget(obj Object) (Component) {
 	generatedStr := string(generated)
 
 	// Verify single-field selector is generated
-	if !strings.Contains(generatedStr, "obj.Name") {
-		t.Errorf("Generated code does not contain 'obj.Name'\nGenerated:\n%s", generatedStr)
+	// Parameters are stored as struct fields, so obj becomes c.Obj
+	if !strings.Contains(generatedStr, "c.Obj.Name") {
+		t.Errorf("Generated code does not contain 'c.Obj.Name'\nGenerated:\n%s", generatedStr)
 	}
 }
 
@@ -815,8 +817,9 @@ func Logger(req Request) (Component) {
 	generatedStr := string(generated)
 
 	// Verify chained selector is generated
-	if !strings.Contains(generatedStr, "req.User.Name") {
-		t.Errorf("Generated code does not contain 'req.User.Name'\nGenerated:\n%s", generatedStr)
+	// Parameters are stored as struct fields, so req becomes c.Req
+	if !strings.Contains(generatedStr, "c.Req.User.Name") {
+		t.Errorf("Generated code does not contain 'c.Req.User.Name'\nGenerated:\n%s", generatedStr)
 	}
 }
 
