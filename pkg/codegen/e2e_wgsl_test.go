@@ -85,7 +85,7 @@ func fsMain(@location(0) color vec4) vec4 {
 	}
 
 	// Generate GPU Go code
-	gpuGoGen := NewGPUGoGenerator(file.Package)
+	gpuGoGen := NewGPUGoGenerator(file.Package, "shaders.wgsl")
 	gpuGoOutput, err := gpuGoGen.Generate(file)
 	if err != nil {
 		t.Fatalf("Failed to generate GPU Go code: %v", err)
@@ -187,7 +187,7 @@ func fsCandle(@location(0) color vec4) vec4 {
 	}
 
 	// Generate Go code
-	gpuGoGen := NewGPUGoGenerator(file.Package)
+	gpuGoGen := NewGPUGoGenerator(file.Package, "candle.wgsl")
 	gpuGoOutput, err := gpuGoGen.Generate(file)
 	if err != nil {
 		t.Fatalf("Failed to generate GPU Go code: %v", err)

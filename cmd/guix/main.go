@@ -285,7 +285,10 @@ func generateFile(srcPath string, p *parser.Parser, verbose bool, verboseLogs bo
 		}
 
 		// Generate GPU Go structs
-		gpuGoGen := codegen.NewGPUGoGenerator(file.Package)
+		// Extract base filename for embed directive
+		baseName := filepath.Base(strings.TrimSuffix(srcPath, guixExt))
+		shaderFilename := baseName + ".wgsl"
+		gpuGoGen := codegen.NewGPUGoGenerator(file.Package, shaderFilename)
 		gpuGoOutput, err := gpuGoGen.Generate(file)
 		if err != nil {
 			return fmt.Errorf("failed to generate GPU Go code: %w", err)

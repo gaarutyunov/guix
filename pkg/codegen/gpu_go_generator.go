@@ -14,15 +14,17 @@ import (
 
 // GPUGoGenerator generates Go code from GPU struct declarations
 type GPUGoGenerator struct {
-	fset *token.FileSet
-	pkg  string
+	fset           *token.FileSet
+	pkg            string
+	shaderFilename string
 }
 
 // NewGPUGoGenerator creates a new GPU Go code generator
-func NewGPUGoGenerator(pkg string) *GPUGoGenerator {
+func NewGPUGoGenerator(pkg string, shaderFilename string) *GPUGoGenerator {
 	return &GPUGoGenerator{
-		fset: token.NewFileSet(),
-		pkg:  pkg,
+		fset:           token.NewFileSet(),
+		pkg:            pkg,
+		shaderFilename: shaderFilename,
 	}
 }
 
@@ -45,7 +47,7 @@ func (g *GPUGoGenerator) Generate(file *guixast.File) ([]byte, error) {
 
 	// Generate shader source constant
 	if len(file.GPUStructs) > 0 || len(file.GPUFunctions) > 0 {
-		embedDecl := g.generateShaderEmbed(file.Package)
+		embedDecl := g.generateShaderEmbed()
 		decls = append(decls, embedDecl...)
 	}
 
@@ -269,14 +271,14 @@ func (g *GPUGoGenerator) generateSizeCheckInit(gpuStruct *guixast.GPUStructDecl)
 }
 
 // Generate shader embed declarations
-func (g *GPUGoGenerator) generateShaderEmbed(pkgName string) []ast.Decl {
+func (g *GPUGoGenerator) generateShaderEmbed() []ast.Decl {
 	return []ast.Decl{
 		// Comment directive
 		&ast.GenDecl{
 			Tok: token.VAR,
 			Doc: &ast.CommentGroup{
 				List: []*ast.Comment{
-					{Text: fmt.Sprintf("//go:embed %s.wgsl", pkgName)},
+					{Text: fmt.Sprintf("//go:embed %s", g.shaderFilename)},
 				},
 			},
 			Specs: []ast.Spec{
