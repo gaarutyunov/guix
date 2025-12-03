@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"syscall/js"
 	"time"
 
@@ -145,10 +146,18 @@ func parseBinanceKlines(data js.Value) ([]chart.OHLCV, error) {
 func parseFloat(val interface{}) float64 {
 	switch v := val.(type) {
 	case float64:
+		// Handle NaN and Inf
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return 0
+		}
 		return v
 	case string:
 		var f float64
 		fmt.Sscanf(v, "%f", &f)
+		// Handle NaN and Inf from parsed strings
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return 0
+		}
 		return f
 	case int:
 		return float64(v)

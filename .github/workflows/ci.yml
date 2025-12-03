@@ -96,16 +96,32 @@ jobs:
         with:
           go-version: '1.25'
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Download dependencies
         run: go mod download
 
-      - name: Compile WASM tests
+      - name: Run WASM tests
+        working-directory: examples/webgpu-chart
         run: |
-          echo "Building WASM tests for webgpu-chart example..."
-          GOOS=js GOARCH=wasm go test -c -o /tmp/webgpu-chart-tests.wasm ./examples/webgpu-chart/...
+          echo "Running WASM tests for webgpu-chart example..."
 
-          echo "WASM test binary size: $(du -h /tmp/webgpu-chart-tests.wasm)"
-          echo "✓ WASM tests compiled successfully"
+          # Use Go's WASM test runner
+          GOROOT="$(go env GOROOT)"
+          if [ -f "$GOROOT/lib/wasm/go_js_wasm_exec" ]; then
+            EXEC_PATH="$GOROOT/lib/wasm/go_js_wasm_exec"
+          elif [ -f "$GOROOT/misc/wasm/go_js_wasm_exec" ]; then
+            EXEC_PATH="$GOROOT/misc/wasm/go_js_wasm_exec"
+          else
+            echo "Error: go_js_wasm_exec not found"
+            exit 1
+          fi
+
+          echo "Using test runner: $EXEC_PATH"
+          GOOS=js GOARCH=wasm go test -v -exec="$EXEC_PATH" ./...
 
       - name: Verify test coverage
         run: |

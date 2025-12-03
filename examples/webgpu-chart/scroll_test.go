@@ -142,7 +142,7 @@ func TestShiftViewportLeftBound(t *testing.T) {
 	initialData := GenerateFallbackData(500)
 	cdm := NewChartDataManager(initialData, "BTCUSDT", "1h")
 
-	// Try to shift left beyond boundary
+	// Try to shift left beyond boundary (already at start=0)
 	changed := cdm.ShiftViewport(-100)
 
 	// Should clamp to 0
@@ -154,8 +154,9 @@ func TestShiftViewportLeftBound(t *testing.T) {
 		t.Errorf("Expected end=200, got %d", cdm.visibleEnd)
 	}
 
-	if !changed {
-		t.Error("Expected changed to be true even when clamped")
+	// Since we're already at the boundary, nothing changed
+	if changed {
+		t.Error("Expected changed to be false when already at boundary")
 	}
 }
 
