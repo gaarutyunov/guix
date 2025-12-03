@@ -101,7 +101,7 @@ type ControlState struct {
 					})
 				)
 				Span(ID("speed-value"), Class("speed-value")) {
-					`{currentState.Speed}`
+					`Speed: {currentState.Speed}`
 				}
 			}
 		}
