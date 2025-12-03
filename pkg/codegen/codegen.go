@@ -2082,9 +2082,10 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 		// DOM/GPU element: call runtime.Element()
 		// Special case: Scene and Chart elements map to SceneNode/ChartNode functions
 		runtimeFuncName := elem.Tag
-		if elem.Tag == "Scene" {
+		switch elem.Tag {
+		case "Scene":
 			runtimeFuncName = "SceneNode"
-		} else if elem.Tag == "Chart" {
+		case "Chart":
 			runtimeFuncName = "ChartNode"
 		}
 
