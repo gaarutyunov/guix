@@ -26,6 +26,7 @@ WebGPU is a modern graphics API for the web that provides:
 
 ### Guix WebGPU Features
 
+#### 3D Graphics
 - ✅ **Declarative 3D API**: Scene graph with meshes, cameras, and lights
 - ✅ **PBR Materials**: Physically-based rendering with metalness/roughness
 - ✅ **Built-in Geometries**: Box, sphere, plane primitives
@@ -38,6 +39,18 @@ WebGPU is a modern graphics API for the web that provides:
 - 🚧 **Custom Shaders**: User-defined WGSL shaders (in progress)
 - 🚧 **Textures**: Image and procedural textures (in progress)
 - 🚧 **Post-processing**: Effects and filters (planned)
+
+#### 2D Charts
+- ✅ **Candlestick Charts**: OHLCV (Open-High-Low-Close-Volume) visualization
+- ✅ **Declarative API**: Component-based chart definition
+- ✅ **Axis System**: Time-based and numeric scales with automatic formatting
+- ✅ **Grid Lines**: Configurable grid lines for both axes
+- ✅ **GPU Acceleration**: All rendering happens on GPU for high performance
+- ✅ **Responsive Design**: Adapts to different canvas sizes
+- 🚧 **Line Charts**: Continuous data visualization (in progress)
+- 🚧 **Bar Charts**: Categorical data visualization (planned)
+- 🚧 **Area Charts**: Filled line charts (planned)
+- 🚧 **Multiple Series**: Overlay multiple data series (planned)
 
 ## Architecture
 
@@ -443,9 +456,13 @@ renderer.Cleanup()
 
 ## Examples
 
-### Rotating Cube
+### Rotating Cube (3D)
 
 See [`examples/webgpu-cube/`](../examples/webgpu-cube/) for a complete rotating cube example with controls.
+
+### Candlestick Chart (2D)
+
+See [`examples/webgpu-chart/`](../examples/webgpu-chart/) for a complete 2D charting example with Bitcoin price data.
 
 ### Custom Animation
 
@@ -482,6 +499,254 @@ for x := -2; x <= 2; x++ {
         scene.Children = append(scene.Children, mesh)
     }
 }
+```
+
+## 2D Charts
+
+Guix provides GPU-accelerated 2D charting capabilities for high-performance data visualization.
+
+### Chart Types
+
+#### Candlestick Charts
+
+Candlestick charts visualize OHLCV (Open-High-Low-Close-Volume) data, commonly used for financial markets:
+
+```go
+// Define OHLCV data
+chartData := []chart.OHLCV{
+    {
+        Timestamp: 1701388800000, // Unix timestamp in milliseconds
+        Open:      37500,
+        High:      38200,
+        Low:       37100,
+        Close:     37800,
+        Volume:    28500000000,
+    },
+    // ... more data points
+}
+
+// Create chart with declarative syntax
+Chart(ChartBackground(0.08, 0.09, 0.12, 1.0)) {
+    // X-Axis with time scale
+    XAxis(
+        AxisPosition("bottom"),
+        TimeScale(true),      // Format timestamps as dates
+        GridLines(true),      // Show vertical grid lines
+    )
+
+    // Y-Axis with automatic formatting
+    YAxis(
+        AxisPosition("right"),
+        GridLines(true),      // Show horizontal grid lines
+    )
+
+    // Candlestick series
+    CandlestickSeries(
+        ChartData(chartData),
+        UpColor(0.18, 0.80, 0.44, 1.0),   // Green for bullish (close > open)
+        DownColor(0.91, 0.27, 0.38, 1.0), // Red for bearish (close < open)
+        WickColor(0.6, 0.6, 0.65, 1.0),   // Gray for wicks (high/low lines)
+        BarWidth(0.8),                     // Width of candle body (0.0-1.0)
+    )
+}
+```
+
+### Chart Components
+
+Charts are built from declarative components:
+
+#### Chart Container
+
+The root `Chart` component defines the overall chart configuration:
+
+```go
+Chart(
+    ChartBackground(r, g, b, a), // Background color (RGBA)
+) {
+    // Child components (axes, series)
+}
+```
+
+#### Axes
+
+Define X and Y axes with position, scale type, and grid lines:
+
+```go
+// X-Axis (horizontal)
+XAxis(
+    AxisPosition("bottom"),  // "bottom" or "top"
+    TimeScale(true),         // Time-based scale (converts timestamps)
+    GridLines(true),         // Show grid lines
+)
+
+// Y-Axis (vertical)
+YAxis(
+    AxisPosition("right"),   // "left" or "right"
+    GridLines(true),         // Show grid lines
+)
+```
+
+#### Series
+
+Series components render the actual data:
+
+```go
+// Candlestick series for OHLCV data
+CandlestickSeries(
+    ChartData(data),          // []chart.OHLCV data
+    UpColor(r, g, b, a),      // Color for bullish candles
+    DownColor(r, g, b, a),    // Color for bearish candles
+    WickColor(r, g, b, a),    // Color for wick lines
+    BarWidth(width),          // Width of candle bodies (0.0-1.0)
+)
+```
+
+### Using Charts in Components
+
+Integrate charts into Guix components:
+
+```go
+func App() (Component) {
+    chartData := GetBitcoinData()
+
+    Div(ID("app")) {
+        H1 { "Bitcoin Price Chart" }
+
+        // Canvas element for chart rendering
+        Canvas(
+            ID("chart-canvas"),
+            Width(1200),
+            Height(700),
+        ) {
+            // Embed chart using GPUChart
+            GPUChart(NewBitcoinChart(chartData))
+        }
+    }
+}
+
+// Define chart in separate component
+func BitcoinChart(data *ChartData) (Chart) {
+    Chart(ChartBackground(0.08, 0.09, 0.12, 1.0)) {
+        XAxis(AxisPosition("bottom"), TimeScale(true), GridLines(true))
+        YAxis(AxisPosition("right"), GridLines(true))
+
+        CandlestickSeries(
+            ChartData(data.Bitcoin),
+            UpColor(0.18, 0.80, 0.44, 1.0),
+            DownColor(0.91, 0.27, 0.38, 1.0),
+            WickColor(0.6, 0.6, 0.65, 1.0),
+            BarWidth(0.8),
+        )
+    }
+}
+```
+
+### Chart Data Format
+
+#### OHLCV Structure
+
+```go
+type OHLCV struct {
+    Timestamp int64   // Unix timestamp in milliseconds
+    Open      float64 // Opening price
+    High      float64 // Highest price in period
+    Low       float64 // Lowest price in period
+    Close     float64 // Closing price
+    Volume    float64 // Trading volume
+}
+```
+
+#### Example Data
+
+```go
+data := []chart.OHLCV{
+    {
+        Timestamp: 1701388800000, // Dec 1, 2024 00:00:00 UTC
+        Open:      37500,
+        High:      38200,
+        Low:       37100,
+        Close:     37800,
+        Volume:    28500000000,
+    },
+    {
+        Timestamp: 1701475200000, // Dec 2, 2024 00:00:00 UTC
+        Open:      37800,
+        High:      39100,
+        Low:       37600,
+        Close:     38900,
+        Volume:    32100000000,
+    },
+}
+```
+
+### Chart Configuration
+
+#### Colors
+
+Colors are specified as RGBA floats (0.0-1.0):
+
+```go
+// Predefined colors
+Green := Color(0.18, 0.80, 0.44, 1.0)  // Bullish
+Red   := Color(0.91, 0.27, 0.38, 1.0)  // Bearish
+Gray  := Color(0.60, 0.60, 0.65, 1.0)  // Neutral
+Dark  := Color(0.08, 0.09, 0.12, 1.0)  // Background
+```
+
+#### Bar Width
+
+Control the width of candlestick bodies:
+
+```go
+BarWidth(0.8)  // 80% of available space (default)
+BarWidth(0.5)  // 50% - thinner candles with more spacing
+BarWidth(1.0)  // 100% - candles touch each other
+```
+
+### Chart Rendering
+
+Charts are automatically rendered by the WebGPU runtime:
+
+1. **Data Processing**: Convert OHLCV data to GPU buffers
+2. **Axis Calculation**: Determine scales, ranges, and tick positions
+3. **GPU Upload**: Transfer vertex data to GPU memory
+4. **Shader Execution**: Execute WGSL shaders for rendering
+5. **Presentation**: Display result on canvas
+
+### Chart Performance
+
+GPU-accelerated charts provide excellent performance:
+
+- **High Data Volume**: Handle thousands of candles smoothly
+- **Real-time Updates**: Update data without performance degradation
+- **Smooth Rendering**: 60 FPS rendering with requestAnimationFrame
+- **Memory Efficient**: Data stored in GPU buffers
+
+### Future Chart Types
+
+Upcoming chart types:
+
+```go
+// Line chart (in progress)
+LineSeries(
+    ChartData(data),
+    LineColor(r, g, b, a),
+    LineWidth(width),
+)
+
+// Bar chart (planned)
+BarSeries(
+    ChartData(data),
+    BarColor(r, g, b, a),
+    BarWidth(width),
+)
+
+// Area chart (planned)
+AreaSeries(
+    ChartData(data),
+    FillColor(r, g, b, a),
+    LineColor(r, g, b, a),
+)
 ```
 
 ## Performance Tips
