@@ -61,53 +61,49 @@ Guix now supports WGSL (WebGPU Shader Language) code generation alongside Go/WAS
    - Type mapping tests
    - Go struct generation tests
 
-## Current Limitations
+## ✅ Complete Implementation
 
-⚠️ **Parser Integration Not Complete**
+**All features are now fully implemented and working!**
 
-The parser **lexer** recognizes GPU decorator tokens, but the **grammar** does not yet parse GPU declarations. This means:
+The parser now fully supports GPU/WGSL syntax. You can write GPU shaders directly in `.gx` files and generate WGSL code automatically.
 
-- ❌ Cannot parse `.gx` files with GPU syntax yet
-- ❌ Must construct GPU AST nodes programmatically for testing
-- ✅ AST structure is complete and ready
-- ✅ Code generators work correctly with AST nodes
-- ✅ Build pipeline integration is ready
+### Parser Support (✅ COMPLETE)
 
-### What Works Now
+The parser now handles:
+- ✅ GPU struct declarations with `@gpu` decorator
+- ✅ GPU binding declarations with `@binding`, `@uniform`, `@storage`
+- ✅ GPU function declarations with `@vertex`, `@fragment`, `@compute`
+- ✅ Field decorators like `@builtin`, `@location`
+- ✅ Parameter decorators for shader inputs
+- ✅ Mixed GPU and regular Guix code in the same file
 
-```go
-// This works - programmatic AST construction
-file := &guixast.File{
-    Package: "shaders",
-    GPUStructs: []*guixast.GPUStructDecl{
-        {
-            Name: "Uniforms",
-            Struct: &guixast.GPUStructType{
-                Fields: []*guixast.GPUField{
-                    {Name: "viewportSize", Type: &guixast.GPUType{Name: "vec2"}},
-                },
-            },
-        },
-    },
-}
-
-gen := codegen.NewWGSLGenerator()
-wgslCode, _ := gen.Generate(file) // Generates valid WGSL!
-```
-
-### What Doesn't Work Yet
+### Quick Example
 
 ```go
-// This doesn't work yet - parser doesn't support GPU syntax
+// Write this in a .gx file
 input := `
 package shaders
 
 @gpu type Uniforms struct {
     viewportSize vec2
+    color vec4
+}
+
+@binding(0, 0) @uniform var uniforms Uniforms
+
+@vertex
+func vsMain(@builtin(vertex_index) idx uint32) vec4 {
+    return vec4(0.0, 0.0, 0.0, 1.0)
 }
 `
 
-parser.ParseString(input) // Error: unexpected token "@gpu"
+// Parse it
+parser, _ := parser.New()
+file, _ := parser.ParseString(input) // ✅ Works!
+
+// Generate WGSL
+wgslGen := codegen.NewWGSLGenerator()
+wgslCode, _ := wgslGen.Generate(file) // ✅ Generates valid WGSL!
 ```
 
 ## Next Steps
