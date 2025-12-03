@@ -46,6 +46,15 @@ jobs:
           version: v2.6.2
           args: --timeout=5m ./cmd/... ./internal/... ./pkg/ast/... ./pkg/parser/... ./pkg/codegen/...
 
+      - name: golangci-lint (WASM)
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.6.2
+          args: --timeout=5m ./examples/webgpu-chart/...
+        env:
+          GOOS: js
+          GOARCH: wasm
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -75,6 +84,57 @@ jobs:
         with:
           file: ./coverage.txt
           fail_ci_if_error: false
+
+  test-wasm:
+    name: Test WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run WASM tests
+        working-directory: examples/webgpu-chart
+        run: |
+          echo "Running WASM tests for webgpu-chart example..."
+
+          # Use Go's WASM test runner
+          GOROOT="$(go env GOROOT)"
+          if [ -f "$GOROOT/lib/wasm/go_js_wasm_exec" ]; then
+            EXEC_PATH="$GOROOT/lib/wasm/go_js_wasm_exec"
+          elif [ -f "$GOROOT/misc/wasm/go_js_wasm_exec" ]; then
+            EXEC_PATH="$GOROOT/misc/wasm/go_js_wasm_exec"
+          else
+            echo "Error: go_js_wasm_exec not found"
+            exit 1
+          fi
+
+          echo "Using test runner: $EXEC_PATH"
+          GOOS=js GOARCH=wasm go test -v -exec="$EXEC_PATH" ./...
+
+      - name: Verify test coverage
+        run: |
+          # Count test functions in WASM test files
+          TEST_COUNT=$(grep -r "^func Test" examples/webgpu-chart/*_test.go | wc -l)
+          echo "Found $TEST_COUNT test functions"
+
+          if [ "$TEST_COUNT" -lt 10 ]; then
+            echo "Warning: Expected at least 10 test functions, found $TEST_COUNT"
+            exit 1
+          fi
+
+          echo "✓ Test coverage verification passed"
 
   build:
     name: Build CLI

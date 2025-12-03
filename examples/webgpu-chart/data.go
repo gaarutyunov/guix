@@ -9,6 +9,9 @@ type ChartData struct {
 	Bitcoin []chart.OHLCV
 }
 
+// OHLCV is an alias for chart.OHLCV to make it accessible in .gx files
+type OHLCV = chart.OHLCV
+
 // ChartConfig holds chart configuration
 type ChartConfig struct {
 	Data       []chart.OHLCV
@@ -28,30 +31,23 @@ func NewChartConfig() *ChartConfig {
 	}
 }
 
-// GetSampleData returns sample Bitcoin OHLCV data
-func GetSampleData() *ChartData {
-	return &ChartData{
-		Bitcoin: []chart.OHLCV{
-			{Timestamp: 1701388800000, Open: 37500, High: 38200, Low: 37100, Close: 37800, Volume: 28500000000},
-			{Timestamp: 1701475200000, Open: 37800, High: 39100, Low: 37600, Close: 38900, Volume: 32100000000},
-			{Timestamp: 1701561600000, Open: 38900, High: 40200, Low: 38500, Close: 39800, Volume: 41200000000},
-			{Timestamp: 1701648000000, Open: 39800, High: 41500, Low: 39200, Close: 41200, Volume: 45600000000},
-			{Timestamp: 1701734400000, Open: 41200, High: 42100, Low: 40800, Close: 40500, Volume: 38900000000},
-			{Timestamp: 1701820800000, Open: 40500, High: 41800, Low: 39900, Close: 41600, Volume: 35200000000},
-			{Timestamp: 1701907200000, Open: 41600, High: 43500, Low: 41200, Close: 43200, Volume: 52100000000},
-			{Timestamp: 1701993600000, Open: 43200, High: 44100, Low: 42500, Close: 43800, Volume: 48700000000},
-			{Timestamp: 1702080000000, Open: 43800, High: 44500, Low: 42200, Close: 42800, Volume: 39400000000},
-			{Timestamp: 1702166400000, Open: 42800, High: 43900, Low: 41800, Close: 43500, Volume: 36800000000},
-			{Timestamp: 1702252800000, Open: 43500, High: 44200, Low: 42900, Close: 43100, Volume: 34200000000},
-			{Timestamp: 1702339200000, Open: 43100, High: 44800, Low: 42800, Close: 44600, Volume: 42800000000},
-			{Timestamp: 1702425600000, Open: 44600, High: 45500, Low: 43900, Close: 45200, Volume: 46100000000},
-			{Timestamp: 1702512000000, Open: 45200, High: 46100, Low: 44800, Close: 45800, Volume: 43900000000},
-			{Timestamp: 1702598400000, Open: 45800, High: 46500, Low: 44900, Close: 45100, Volume: 38700000000},
-			{Timestamp: 1702684800000, Open: 45100, High: 45900, Low: 44200, Close: 44800, Volume: 35600000000},
-			{Timestamp: 1702771200000, Open: 44800, High: 46200, Low: 44500, Close: 46000, Volume: 41200000000},
-			{Timestamp: 1702857600000, Open: 46000, High: 47100, Low: 45700, Close: 46900, Volume: 48300000000},
-			{Timestamp: 1702944000000, Open: 46900, High: 47800, Low: 46200, Close: 47500, Volume: 51200000000},
-			{Timestamp: 1703030400000, Open: 47500, High: 48200, Low: 46800, Close: 47100, Volume: 44800000000},
-		},
+// GetFallbackData generates realistic fallback Bitcoin OHLCV data using Markov chains
+// This generates initial data when Binance API is unavailable
+func GetFallbackData() []chart.OHLCV {
+	// Generate 1000 candles using Markov chain algorithm for realistic price action
+	return GenerateFallbackData(1000)
+}
+
+// GetChartData fetches Bitcoin data from Binance API with fallback to static data
+// This function will attempt to fetch 1000 candles from Binance (hourly data = ~41 days)
+// If the fetch fails (e.g., CORS in browser), it falls back to static sample data
+func GetChartData() []chart.OHLCV {
+	// Try to fetch from Binance (may fail due to CORS in browser)
+	data, err := FetchBinanceData("BTCUSDT", "1h", 1000)
+	if err != nil {
+		// Silently fall back to static data
+		return GetFallbackData()
 	}
+
+	return data
 }

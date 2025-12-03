@@ -101,6 +101,7 @@ func TestScene() (Scene) {
 	sceneElem := comp.Body.Children[0].Element
 	if sceneElem == nil {
 		t.Fatal("Expected Scene element")
+		return
 	}
 
 	if len(sceneElem.Props) != 1 {
@@ -152,6 +153,7 @@ func TestScene() (Scene) {
 	sceneElem := comp.Body.Children[0].Element
 	if sceneElem == nil {
 		t.Fatal("Expected Scene element")
+		return
 	}
 
 	if len(sceneElem.Props) != 1 {
@@ -211,6 +213,7 @@ func CubeScene(rotX float32, rotY float32) (Scene) {
 	sceneElem := comp.Body.Children[0].Element
 	if sceneElem == nil {
 		t.Fatal("Expected Scene element")
+		return
 	}
 
 	// Scene should have 2 children: Mesh and PerspectiveCamera

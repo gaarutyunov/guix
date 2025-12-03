@@ -15,6 +15,11 @@ func main() {
 	runtime.WaitForDOMReady(func() {
 		log("[Go] DOM is ready, initializing app")
 
+		// Fetch initial chart data
+		log("[Go] Loading chart data...")
+		initialData := GetChartData()
+		log("[Go] Loaded", len(initialData), "candles")
+
 		// Create app using generated component
 		log("[Go] Creating App...")
 		appComponent := NewApp()
@@ -38,6 +43,14 @@ func main() {
 		}
 
 		log("[Go] App mounted successfully")
+
+		// Initialize scroll manager after mount
+		log("[Go] Initializing scroll manager...")
+		scrollManager := NewScrollManager("chart-canvas", initialData)
+		log("[Go] Scroll manager initialized")
+
+		// Store scroll manager for cleanup (not implemented yet)
+		_ = scrollManager
 	})
 
 	// Keep the program running
