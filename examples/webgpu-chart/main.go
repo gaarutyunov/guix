@@ -35,6 +35,11 @@ func main() {
 		appComponent.BindApp(runtimeApp)
 		log("[Go] App bound")
 
+		// Set global app for state management
+		log("[Go] Setting global app...")
+		SetGlobalApp(appComponent)
+		log("[Go] Global app set")
+
 		// Mount
 		log("[Go] Mounting to #app...")
 		if err := runtimeApp.Mount("#app"); err != nil {
@@ -48,6 +53,11 @@ func main() {
 		log("[Go] Initializing scroll manager...")
 		scrollManager := NewScrollManager("chart-canvas", initialData)
 		log("[Go] Scroll manager initialized")
+
+		// Set global scroll manager for state management
+		log("[Go] Setting global scroll manager...")
+		SetGlobalScrollManager(scrollManager)
+		log("[Go] Global scroll manager set")
 
 		// Store scroll manager for cleanup (not implemented yet)
 		_ = scrollManager

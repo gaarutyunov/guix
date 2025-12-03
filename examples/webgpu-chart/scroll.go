@@ -39,9 +39,9 @@ type ChartDataManager struct {
 
 // NewChartDataManager creates a new chart data manager
 func NewChartDataManager(initialData []chart.OHLCV, symbol, interval string) *ChartDataManager {
-	visibleSize := len(initialData)
-	if visibleSize > 200 {
-		visibleSize = 200 // Show 200 candles at a time
+	visibleSize := 100 // Show 100 candles at a time (as requested)
+	if len(initialData) < visibleSize {
+		visibleSize = len(initialData)
 	}
 
 	// Initialize Markov chain generator from last candle
@@ -57,7 +57,7 @@ func NewChartDataManager(initialData []chart.OHLCV, symbol, interval string) *Ch
 		allData:      initialData,
 		visibleStart: 0,
 		visibleEnd:   visibleSize,
-		prefetchSize: 100, // Prefetch 100 candles when nearing edge
+		prefetchSize: 50, // Prefetch 50 candles when nearing edge
 		totalFetched: len(initialData),
 		symbol:       symbol,
 		interval:     interval,
@@ -269,7 +269,7 @@ func (sm *ScrollManager) attachEventListeners() {
 			shift = 10 // Scroll right (newer data)
 		case "Home":
 			sm.chartData.visibleStart = 0
-			sm.chartData.visibleEnd = 200
+			sm.chartData.visibleEnd = 100
 			sm.updateChart()
 			return nil
 		case "End":
@@ -297,10 +297,10 @@ func (sm *ScrollManager) attachEventListeners() {
 
 // updateChart triggers a chart rerender with updated data
 func (sm *ScrollManager) updateChart() {
-	// This is a placeholder - in the actual implementation,
-	// we need to trigger the chart component to rerender
-	// For now, we'll just log the viewport change
 	log("[Scroll] Viewport updated:", sm.chartData.visibleStart, "-", sm.chartData.visibleEnd, "of", len(sm.chartData.allData))
+
+	// Trigger the app to rerender with new visible data
+	TriggerChartUpdate()
 
 	// Check if we need to fetch/generate more data
 	if sm.chartData.visibleEnd > len(sm.chartData.allData)-sm.chartData.prefetchSize {

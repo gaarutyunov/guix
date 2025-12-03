@@ -1,8 +1,8 @@
 package main
 
 func App() (Component) {
-	// Fetch initial Bitcoin data from Binance with fallback to static data
-	chartData := GetChartData()
+	// Get visible window of chart data (managed by scroll manager)
+	chartData := GetVisibleChartData()
 
 	Div(
 		ID("app"),
@@ -13,7 +13,7 @@ func App() (Component) {
 			"Bitcoin Price Chart (Binance Data)"
 		}
 		P(Class("subtitle")) {
-			"WebGPU-powered candlestick chart with viewport scrolling"
+			"WebGPU-powered candlestick chart with viewport scrolling (~100 candles visible)"
 		}
 		Canvas(
 			ID("chart-canvas"),
