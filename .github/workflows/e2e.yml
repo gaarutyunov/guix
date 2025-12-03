@@ -177,3 +177,59 @@ jobs:
             examples/webgpu-cube/test-results/
             examples/webgpu-cube/tests/**/*-snapshots/
           retention-days: 7
+
+  webgpu-chart:
+    name: WebGPU Chart E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build WebGPU chart example
+        run: |
+          cd examples/webgpu-chart
+
+          # Copy wasm_exec.js from Go installation
+          GOROOT="$(go env GOROOT)"
+          if [ -f "$GOROOT/lib/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/lib/wasm/wasm_exec.js" .
+          elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
+            cp "$GOROOT/misc/wasm/wasm_exec.js" .
+          else
+            echo "wasm_exec.js not found in GOROOT, downloading from GitHub"
+            curl -o wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
+          fi
+
+          # Build WASM
+          GOOS=js GOARCH=wasm go build -o main.wasm .
+          echo "Files after build:"
+          ls -lah *.{html,js,wasm} 2>/dev/null || ls -lah
+
+      - name: Install Playwright
+        working-directory: examples/webgpu-chart
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Run WebGPU chart tests
+        working-directory: examples/webgpu-chart
+        run: npx playwright test
+
+      - name: Upload test results, videos, and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webgpu-chart-test-artifacts
+          path: |
+            examples/webgpu-chart/test-results/
+            examples/webgpu-chart/tests/**/*-snapshots/
+          retention-days: 7
