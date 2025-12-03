@@ -46,6 +46,15 @@ jobs:
           version: v2.6.2
           args: --timeout=5m ./cmd/... ./internal/... ./pkg/ast/... ./pkg/parser/... ./pkg/codegen/...
 
+      - name: golangci-lint (WASM)
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.6.2
+          args: --timeout=5m ./examples/webgpu-chart/...
+        env:
+          GOOS: js
+          GOARCH: wasm
+
   test:
     name: Test
     runs-on: ubuntu-latest
