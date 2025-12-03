@@ -79,8 +79,9 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 			attachEventHandler(elem, name, handler, vnode)
 		}
 
-		// Mount children (skip webgpu-scene wrappers)
+		// Mount children (skip webgpu-scene and webgpu-chart wrappers)
 		var sceneComponent Scene
+		var chartComponent Chart
 		for _, child := range vnode.Children {
 			// Check if this is a webgpu-scene wrapper
 			if child.Type == ElementNode && child.Tag == "webgpu-scene" {
@@ -89,6 +90,18 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 					if scene, ok := sceneValue.(Scene); ok {
 						sceneComponent = scene
 						log("DOM: Found Scene component in canvas children")
+					}
+				}
+				continue // Don't mount the wrapper as a DOM node
+			}
+
+			// Check if this is a webgpu-chart wrapper
+			if child.Type == ElementNode && child.Tag == "webgpu-chart" {
+				// Extract Chart from the wrapper
+				if chartValue, hasChart := child.Properties["chart"]; hasChart {
+					if chart, ok := chartValue.(Chart); ok {
+						chartComponent = chart
+						log("DOM: Found Chart component in canvas children")
 					}
 				}
 				continue // Don't mount the wrapper as a DOM node
@@ -106,6 +119,12 @@ func createDOMNode(vnode *VNode) (js.Value, error) {
 		if vnode.Tag == "canvas" && sceneComponent != nil {
 			log("DOM: Initializing WebGPU canvas with scene")
 			go initializeWebGPUCanvas(elem, sceneComponent, vnode)
+		}
+
+		// Special handling for canvas elements with WebGPU chart
+		if vnode.Tag == "canvas" && chartComponent != nil {
+			log("DOM: Initializing WebGPU canvas with chart")
+			go initializeWebGPUChartCanvas(elem, chartComponent, vnode)
 		}
 
 		return elem, nil
@@ -419,6 +438,90 @@ func initializeWebGPUCanvas(canvasElem js.Value, scene Scene, vnode *VNode) {
 	canvas.Start()
 
 	log("WebGPU: Render loop started successfully")
+}
+
+// initializeWebGPUChartCanvas initializes a WebGPU canvas with a chart
+func initializeWebGPUChartCanvas(canvasElem js.Value, chart Chart, vnode *VNode) {
+	log("WebGPU: Initializing chart canvas")
+
+	// Check WebGPU support
+	if !IsWebGPUSupported() {
+		logError("WebGPU is not supported in this browser")
+		showCanvasError(canvasElem, "WebGPU is not supported. Please use Chrome 113+ or Edge 113+")
+		return
+	}
+
+	// Initialize WebGPU
+	log("WebGPU: Initializing WebGPU context for chart")
+	gpuCtx, err := InitWebGPU()
+	if err != nil {
+		logError("WebGPU: Failed to initialize:", err)
+		showCanvasError(canvasElem, fmt.Sprintf("Failed to initialize WebGPU: %v", err))
+		return
+	}
+
+	log("WebGPU: WebGPU initialized successfully for chart")
+
+	// Get canvas dimensions from attributes or use defaults
+	width := 1200
+	height := 700
+	if w, ok := vnode.Properties["width"]; ok {
+		if wInt, ok := w.(int); ok {
+			width = wInt
+		}
+	}
+	if h, ok := vnode.Properties["height"]; ok {
+		if hInt, ok := h.(int); ok {
+			height = hInt
+		}
+	}
+
+	// Create GPU canvas
+	config := GPUCanvasConfig{
+		Width:            width,
+		Height:           height,
+		DevicePixelRatio: 1.0,
+		AlphaMode:        "premultiplied",
+		FrameLoop:        "always",
+	}
+
+	log("WebGPU: Creating GPU canvas for chart with config:", fmt.Sprintf("width=%d, height=%d", width, height))
+	canvas, err := createGPUCanvasFromElement(canvasElem, config, gpuCtx)
+	if err != nil {
+		logError("WebGPU: Failed to create GPU canvas:", err)
+		showCanvasError(canvasElem, fmt.Sprintf("Failed to create GPU canvas: %v", err))
+		return
+	}
+
+	log("WebGPU: GPU canvas created successfully for chart")
+
+	// Render the chart
+	chartNode := chart.RenderChart()
+	if chartNode == nil {
+		logError("WebGPU: Chart RenderChart() returned nil")
+		showCanvasError(canvasElem, "Chart rendering failed")
+		return
+	}
+
+	log("WebGPU: Creating chart renderer")
+	renderer, err := NewChartRenderer(canvas, chartNode)
+	if err != nil {
+		logError("WebGPU: Failed to create chart renderer:", err)
+		showCanvasError(canvasElem, fmt.Sprintf("Failed to create chart renderer: %v", err))
+		return
+	}
+
+	log("WebGPU: Chart renderer created successfully")
+
+	// Set render function
+	canvas.SetRenderFunc(func(c *GPUCanvas, delta float64) {
+		renderer.Render()
+	})
+
+	// Start render loop
+	canvas.Start()
+
+	log("WebGPU: Chart render loop started successfully")
 }
 
 // showCanvasError displays an error message on the canvas
