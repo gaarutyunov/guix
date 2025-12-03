@@ -328,8 +328,10 @@ func (cr *ChartRenderer) renderCandlestickSeries(pass js.Value, series *GPUNode)
 
 	// Create uniforms
 	uniformData := cr.createCandleUniforms(upColor, downColor, wickColor, candleWidth)
-	cr.Canvas.GPUContext.Device.Get("queue").Call("writeBuffer",
-		cr.UniformBuffer.Buffer, 0, uniformData)
+	if err := cr.Canvas.GPUContext.WriteBuffer(cr.UniformBuffer.Buffer, 0, uniformData); err != nil {
+		logError(fmt.Sprintf("[ChartRenderer] Failed to write uniform data: %v", err))
+		return
+	}
 
 	// Create bind group
 	bindGroup := cr.createCandleBindGroup(dataBuffer)
@@ -392,8 +394,10 @@ func (cr *ChartRenderer) renderLineSeries(pass js.Value, series *GPUNode) {
 
 	// Create uniforms
 	uniformData := cr.createLineUniforms(strokeColor, strokeWidth, fill, fillColor)
-	cr.Canvas.GPUContext.Device.Get("queue").Call("writeBuffer",
-		cr.UniformBuffer.Buffer, 0, uniformData)
+	if err := cr.Canvas.GPUContext.WriteBuffer(cr.UniformBuffer.Buffer, 0, uniformData); err != nil {
+		logError(fmt.Sprintf("[ChartRenderer] Failed to write uniform data: %v", err))
+		return
+	}
 
 	// Create bind group
 	bindGroup := cr.createLineBindGroup(dataBuffer)
