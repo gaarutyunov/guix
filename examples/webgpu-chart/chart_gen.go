@@ -17,5 +17,5 @@ func NewBitcoinChart(data []OHLCV) runtime.Chart {
 	return &BitcoinChart{Data: data}
 }
 func (s *BitcoinChart) RenderChart() *runtime.GPUNode {
-	return runtime.ChartNode(runtime.ChartBackground(0.08, 0.09, 0.12, 1.0), runtime.XAxis(runtime.AxisPosition("bottom"), runtime.TimeScale(true), runtime.GridLines(true)), runtime.YAxis(runtime.AxisPosition("right"), runtime.GridLines(true)), runtime.CandlestickSeries(runtime.ChartData(s.Data), runtime.UpColor(0.18, 0.80, 0.44, 1.0), runtime.DownColor(0.91, 0.27, 0.38, 1.0), runtime.WickColor(0.6, 0.6, 0.65, 1.0), runtime.BarWidth(0.8)))
+	return runtime.ChartNode(runtime.ChartBackground(0.08, 0.09, 0.12, 1.0), runtime.XAxis(runtime.AxisPosition("bottom"), runtime.TimeScale(true), runtime.GridLines(true), runtime.Label("Time")), runtime.YAxis(runtime.AxisPosition("right"), runtime.GridLines(true), runtime.Label("Price (USD)")), runtime.CandlestickSeries(runtime.ChartData(s.Data), runtime.UpColor(0.18, 0.80, 0.44, 1.0), runtime.DownColor(0.91, 0.27, 0.38, 1.0), runtime.WickColor(0.6, 0.6, 0.65, 1.0), runtime.BarWidth(0.8)))
 }
