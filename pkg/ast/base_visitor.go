@@ -18,6 +18,15 @@ func (v *BaseVisitor) VisitFile(node *File) interface{} {
 	for _, typeDef := range node.Types {
 		typeDef.Accept(v)
 	}
+	for _, gpuStruct := range node.GPUStructs {
+		gpuStruct.Accept(v)
+	}
+	for _, gpuBinding := range node.GPUBindings {
+		gpuBinding.Accept(v)
+	}
+	for _, gpuFunc := range node.GPUFunctions {
+		gpuFunc.Accept(v)
+	}
 	for _, comp := range node.Components {
 		comp.Accept(v)
 	}
@@ -590,5 +599,97 @@ func (v *BaseVisitor) VisitChannelRecv(node *ChannelRecv) interface{} {
 }
 
 func (v *BaseVisitor) VisitChannelOp(node *ChannelOp) interface{} {
+	return nil
+}
+
+// GPU/WGSL nodes
+
+func (v *BaseVisitor) VisitGPUDecorator(node *GPUDecorator) interface{} {
+	for _, arg := range node.Args {
+		arg.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGPUStructDecl(node *GPUStructDecl) interface{} {
+	for _, decorator := range node.Decorators {
+		decorator.Accept(v)
+	}
+	if node.Struct != nil {
+		node.Struct.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGPUStructType(node *GPUStructType) interface{} {
+	for _, field := range node.Fields {
+		field.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGPUField(node *GPUField) interface{} {
+	for _, decorator := range node.Decorators {
+		decorator.Accept(v)
+	}
+	if node.Type != nil {
+		node.Type.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGPUType(node *GPUType) interface{} {
+	if node.Generic != nil {
+		node.Generic.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGPUBindingDecl(node *GPUBindingDecl) interface{} {
+	for _, decorator := range node.Decorators {
+		decorator.Accept(v)
+	}
+	if node.Type != nil {
+		node.Type.Accept(v)
+	}
+	if node.InitialExpr != nil {
+		node.InitialExpr.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGPUFuncDecl(node *GPUFuncDecl) interface{} {
+	for _, decorator := range node.Decorators {
+		decorator.Accept(v)
+	}
+	for _, param := range node.Params {
+		param.Accept(v)
+	}
+	if node.Results != nil {
+		node.Results.Accept(v)
+	}
+	if node.Body != nil {
+		node.Body.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGPUParameter(node *GPUParameter) interface{} {
+	for _, decorator := range node.Decorators {
+		decorator.Accept(v)
+	}
+	if node.Type != nil {
+		node.Type.Accept(v)
+	}
+	return nil
+}
+
+func (v *BaseVisitor) VisitGPUReturnType(node *GPUReturnType) interface{} {
+	for _, decorator := range node.Decorators {
+		decorator.Accept(v)
+	}
+	if node.Type != nil {
+		node.Type.Accept(v)
+	}
 	return nil
 }

@@ -67,6 +67,17 @@ type Visitor interface {
 	VisitIfExpr(*IfExpr) interface{}
 	VisitChannelRecv(*ChannelRecv) interface{}
 	VisitChannelOp(*ChannelOp) interface{}
+
+	// GPU/WGSL nodes
+	VisitGPUDecorator(*GPUDecorator) interface{}
+	VisitGPUStructDecl(*GPUStructDecl) interface{}
+	VisitGPUStructType(*GPUStructType) interface{}
+	VisitGPUField(*GPUField) interface{}
+	VisitGPUType(*GPUType) interface{}
+	VisitGPUBindingDecl(*GPUBindingDecl) interface{}
+	VisitGPUFuncDecl(*GPUFuncDecl) interface{}
+	VisitGPUParameter(*GPUParameter) interface{}
+	VisitGPUReturnType(*GPUReturnType) interface{}
 }
 
 // Node interface that all AST nodes must implement to support visitor pattern

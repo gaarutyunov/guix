@@ -8,12 +8,15 @@ import (
 
 // File represents a complete .gx file
 type File struct {
-	Pos        lexer.Position
-	Package    string       `"package" @Ident`
-	Imports    []*Import    `@@*`
-	Types      []*TypeDef   `@@*`
-	Components []*Component `@@*`
-	Methods    []*Method    `@@*`
+	Pos          lexer.Position
+	Package      string            `"package" @Ident`
+	Imports      []*Import         `@@*`
+	Types        []*TypeDef        `@@*`
+	GPUStructs   []*GPUStructDecl  `@@*`
+	GPUBindings  []*GPUBindingDecl `@@*`
+	GPUFunctions []*GPUFuncDecl    `@@*`
+	Components   []*Component      `@@*`
+	Methods      []*Method         `@@*`
 }
 
 // TypeDef represents a type definition
