@@ -61,8 +61,8 @@ func TestParseFloatPrecision(t *testing.T) {
 
 func TestParseFloatTypes(t *testing.T) {
 	// Test all supported types
-	var f64 float64 = 123.456
-	var i int = 42
+	f64 := 123.456
+	i := 42
 	var i64 int64 = 999
 
 	if parseFloat(f64) != 123.456 {

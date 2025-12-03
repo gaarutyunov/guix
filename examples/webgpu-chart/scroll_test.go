@@ -109,7 +109,7 @@ func TestGetVisibleDataBounds(t *testing.T) {
 	// Test negative start
 	cdm.visibleStart = -10
 	cdm.visibleEnd = 50
-	visibleData = cdm.GetVisibleData()
+	_ = cdm.GetVisibleData()
 
 	if cdm.visibleStart != 0 {
 		t.Errorf("Expected clamped start of 0, got %d", cdm.visibleStart)

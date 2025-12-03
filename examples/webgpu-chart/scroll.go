@@ -21,8 +21,6 @@ type ScrollManager struct {
 	touchStartX   float64
 	touchStartY   float64
 	wheelCallback js.Func
-	mouseCallback js.Func
-	touchCallback js.Func
 	keyCallback   js.Func
 }
 
@@ -100,12 +98,8 @@ func (cdm *ChartDataManager) ShiftViewport(delta int) bool {
 		}
 	}
 
-	// Check if we need to prefetch more data
-	needsFetch := false
-	if cdm.visibleEnd > len(cdm.allData)-cdm.prefetchSize {
-		// Near the end, fetch older data
-		needsFetch = true
-	}
+	// Check if we need to prefetch more data (near the end, fetch older data)
+	needsFetch := cdm.visibleEnd > len(cdm.allData)-cdm.prefetchSize
 
 	// Return whether viewport actually changed
 	return cdm.visibleStart != oldStart || cdm.visibleEnd != oldEnd || needsFetch

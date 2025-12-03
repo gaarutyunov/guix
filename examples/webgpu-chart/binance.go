@@ -153,7 +153,7 @@ func parseFloat(val interface{}) float64 {
 		return v
 	case string:
 		var f float64
-		fmt.Sscanf(v, "%f", &f)
+		_, _ = fmt.Sscanf(v, "%f", &f)
 		// Handle NaN and Inf from parsed strings
 		if math.IsNaN(f) || math.IsInf(f, 0) {
 			return 0
