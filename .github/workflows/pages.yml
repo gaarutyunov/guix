@@ -36,6 +36,9 @@ jobs:
       - name: Generate components for calculator
         run: ./guix generate -p examples/calculator
 
+      - name: Generate components for webgpu-chart
+        run: ./guix generate -p examples/webgpu-chart
+
       - name: Copy wasm_exec.js
         run: |
           GOROOT="$(go env GOROOT)"
@@ -44,15 +47,18 @@ jobs:
             cp "$GOROOT/lib/wasm/wasm_exec.js" examples/counter/
             cp "$GOROOT/lib/wasm/wasm_exec.js" examples/calculator/
             cp "$GOROOT/lib/wasm/wasm_exec.js" examples/webgpu-cube/
+            cp "$GOROOT/lib/wasm/wasm_exec.js" examples/webgpu-chart/
           elif [ -f "$GOROOT/misc/wasm/wasm_exec.js" ]; then
             cp "$GOROOT/misc/wasm/wasm_exec.js" examples/counter/
             cp "$GOROOT/misc/wasm/wasm_exec.js" examples/calculator/
             cp "$GOROOT/misc/wasm/wasm_exec.js" examples/webgpu-cube/
+            cp "$GOROOT/misc/wasm/wasm_exec.js" examples/webgpu-chart/
           else
             echo "wasm_exec.js not found in GOROOT, downloading from GitHub"
             curl -o examples/counter/wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
             curl -o examples/calculator/wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
             curl -o examples/webgpu-cube/wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
+            curl -o examples/webgpu-chart/wasm_exec.js https://raw.githubusercontent.com/golang/go/go1.25.0/lib/wasm/wasm_exec.js
           fi
 
       - name: Build counter WASM
@@ -67,12 +73,17 @@ jobs:
         working-directory: examples/webgpu-cube
         run: GOOS=js GOARCH=wasm go build -o main.wasm .
 
+      - name: Build WebGPU chart WASM
+        working-directory: examples/webgpu-chart
+        run: GOOS=js GOARCH=wasm go build -o main.wasm .
+
       - name: Create Pages structure
         run: |
           mkdir -p _site
           mkdir -p _site/counter
           mkdir -p _site/calculator
           mkdir -p _site/webgpu-cube
+          mkdir -p _site/webgpu-chart
           cp examples/counter/index.html _site/counter/
           cp examples/counter/main.wasm _site/counter/
           cp examples/counter/wasm_exec.js _site/counter/
@@ -82,6 +93,9 @@ jobs:
           cp examples/webgpu-cube/index.html _site/webgpu-cube/
           cp examples/webgpu-cube/main.wasm _site/webgpu-cube/
           cp examples/webgpu-cube/wasm_exec.js _site/webgpu-cube/
+          cp examples/webgpu-chart/index.html _site/webgpu-chart/
+          cp examples/webgpu-chart/main.wasm _site/webgpu-chart/
+          cp examples/webgpu-chart/wasm_exec.js _site/webgpu-chart/
 
           # Create index page with links to examples
           cat > _site/index.html << 'EOF'
@@ -169,12 +183,17 @@ jobs:
                               <strong>WebGPU Rotating Cube</strong> - 3D graphics with WebGPU, scene graphs, and PBR materials
                           </a>
                       </li>
+                      <li>
+                          <a href="./webgpu-chart/">
+                              <strong>WebGPU Chart</strong> - GPU-accelerated Bitcoin price candlestick chart
+                          </a>
+                      </li>
                   </ul>
 
                   <div class="info">
                       <h3>Browser Compatibility</h3>
                       <p>
-                          <strong>Note:</strong> The WebGPU Cube example requires a browser with WebGPU support
+                          <strong>Note:</strong> The WebGPU Cube and WebGPU Chart examples require a browser with WebGPU support
                           (Chrome 113+, Edge 113+, or other WebGPU-enabled browsers). The Counter and Calculator
                           examples work in all modern browsers.
                       </p>
