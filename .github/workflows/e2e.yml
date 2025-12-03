@@ -194,8 +194,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Build WebGPU chart example
+      - name: Build CLI
+        run: go build -o guix ./cmd/guix
+
+      - name: Generate and build WebGPU chart example
         run: |
+          # Generate Guix components
+          ./guix generate -p examples/webgpu-chart --verbose-logs
+
           cd examples/webgpu-chart
 
           # Copy wasm_exec.js from Go installation
