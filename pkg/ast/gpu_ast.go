@@ -13,7 +13,7 @@ type GPUDecorator struct {
 // GPUStructDecl represents a struct marked with @gpu decorator
 type GPUStructDecl struct {
 	Pos        lexer.Position
-	Decorators []*GPUDecorator `@@*`
+	Decorators []*GPUDecorator `@@+`
 	Name       string          `"type" @Ident`
 	Struct     *GPUStructType  `@@`
 }
@@ -54,7 +54,7 @@ type GPUBindingDecl struct {
 // GPUFuncDecl represents a GPU shader function
 type GPUFuncDecl struct {
 	Pos        lexer.Position
-	Decorators []*GPUDecorator `@@*`
+	Decorators []*GPUDecorator `@@+`
 	Name       string          `"func" @Ident`
 	Params     []*GPUParameter `"(" (@@ ("," @@)*)? ")"`
 	Results    *GPUReturnType  `@@?`

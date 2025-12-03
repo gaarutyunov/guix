@@ -149,6 +149,10 @@ func (g *GPUGoGenerator) generateHelperMethods(gpuStruct *guixast.GPUStructDecl)
 }
 
 // Generate ToBytes method
+//
+//	Generates: func (s *StructName) ToBytes() []byte {
+//	    return unsafe.Slice((*byte)(unsafe.Pointer(s)), int(unsafe.Sizeof(*s)))
+//	}
 func (g *GPUGoGenerator) generateToBytesMethod(structName string) *ast.FuncDecl {
 	return &ast.FuncDecl{
 		Recv: &ast.FieldList{
@@ -175,31 +179,47 @@ func (g *GPUGoGenerator) generateToBytesMethod(structName string) *ast.FuncDecl 
 			List: []ast.Stmt{
 				&ast.ReturnStmt{
 					Results: []ast.Expr{
-						&ast.IndexExpr{
-							X: &ast.ParenExpr{
-								X: &ast.StarExpr{
-									X: &ast.ArrayType{
-										Len: &ast.CallExpr{
+						// unsafe.Slice((*byte)(unsafe.Pointer(s)), int(unsafe.Sizeof(*s)))
+						&ast.CallExpr{
+							Fun: &ast.SelectorExpr{
+								X:   ast.NewIdent("unsafe"),
+								Sel: ast.NewIdent("Slice"),
+							},
+							Args: []ast.Expr{
+								// (*byte)(unsafe.Pointer(s))
+								&ast.CallExpr{
+									Fun: &ast.ParenExpr{
+										X: &ast.StarExpr{
+											X: ast.NewIdent("byte"),
+										},
+									},
+									Args: []ast.Expr{
+										&ast.CallExpr{
+											Fun: &ast.SelectorExpr{
+												X:   ast.NewIdent("unsafe"),
+												Sel: ast.NewIdent("Pointer"),
+											},
+											Args: []ast.Expr{ast.NewIdent("s")},
+										},
+									},
+								},
+								// int(unsafe.Sizeof(*s))
+								&ast.CallExpr{
+									Fun: ast.NewIdent("int"),
+									Args: []ast.Expr{
+										&ast.CallExpr{
 											Fun: &ast.SelectorExpr{
 												X:   ast.NewIdent("unsafe"),
 												Sel: ast.NewIdent("Sizeof"),
 											},
 											Args: []ast.Expr{
-												&ast.CompositeLit{
-													Type: ast.NewIdent(structName),
+												&ast.StarExpr{
+													X: ast.NewIdent("s"),
 												},
 											},
 										},
-										Elt: ast.NewIdent("byte"),
 									},
 								},
-							},
-							Index: &ast.CallExpr{
-								Fun: &ast.SelectorExpr{
-									X:   ast.NewIdent("unsafe"),
-									Sel: ast.NewIdent("Pointer"),
-								},
-								Args: []ast.Expr{ast.NewIdent("s")},
 							},
 						},
 					},
