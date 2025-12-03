@@ -4,7 +4,7 @@ func App() (Component) {
 	Div(
 		ID("app"),
 		Class("chart-container"),
-		TabIndex(0),
+		TabIndex(0)
 	) {
 		H1(Class("title")) {
 			"Bitcoin Price Chart"
@@ -15,7 +15,7 @@ func App() (Component) {
 		Canvas(
 			ID("chart-canvas"),
 			Width(1200),
-			Height(700),
+			Height(700)
 		) {
 			GPUChart(NewBitcoinChart())
 		}
