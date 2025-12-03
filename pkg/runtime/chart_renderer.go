@@ -375,11 +375,14 @@ func (cr *ChartRenderer) renderCandlestickSeries(pass js.Value, series *GPUNode)
 		wickColor = c
 	}
 
-	// Calculate candle width
+	// Calculate candle width in DATA COORDINATES (not pixels!)
+	// The shader expects candleWidth in the same units as the timestamp
+	dataXRange := cr.DataXRange[1] - cr.DataXRange[0]
+	candleWidth := float32(dataXRange/float64(len(candles))) * 0.8
+
 	padding := cr.getPadding()
 	chartWidth := float32(cr.Canvas.Width) - padding["left"] - padding["right"]
-	candleWidth := (chartWidth / float32(len(candles))) * 0.8
-	log(fmt.Sprintf("[ChartRenderer] Canvas: %dx%d, Chart width: %.2f, Candle width: %.2f",
+	log(fmt.Sprintf("[ChartRenderer] Canvas: %dx%d, Chart width: %.2f, Candle width in data coords: %.2f",
 		cr.Canvas.Width, cr.Canvas.Height, chartWidth, candleWidth))
 
 	// Create uniforms
