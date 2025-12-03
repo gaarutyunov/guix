@@ -157,7 +157,7 @@ func TestBaseVisitor_TraversesFile(t *testing.T) {
 	file := &File{
 		Package: "main",
 		Imports: []*Import{
-			{Path: "fmt"},
+			{Paths: []string{"fmt"}},
 		},
 		Components: []*Component{
 			{

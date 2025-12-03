@@ -330,6 +330,9 @@ var RuntimeComponents = map[string]bool{
 	"Scene": true, "Mesh": true, "Group": true,
 	"PerspectiveCamera": true, "OrthographicCamera": true,
 	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+	// Chart Elements
+	"Chart": true, "XAxis": true, "YAxis": true,
+	"CandlestickSeries": true, "LineSeries": true,
 	// WebGPU Properties
 	"Position": true, "Rotation": true, "ScaleValue": true,
 	"Color": true, "Metalness": true, "Roughness": true,
@@ -337,6 +340,12 @@ var RuntimeComponents = map[string]bool{
 	"LookAtPos": true, "Background": true,
 	"Width": true, "Height": true,
 	"GeometryProp": true, "MaterialProp": true, "GPURenderUpdate": true,
+	// Chart Properties
+	"ChartBackground": true, "ChartPadding": true, "ChartInteractive": true,
+	"AxisPosition": true, "TimeScale": true, "GridLines": true, "GridColor": true,
+	"ChartData": true,
+	"UpColor":   true, "DownColor": true, "WickColor": true, "BarWidth": true,
+	"StrokeColor": true, "StrokeWidth": true, "FillColor": true, "FillEnabled": true,
 	// WebGPU Geometry Constructors
 	"NewBoxGeometry": true, "NewSphereGeometry": true, "NewPlaneGeometry": true,
 	// WebGPU Material Constructors

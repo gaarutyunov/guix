@@ -1,6 +1,8 @@
 package main
 
 func App() (Component) {
+	chartData := GetSampleData()
+
 	Div(
 		ID("app"),
 		Class("chart-container"),
@@ -12,13 +14,12 @@ func App() (Component) {
 		P(Class("subtitle")) {
 			"WebGPU-powered candlestick chart"
 		}
-		Div(Class("chart-placeholder")) {
-			P() {
-				"Chart visualization coming soon..."
-			}
-			P() {
-				"Data loaded: 20 Bitcoin OHLCV candles"
-			}
+		Canvas(
+			ID("chart-canvas"),
+			Width(1200),
+			Height(700)
+		) {
+			GPUChart(NewBitcoinChart(chartData))
 		}
 		Div(Class("info")) {
 			P() {
