@@ -99,29 +99,45 @@ func NewChartRenderer(canvas *GPUCanvas, chart *GPUNode) (*ChartRenderer, error)
 // buildChart traverses chart node tree and collects series
 func (cr *ChartRenderer) buildChart(node *GPUNode) error {
 	if node == nil {
+		log("[ChartRenderer] buildChart called with nil node")
 		return nil
 	}
+
+	log(fmt.Sprintf("[ChartRenderer] buildChart processing node type: %v", node.Type))
 
 	// Collect series by type
 	switch node.Type {
 	case ChartAxisNodeType:
+		log("[ChartRenderer] Found axis node")
 		cr.AxisSeries = append(cr.AxisSeries, node)
 	case ChartSeriesNodeType:
 		seriesType, _ := node.Properties["seriesType"].(string)
+		log(fmt.Sprintf("[ChartRenderer] Found series node, seriesType: %s", seriesType))
 		switch seriesType {
 		case "candlestick":
+			log("[ChartRenderer] Adding candlestick series")
 			cr.CandlestickSeries = append(cr.CandlestickSeries, node)
 		case "line", "area":
+			log(fmt.Sprintf("[ChartRenderer] Adding %s series", seriesType))
 			cr.LineSeries = append(cr.LineSeries, node)
+		default:
+			log(fmt.Sprintf("[ChartRenderer] Unknown series type: %s", seriesType))
 		}
+	default:
+		log(fmt.Sprintf("[ChartRenderer] Skipping node type: %v", node.Type))
 	}
 
 	// Recursively process children
-	for _, child := range node.Children {
+	log(fmt.Sprintf("[ChartRenderer] Processing %d children", len(node.Children)))
+	for i, child := range node.Children {
+		log(fmt.Sprintf("[ChartRenderer] Processing child %d/%d", i+1, len(node.Children)))
 		if err := cr.buildChart(child); err != nil {
 			return err
 		}
 	}
+
+	log(fmt.Sprintf("[ChartRenderer] buildChart complete - Axis: %d, Candlestick: %d, Line: %d",
+		len(cr.AxisSeries), len(cr.CandlestickSeries), len(cr.LineSeries)))
 
 	return nil
 }
@@ -223,26 +239,36 @@ func (cr *ChartRenderer) createPipelines() error {
 
 // Render renders the chart
 func (cr *ChartRenderer) Render() {
+	log("[ChartRenderer] Render() called")
+
 	if !cr.initialized {
+		log("[ChartRenderer] Not initialized, initializing now...")
 		if err := cr.initialize(); err != nil {
 			logError(fmt.Sprintf("[ChartRenderer] Failed to initialize: %v", err))
 			return
 		}
+		log("[ChartRenderer] Initialization complete")
 	}
 
+	log(fmt.Sprintf("[ChartRenderer] Rendering - Candlestick series: %d, Line series: %d", len(cr.CandlestickSeries), len(cr.LineSeries)))
+
 	// Get canvas texture
+	log("[ChartRenderer] Getting current texture")
 	textureView := cr.Canvas.Context.Call("getCurrentTexture").Call("createView")
 	if !textureView.Truthy() {
 		logError("[ChartRenderer] Failed to get texture view")
 		return
 	}
+	log("[ChartRenderer] Texture view obtained")
 
 	// Create command encoder
+	log("[ChartRenderer] Creating command encoder")
 	encoder := cr.Canvas.GPUContext.Device.Call("createCommandEncoder", map[string]interface{}{
 		"label": "chart-command-encoder",
 	})
 
 	// Clear background
+	log(fmt.Sprintf("[ChartRenderer] Clearing background with color (%.2f, %.2f, %.2f, %.2f)", cr.BackgroundColor.X, cr.BackgroundColor.Y, cr.BackgroundColor.Z, cr.BackgroundColor.W))
 	clearValue := js.Global().Get("Object").New()
 	clearValue.Set("r", cr.BackgroundColor.X)
 	clearValue.Set("g", cr.BackgroundColor.Y)
@@ -262,49 +288,77 @@ func (cr *ChartRenderer) Render() {
 	renderPassDesc.Set("label", "chart-render-pass")
 	renderPassDesc.Set("colorAttachments", colorAttachments)
 
+	log("[ChartRenderer] Beginning render pass")
 	pass := encoder.Call("beginRenderPass", renderPassDesc)
 
 	// Render candlestick series
-	for _, series := range cr.CandlestickSeries {
+	log(fmt.Sprintf("[ChartRenderer] Rendering %d candlestick series", len(cr.CandlestickSeries)))
+	for i, series := range cr.CandlestickSeries {
+		log(fmt.Sprintf("[ChartRenderer] Rendering candlestick series %d/%d", i+1, len(cr.CandlestickSeries)))
 		cr.renderCandlestickSeries(pass, series)
 	}
 
 	// Render line series
-	for _, series := range cr.LineSeries {
+	log(fmt.Sprintf("[ChartRenderer] Rendering %d line series", len(cr.LineSeries)))
+	for i, series := range cr.LineSeries {
+		log(fmt.Sprintf("[ChartRenderer] Rendering line series %d/%d", i+1, len(cr.LineSeries)))
 		cr.renderLineSeries(pass, series)
 	}
 
+	log("[ChartRenderer] Ending render pass")
 	pass.Call("end")
 
 	// Submit command buffer
+	log("[ChartRenderer] Submitting command buffer")
 	commandBuffer := encoder.Call("finish")
 	commandBuffers := js.Global().Get("Array").New(1)
 	commandBuffers.SetIndex(0, commandBuffer)
 	cr.Canvas.GPUContext.Device.Get("queue").Call("submit", commandBuffers)
+	log("[ChartRenderer] Command buffer submitted successfully")
 }
 
 // renderCandlestickSeries renders a candlestick series
 func (cr *ChartRenderer) renderCandlestickSeries(pass js.Value, series *GPUNode) {
+	log("[ChartRenderer] renderCandlestickSeries() called")
+
 	// Extract data from series properties
 	data, ok := series.Properties["data"]
 	if !ok {
+		logError("[ChartRenderer] No 'data' property found in series")
 		return
 	}
+	log(fmt.Sprintf("[ChartRenderer] Data property found, type: %T", data))
 
 	// Extract OHLCV data using reflection
+	log("[ChartRenderer] Extracting OHLCV data...")
 	candles := cr.extractOHLCVData(data)
 	if len(candles) == 0 {
+		logError("[ChartRenderer] No candles extracted from data")
 		return
+	}
+	log(fmt.Sprintf("[ChartRenderer] Extracted %d candles", len(candles)))
+
+	// Log first candle for debugging
+	if len(candles) > 0 {
+		c := candles[0]
+		log(fmt.Sprintf("[ChartRenderer] First candle - Timestamp: %d, O: %.2f, H: %.2f, L: %.2f, C: %.2f, V: %.2f",
+			c.Timestamp, c.Open, c.High, c.Low, c.Close, c.Volume))
 	}
 
 	// Calculate data ranges
+	log("[ChartRenderer] Calculating data ranges...")
 	cr.calculateDataRanges(candles)
+	log(fmt.Sprintf("[ChartRenderer] Data ranges - X: [%.2f, %.2f], Y: [%.2f, %.2f]",
+		cr.DataXRange[0], cr.DataXRange[1], cr.DataYRange[0], cr.DataYRange[1]))
 
 	// Create data buffer
+	log("[ChartRenderer] Creating candle data buffer...")
 	dataBuffer := cr.createCandleDataBuffer(candles)
 	if dataBuffer == nil {
+		logError("[ChartRenderer] Failed to create candle data buffer")
 		return
 	}
+	log("[ChartRenderer] Candle data buffer created successfully")
 
 	// Extract colors
 	upColor := NewVec4(0.18, 0.80, 0.44, 1.0)
@@ -321,34 +375,49 @@ func (cr *ChartRenderer) renderCandlestickSeries(pass js.Value, series *GPUNode)
 		wickColor = c
 	}
 
-	// Calculate candle width
+	// Calculate candle width in DATA COORDINATES (not pixels!)
+	// The shader expects candleWidth in the same units as the timestamp
+	dataXRange := cr.DataXRange[1] - cr.DataXRange[0]
+	candleWidth := float32(dataXRange/float64(len(candles))) * 0.8
+
 	padding := cr.getPadding()
 	chartWidth := float32(cr.Canvas.Width) - padding["left"] - padding["right"]
-	candleWidth := (chartWidth / float32(len(candles))) * 0.8
+	log(fmt.Sprintf("[ChartRenderer] Canvas: %dx%d, Chart width: %.2f, Candle width in data coords: %.2f",
+		cr.Canvas.Width, cr.Canvas.Height, chartWidth, candleWidth))
 
 	// Create uniforms
+	log("[ChartRenderer] Creating uniforms...")
 	uniformData := cr.createCandleUniforms(upColor, downColor, wickColor, candleWidth)
 	if err := cr.Canvas.GPUContext.WriteBuffer(cr.UniformBuffer.Buffer, 0, uniformData); err != nil {
 		logError(fmt.Sprintf("[ChartRenderer] Failed to write uniform data: %v", err))
 		return
 	}
+	log("[ChartRenderer] Uniforms written to buffer")
 
 	// Create bind group
+	log("[ChartRenderer] Creating bind group...")
 	bindGroup := cr.createCandleBindGroup(dataBuffer)
+	log("[ChartRenderer] Bind group created")
 
 	// Draw
+	log(fmt.Sprintf("[ChartRenderer] Issuing draw call - 6 vertices, %d instances", len(candles)*2))
 	pass.Call("setPipeline", cr.CandlestickPipeline.Pipeline)
 	pass.Call("setBindGroup", 0, bindGroup)
 	pass.Call("draw", 6, len(candles)*2, 0, 0) // 6 vertices per quad, 2 instances per candle (body + wick)
+	log("[ChartRenderer] Draw call completed")
 }
 
 // renderLineSeries renders a line series
 func (cr *ChartRenderer) renderLineSeries(pass js.Value, series *GPUNode) {
+	log("[ChartRenderer] renderLineSeries() called")
+
 	// Extract data from series properties
 	data, ok := series.Properties["data"]
 	if !ok {
+		logError("[ChartRenderer] No 'data' property found in line series")
 		return
 	}
+	log(fmt.Sprintf("[ChartRenderer] Line data property found, type: %T", data))
 
 	// Try to extract point data
 	var points []interface{}
@@ -356,22 +425,39 @@ func (cr *ChartRenderer) renderLineSeries(pass js.Value, series *GPUNode) {
 	case []interface{}:
 		points = d
 	default:
-		logError("[ChartRenderer] Invalid line data type")
+		logError(fmt.Sprintf("[ChartRenderer] Invalid line data type: %T", data))
 		return
 	}
 
 	if len(points) < 2 {
+		logError(fmt.Sprintf("[ChartRenderer] Not enough points for line series: %d (need at least 2)", len(points)))
 		return
+	}
+	log(fmt.Sprintf("[ChartRenderer] Line series has %d points", len(points)))
+
+	// Log first point for debugging
+	if len(points) > 0 {
+		if pointMap, ok := points[0].(map[string]interface{}); ok {
+			x, _ := pointMap["X"].(float64)
+			y, _ := pointMap["Y"].(float64)
+			log(fmt.Sprintf("[ChartRenderer] First point - X: %.2f, Y: %.2f", x, y))
+		}
 	}
 
 	// Calculate data ranges
+	log("[ChartRenderer] Calculating line data ranges...")
 	cr.calculateLineDataRanges(points)
+	log(fmt.Sprintf("[ChartRenderer] Line data ranges - X: [%.2f, %.2f], Y: [%.2f, %.2f]",
+		cr.DataXRange[0], cr.DataXRange[1], cr.DataYRange[0], cr.DataYRange[1]))
 
 	// Create data buffer
+	log("[ChartRenderer] Creating line data buffer...")
 	dataBuffer := cr.createLineDataBuffer(points)
 	if dataBuffer == nil {
+		logError("[ChartRenderer] Failed to create line data buffer")
 		return
 	}
+	log("[ChartRenderer] Line data buffer created successfully")
 
 	// Extract line properties
 	strokeColor := NewVec4(0.18, 0.80, 0.44, 1.0)
@@ -392,40 +478,65 @@ func (cr *ChartRenderer) renderLineSeries(pass js.Value, series *GPUNode) {
 		fillColor = c
 	}
 
+	log(fmt.Sprintf("[ChartRenderer] Line properties - Stroke width: %.2f, Fill: %v", strokeWidth, fill))
+
 	// Create uniforms
+	log("[ChartRenderer] Creating line uniforms...")
 	uniformData := cr.createLineUniforms(strokeColor, strokeWidth, fill, fillColor)
 	if err := cr.Canvas.GPUContext.WriteBuffer(cr.UniformBuffer.Buffer, 0, uniformData); err != nil {
-		logError(fmt.Sprintf("[ChartRenderer] Failed to write uniform data: %v", err))
+		logError(fmt.Sprintf("[ChartRenderer] Failed to write line uniform data: %v", err))
 		return
 	}
+	log("[ChartRenderer] Line uniforms written to buffer")
 
 	// Create bind group
+	log("[ChartRenderer] Creating line bind group...")
 	bindGroup := cr.createLineBindGroup(dataBuffer)
+	log("[ChartRenderer] Line bind group created")
 
 	// Draw fill first if enabled
 	if fill {
+		log(fmt.Sprintf("[ChartRenderer] Drawing fill - 6 vertices, %d instances", len(points)-1))
 		pass.Call("setPipeline", cr.LineFillPipeline.Pipeline)
 		pass.Call("setBindGroup", 0, bindGroup)
 		pass.Call("draw", 6, len(points)-1, 0, 0)
+		log("[ChartRenderer] Fill draw completed")
 	}
 
 	// Draw line
+	log(fmt.Sprintf("[ChartRenderer] Drawing line - 6 vertices, %d instances", len(points)-1))
 	pass.Call("setPipeline", cr.LinePipeline.Pipeline)
 	pass.Call("setBindGroup", 0, bindGroup)
 	pass.Call("draw", 6, len(points)-1, 0, 0)
+	log("[ChartRenderer] Line draw completed")
 }
 
 // Helper functions
 
 // extractOHLCVData uses reflection to extract OHLCV data from any slice type
 func (cr *ChartRenderer) extractOHLCVData(data interface{}) []ohlcvData {
+	log(fmt.Sprintf("[ChartRenderer] extractOHLCVData called with type: %T", data))
+
 	v := reflect.ValueOf(data)
 	if v.Kind() != reflect.Slice {
-		logError(fmt.Sprintf("[ChartRenderer] Data is not a slice: %T", data))
+		logError(fmt.Sprintf("[ChartRenderer] Data is not a slice: %T (kind: %v)", data, v.Kind()))
 		return nil
 	}
 
+	log(fmt.Sprintf("[ChartRenderer] Data slice length: %d", v.Len()))
+
+	if v.Len() == 0 {
+		logError("[ChartRenderer] Data slice is empty")
+		return nil
+	}
+
+	// Check first element type
+	firstItem := v.Index(0)
+	log(fmt.Sprintf("[ChartRenderer] First item type: %v, kind: %v", firstItem.Type(), firstItem.Kind()))
+
 	result := make([]ohlcvData, v.Len())
+	successCount := 0
+
 	for i := 0; i < v.Len(); i++ {
 		item := v.Index(i)
 		if item.Kind() == reflect.Struct {
@@ -445,8 +556,20 @@ func (cr *ChartRenderer) extractOHLCVData(data interface{}) []ohlcvData {
 				Close:     close,
 				Volume:    volume,
 			}
+
+			if i == 0 {
+				log(fmt.Sprintf("[ChartRenderer] Successfully extracted fields from first item - T:%d O:%.2f H:%.2f L:%.2f C:%.2f V:%.2f",
+					timestamp, open, high, low, close, volume))
+			}
+			successCount++
+		} else {
+			if i == 0 {
+				logError(fmt.Sprintf("[ChartRenderer] Item %d is not a struct, it's a %v", i, item.Kind()))
+			}
 		}
 	}
+
+	log(fmt.Sprintf("[ChartRenderer] Successfully extracted %d/%d OHLCV items", successCount, v.Len()))
 
 	return result
 }
