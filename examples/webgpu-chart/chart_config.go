@@ -2,8 +2,6 @@
 
 package main
 
-import "github.com/gaarutyunov/guix/pkg/runtime/chart"
-
 // BitcoinChart creates a Bitcoin OHLCV candlestick chart
 // Returns a chart configuration for rendering
 func BitcoinChart(data *ChartData) *ChartConfig {
