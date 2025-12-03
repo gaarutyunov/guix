@@ -1,0 +1,7 @@
+main.wasm
+wasm_exec.js
+*_gen.go
+node_modules/
+package-lock.json
+playwright-report/
+test-results/

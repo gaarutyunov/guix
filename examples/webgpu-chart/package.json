@@ -1,0 +1,16 @@
+{
+  "name": "webgpu-chart-example",
+  "version": "1.0.0",
+  "description": "WebGPU Bitcoin price chart example for Guix",
+  "private": true,
+  "scripts": {
+    "build": "GOOS=js GOARCH=wasm go build -o main.wasm .",
+    "pretest": "npm run build",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}
