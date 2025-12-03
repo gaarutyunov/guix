@@ -186,9 +186,12 @@ func (gc *GPUCanvas) Stop() {
 
 // startRenderLoop initiates the requestAnimationFrame loop
 func (gc *GPUCanvas) startRenderLoop() {
+	log("[Canvas] startRenderLoop called")
+
 	var renderFrame js.Func
 	renderFrame = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if !gc.Running {
+			log("[Canvas] Render loop stopped, releasing callback")
 			renderFrame.Release()
 			return nil
 		}
@@ -210,7 +213,15 @@ func (gc *GPUCanvas) startRenderLoop() {
 
 		// Call user render function
 		if gc.RenderFunc != nil {
+			if gc.FrameCount%60 == 0 {
+				// Log every 60 frames to avoid spam
+				log(fmt.Sprintf("[Canvas] Render frame %d, delta: %.2fms", gc.FrameCount, delta))
+			}
 			gc.RenderFunc(gc, delta)
+		} else {
+			if gc.FrameCount%60 == 0 {
+				logError("[Canvas] RenderFunc is nil!")
+			}
 		}
 
 		gc.FrameCount++
@@ -221,7 +232,9 @@ func (gc *GPUCanvas) startRenderLoop() {
 	})
 
 	gc.FrameCallback = renderFrame
+	log("[Canvas] Requesting first animation frame")
 	gc.AnimationID = js.Global().Call("requestAnimationFrame", renderFrame)
+	log("[Canvas] First animation frame requested")
 }
 
 // GetCurrentTexture returns the current texture to render to
