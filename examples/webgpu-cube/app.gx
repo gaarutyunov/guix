@@ -52,8 +52,8 @@ func App() (Component) {
 
 	renderUpdate := func(delta float64, rendererInterface interface{}) {
 		if autoRotate {
-			rotationY = rotationY + (delta * speed)
-			rotationX = rotationX + (delta * speed * 0.5)
+			rotationY = rotationY + (delta * 0.001 * speed)
+			rotationX = rotationX + (delta * 0.001 * speed * 0.5)
 		}
 	}
 
@@ -62,8 +62,8 @@ func App() (Component) {
 	) {
 		Canvas(
 			ID("webgpu-canvas"),
-			Width(500),
-			Height(500),
+			Width(600),
+			Height(400),
 			GPURenderUpdate(renderUpdate)
 		) {
 			GPUScene(NewCubeScene(rotXPtr, rotYPtr))
