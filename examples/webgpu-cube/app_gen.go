@@ -78,11 +78,11 @@ func (c *App) Render() *runtime.VNode {
 		renderUpdate := func(delta float64, rendererInterface interface {
 		}) {
 			if c.autoRotate {
-				c.rotationY = c.rotationY + (delta * c.speed)
-				c.rotationX = c.rotationX + (delta * c.speed * 0.5)
+				c.rotationY = c.rotationY + (delta * 0.001 * c.speed)
+				c.rotationX = c.rotationX + (delta * 0.001 * c.speed * 0.5)
 			}
 		}
-		return runtime.Div(runtime.Class("webgpu-container"), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(500), runtime.Height(500), runtime.GPURenderUpdate(renderUpdate), runtime.GPUScene(NewCubeScene(rotXPtr, rotYPtr))), c.controlsInstance.Render())
+		return runtime.Div(runtime.Class("webgpu-container"), runtime.Canvas(runtime.ID("webgpu-canvas"), runtime.Width(600), runtime.Height(400), runtime.GPURenderUpdate(renderUpdate), runtime.GPUScene(NewCubeScene(rotXPtr, rotYPtr))), c.controlsInstance.Render())
 	}()
 }
 func (c *App) Mount(parent js.Value) {

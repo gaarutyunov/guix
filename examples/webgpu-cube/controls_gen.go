@@ -102,7 +102,7 @@ func (c *Controls) Render() *runtime.VNode {
 				return runtime.Div(runtime.ID("speed-control"), runtime.Class("speed-control"), runtime.Span(runtime.Class("speed-label"), runtime.Text("Speed:")), runtime.Input(runtime.ID("speed-slider"), runtime.Type("range"), runtime.Class("speed-slider"), runtime.Min("0.1"), runtime.Max("3.0"), runtime.Step("0.1"), runtime.Value("1.0"), runtime.OnInput(func(e runtime.Event) {
 					val, _ := strconv.ParseFloat(e.Target.Value, 32)
 					c.Commands <- ControlCommand{Type: "speed", Value: float32(val)}
-				})), runtime.Span(runtime.ID("speed-value"), runtime.Class("speed-value"), runtime.Text("1.0")))
+				})), runtime.Span(runtime.ID("speed-value"), runtime.Class("speed-value"), runtime.Text("Speed: "+fmt.Sprint(c.currentState.Speed))))
 			} else {
 				return runtime.Div()
 			}
