@@ -1876,7 +1876,7 @@ var knownDOMElements = map[string]bool{
 	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
 	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
 	// WebGPU Canvas
-	"Canvas": true, "GPUScene": true,
+	"Canvas": true, "GPUScene": true, "GPUChart": true,
 }
 
 // Known WebGPU/3D element names - treated as runtime elements like DOM elements
@@ -2701,8 +2701,18 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 				}
 			}
 		} else {
-			// Check if this is a GPU/runtime function that needs runtime. prefix
-			if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+			// Check if base is a component parameter
+			if g.componentParams != nil && g.componentParams[cos.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(cos.Base)),
+				}
+			} else if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				// Check if this is a GPU/runtime function that needs runtime. prefix
 				expr = &ast.SelectorExpr{
 					X:   ast.NewIdent("runtime"),
 					Sel: ast.NewIdent(cos.Base),
@@ -2732,8 +2742,18 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 					Sel: ast.NewIdent(cos.Base), // currentState
 				}
 			} else {
-				// Check if this is a GPU/runtime function that needs runtime. prefix
-				if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				// Check if base is a component parameter
+				if g.componentParams != nil && g.componentParams[cos.Base] {
+					receiverName := g.receiverName
+					if receiverName == "" {
+						receiverName = "c"
+					}
+					expr = &ast.SelectorExpr{
+						X:   ast.NewIdent(receiverName),
+						Sel: ast.NewIdent(capitalize(cos.Base)),
+					}
+				} else if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+					// Check if this is a GPU/runtime function that needs runtime. prefix
 					expr = &ast.SelectorExpr{
 						X:   ast.NewIdent("runtime"),
 						Sel: ast.NewIdent(cos.Base),
@@ -2743,8 +2763,18 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 				}
 			}
 		} else {
-			// Check if this is a GPU/runtime function that needs runtime. prefix
-			if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+			// Check if base is a component parameter
+			if g.componentParams != nil && g.componentParams[cos.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(cos.Base)),
+				}
+			} else if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				// Check if this is a GPU/runtime function that needs runtime. prefix
 				expr = &ast.SelectorExpr{
 					X:   ast.NewIdent("runtime"),
 					Sel: ast.NewIdent(cos.Base),

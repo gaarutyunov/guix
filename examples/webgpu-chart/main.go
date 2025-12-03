@@ -3,8 +3,20 @@
 package main
 
 import (
+	"syscall/js"
+
 	"github.com/gaarutyunov/guix/pkg/runtime"
 )
+
+var console = js.Global().Get("console")
+
+func log(args ...interface{}) {
+	jsArgs := make([]interface{}, len(args))
+	for i, arg := range args {
+		jsArgs[i] = arg
+	}
+	console.Call("log", jsArgs...)
+}
 
 func main() {
 	log("[Go] WASM module started")
