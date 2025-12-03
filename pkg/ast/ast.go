@@ -11,10 +11,10 @@ type File struct {
 	Pos          lexer.Position
 	Package      string            `"package" @Ident`
 	Imports      []*Import         `@@*`
-	Types        []*TypeDef        `@@*`
 	GPUStructs   []*GPUStructDecl  `@@*`
 	GPUBindings  []*GPUBindingDecl `@@*`
 	GPUFunctions []*GPUFuncDecl    `@@*`
+	Types        []*TypeDef        `@@*`
 	Components   []*Component      `@@*`
 	Methods      []*Method         `@@*`
 }

@@ -15,9 +15,6 @@ func (v *BaseVisitor) VisitFile(node *File) interface{} {
 	for _, imp := range node.Imports {
 		imp.Accept(v)
 	}
-	for _, typeDef := range node.Types {
-		typeDef.Accept(v)
-	}
 	for _, gpuStruct := range node.GPUStructs {
 		gpuStruct.Accept(v)
 	}
@@ -26,6 +23,9 @@ func (v *BaseVisitor) VisitFile(node *File) interface{} {
 	}
 	for _, gpuFunc := range node.GPUFunctions {
 		gpuFunc.Accept(v)
+	}
+	for _, typeDef := range node.Types {
+		typeDef.Accept(v)
 	}
 	for _, comp := range node.Components {
 		comp.Accept(v)

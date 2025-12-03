@@ -6,7 +6,7 @@ import "github.com/alecthomas/participle/v2/lexer"
 // GPUDecorator represents a GPU-specific decorator like @gpu, @vertex, @binding, etc.
 type GPUDecorator struct {
 	Pos  lexer.Position
-	Name string  `"@" @("gpu" | "vertex" | "fragment" | "compute" | "uniform" | "storage" | "binding" | "location" | "builtin" | "workgroup")`
+	Name string  `@Directive`
 	Args []*Expr `("(" (@@ ("," @@)*)? ")")?`
 }
 

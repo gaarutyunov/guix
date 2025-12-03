@@ -135,7 +135,9 @@ func (g *WGSLGenerator) generateBinding(binding *guixast.GPUBindingDecl) {
 	// Get address space and access mode from decorators
 	addressSpace := ""
 	for _, decorator := range binding.Decorators {
-		switch decorator.Name {
+		// Strip @ prefix for comparison
+		name := strings.TrimPrefix(decorator.Name, "@")
+		switch name {
 		case "uniform":
 			addressSpace = "<uniform>"
 		case "storage":
@@ -171,7 +173,9 @@ func (g *WGSLGenerator) generateFunction(fn *guixast.GPUFuncDecl) {
 	var otherDecorators []string
 
 	for _, decorator := range fn.Decorators {
-		if decorator.Name == "vertex" || decorator.Name == "fragment" || decorator.Name == "compute" {
+		// Strip @ prefix for comparison
+		name := strings.TrimPrefix(decorator.Name, "@")
+		if name == "vertex" || name == "fragment" || name == "compute" {
 			entryDecorators = append(entryDecorators, g.formatDecorator(decorator))
 		} else {
 			otherDecorators = append(otherDecorators, g.formatDecorator(decorator))
@@ -251,8 +255,11 @@ func (g *WGSLGenerator) generateParameter(param *guixast.GPUParameter) string {
 
 // Format a decorator for WGSL output
 func (g *WGSLGenerator) formatDecorator(decorator *guixast.GPUDecorator) string {
+	// Strip @ prefix if present (decorator.Name comes from Directive token which includes @)
+	name := strings.TrimPrefix(decorator.Name, "@")
+
 	if len(decorator.Args) == 0 {
-		return fmt.Sprintf("@%s", decorator.Name)
+		return fmt.Sprintf("@%s", name)
 	}
 
 	// Format arguments
@@ -261,7 +268,7 @@ func (g *WGSLGenerator) formatDecorator(decorator *guixast.GPUDecorator) string 
 		args[i] = g.generateExpression(arg)
 	}
 
-	return fmt.Sprintf("@%s(%s)", decorator.Name, strings.Join(args, ", "))
+	return fmt.Sprintf("@%s(%s)", name, strings.Join(args, ", "))
 }
 
 // Generate function body
