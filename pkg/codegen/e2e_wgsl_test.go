@@ -103,7 +103,7 @@ func fsMain(@location(0) color vec4) vec4 {
 		"[4]float32",
 		"func (s *Uniforms) ToBytes() []byte",
 		"//go:embed shaders.wgsl",
-		"var ShaderSource string",
+		"var ShadersShaderSource string",
 	}
 
 	for _, expected := range expectedGoStrings {

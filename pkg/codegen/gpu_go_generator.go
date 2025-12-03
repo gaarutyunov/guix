@@ -247,9 +247,14 @@ func (g *GPUGoGenerator) generateSizeCheckInit(gpuStruct *guixast.GPUStructDecl)
 					Lhs: []ast.Expr{ast.NewIdent("expectedSize")},
 					Tok: token.DEFINE,
 					Rhs: []ast.Expr{
-						&ast.BasicLit{
-							Kind:  token.INT,
-							Value: fmt.Sprintf("%d", expectedSize),
+						&ast.CallExpr{
+							Fun: ast.NewIdent("uintptr"),
+							Args: []ast.Expr{
+								&ast.BasicLit{
+									Kind:  token.INT,
+									Value: fmt.Sprintf("%d", expectedSize),
+								},
+							},
 						},
 					},
 				},
@@ -292,6 +297,15 @@ func (g *GPUGoGenerator) generateSizeCheckInit(gpuStruct *guixast.GPUStructDecl)
 
 // Generate shader embed declarations
 func (g *GPUGoGenerator) generateShaderEmbed() []ast.Decl {
+	// Create a unique variable name based on the shader filename
+	// e.g., "candlestick_types.wgsl" -> "CandlestickTypesShaderSource"
+	baseName := strings.TrimSuffix(g.shaderFilename, ".wgsl")
+	parts := strings.Split(baseName, "_")
+	for i, part := range parts {
+		parts[i] = Title(part)
+	}
+	varName := strings.Join(parts, "") + "ShaderSource"
+
 	return []ast.Decl{
 		// Comment directive
 		&ast.GenDecl{
@@ -303,7 +317,7 @@ func (g *GPUGoGenerator) generateShaderEmbed() []ast.Decl {
 			},
 			Specs: []ast.Spec{
 				&ast.ValueSpec{
-					Names: []*ast.Ident{ast.NewIdent("ShaderSource")},
+					Names: []*ast.Ident{ast.NewIdent(varName)},
 					Type:  ast.NewIdent("string"),
 				},
 			},

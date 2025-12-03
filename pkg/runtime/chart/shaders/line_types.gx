@@ -1,0 +1,20 @@
+// Line Chart Shader Types
+// Type-safe GPU struct definitions that generate both Go and WGSL code
+package shaders
+
+// LineUniforms contains uniform data for the line chart
+@gpu type LineUniforms struct {
+	viewportSize vec2    // Canvas width and height in pixels
+	dataRange    vec4    // minX, maxX, minY, maxY (data coordinates)
+	padding      vec4    // top, right, bottom, left padding in pixels
+	strokeWidth  float32 // Line width in pixels
+	strokeColor  vec4    // Line color
+	fillEnabled  uint32  // 1 if fill is enabled, 0 otherwise
+	fillColor    vec4    // Fill color (under the line)
+}
+
+// Point represents a 2D point in the line chart
+@gpu type Point struct {
+	x float32
+	y float32
+}

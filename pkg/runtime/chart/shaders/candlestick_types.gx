@@ -1,0 +1,24 @@
+// Candlestick Chart Shader Types
+// Type-safe GPU struct definitions that generate both Go and WGSL code
+package shaders
+
+// ChartUniforms contains uniform data for the candlestick chart
+@gpu type ChartUniforms struct {
+	viewportSize vec2    // Canvas width and height in pixels
+	dataRange    vec4    // minX, maxX, minY, maxY (data coordinates)
+	padding      vec4    // top, right, bottom, left padding in pixels
+	candleWidth  float32 // Width of each candle in pixels
+	upColor      vec4    // Color for up candles (close >= open)
+	downColor    vec4    // Color for down candles (close < open)
+	wickColor    vec4    // Color for candle wicks
+}
+
+// Candle represents a single OHLCV candlestick data point
+@gpu type Candle struct {
+	timestamp float32 // Unix timestamp in milliseconds
+	open      float32
+	high      float32
+	low       float32
+	close     float32
+	volume    float32
+}
