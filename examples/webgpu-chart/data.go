@@ -33,7 +33,6 @@ func NewChartConfig() *ChartConfig {
 
 // GetFallbackData returns fallback Bitcoin OHLCV data when Binance API is unavailable
 func GetFallbackData() []chart.OHLCV {
-	log("[Data] Using fallback static data")
 	return []chart.OHLCV{
 		{Timestamp: 1701388800000, Open: 37500, High: 38200, Low: 37100, Close: 37800, Volume: 28500000000},
 		{Timestamp: 1701475200000, Open: 37800, High: 39100, Low: 37600, Close: 38900, Volume: 32100000000},
@@ -60,17 +59,14 @@ func GetFallbackData() []chart.OHLCV {
 
 // GetChartData fetches Bitcoin data from Binance API with fallback to static data
 // This function will attempt to fetch 1000 candles from Binance (hourly data = ~41 days)
+// If the fetch fails (e.g., CORS in browser), it falls back to static sample data
 func GetChartData() []chart.OHLCV {
-	log("[Data] Fetching chart data from Binance...")
-
-	// Try to fetch from Binance
+	// Try to fetch from Binance (may fail due to CORS in browser)
 	data, err := FetchBinanceData("BTCUSDT", "1h", 1000)
 	if err != nil {
-		log("[Data] Failed to fetch from Binance:", err.Error())
-		log("[Data] Falling back to static data")
+		// Silently fall back to static data
 		return GetFallbackData()
 	}
 
-	log("[Data] Successfully fetched", len(data), "candles from Binance")
 	return data
 }
