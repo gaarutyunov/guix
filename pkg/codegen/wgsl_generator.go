@@ -170,16 +170,14 @@ func (g *WGSLGenerator) generateBinding(binding *guixast.GPUBindingDecl) {
 func (g *WGSLGenerator) generateFunction(fn *guixast.GPUFuncDecl) {
 	// Collect entry point decorators (@vertex, @fragment, @compute)
 	var entryDecorators []string
-	var otherDecorators []string
 
 	for _, decorator := range fn.Decorators {
 		// Strip @ prefix for comparison
 		name := strings.TrimPrefix(decorator.Name, "@")
 		if name == "vertex" || name == "fragment" || name == "compute" {
 			entryDecorators = append(entryDecorators, g.formatDecorator(decorator))
-		} else {
-			otherDecorators = append(otherDecorators, g.formatDecorator(decorator))
 		}
+		// Other decorators are currently not supported for functions
 	}
 
 	// Write entry point decorators
@@ -412,7 +410,7 @@ func (g *WGSLGenerator) generateFor(forLoop *guixast.ForLoop) {
 	if forLoop.Range != nil {
 		// Range-based for loop not directly supported in WGSL
 		// Convert to C-style for loop
-		g.writeln(fmt.Sprintf("// Range-based for loop not directly supported"))
+		g.writeln("// Range-based for loop not directly supported")
 		g.writeln(fmt.Sprintf("// for %s in %s", forLoop.Val, g.generateExpression(forLoop.Range)))
 	} else {
 		// C-style for loop

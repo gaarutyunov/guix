@@ -111,7 +111,7 @@ func (g *GPUGoGenerator) generateGPUStruct(gpuStruct *guixast.GPUStructDecl) *as
 		astType := g.parseTypeString(goType)
 
 		fields = append(fields, &ast.Field{
-			Names: []*ast.Ident{ast.NewIdent(strings.Title(field.Name))},
+			Names: []*ast.Ident{ast.NewIdent(Title(field.Name))},
 			Type:  astType,
 		})
 	}
