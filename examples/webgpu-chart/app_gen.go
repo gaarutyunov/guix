@@ -19,11 +19,9 @@ func NewApp() *App {
 	return c
 }
 func (c *App) BindApp(app *runtime.App) {
-	log("App: BindApp called")
 	c.app = app
 }
 func (c *App) Render() *runtime.VNode {
-	log("App: Render called")
 	return func() *runtime.VNode {
 		chartData := GetSampleData()
 		return runtime.Div(runtime.ID("app"), runtime.Class("chart-container"), runtime.TabIndex(0), runtime.H1(runtime.Class("title"), runtime.Text("Bitcoin Price Chart")), runtime.P(runtime.Class("subtitle"), runtime.Text("WebGPU-powered candlestick chart")), runtime.Canvas(runtime.ID("chart-canvas"), runtime.Width(1200), runtime.Height(700), runtime.GPUChart(NewBitcoinChart(chartData))), runtime.Div(runtime.Class("info"), runtime.P(runtime.Text("This chart demonstrates Guix's WebGPU charting capabilities.")), runtime.P(runtime.Text("Data: Bitcoin daily OHLCV candles from December 2024"))))

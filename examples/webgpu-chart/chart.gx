@@ -2,9 +2,9 @@ package main
 
 func BitcoinChart(data *ChartData) (Chart) {
 	Chart(ChartBackground(0.08, 0.09, 0.12, 1.0)) {
-		XAxis(AxisPosition("bottom"), TimeScale(true), GridLines(true))
+		XAxis(AxisPosition("bottom"), TimeScale(true), GridLines(true), Label("Time"))
 
-		YAxis(AxisPosition("right"), GridLines(true))
+		YAxis(AxisPosition("right"), GridLines(true), Label("Price (USD)"))
 
 		CandlestickSeries(
 			ChartData(data.Bitcoin),
