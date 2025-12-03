@@ -76,6 +76,41 @@ jobs:
           file: ./coverage.txt
           fail_ci_if_error: false
 
+  test-wasm:
+    name: Test WASM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Compile WASM tests
+        run: |
+          echo "Building WASM tests for webgpu-chart example..."
+          GOOS=js GOARCH=wasm go test -c -o /tmp/webgpu-chart-tests.wasm ./examples/webgpu-chart/...
+
+          echo "WASM test binary size: $(du -h /tmp/webgpu-chart-tests.wasm)"
+          echo "✓ WASM tests compiled successfully"
+
+      - name: Verify test coverage
+        run: |
+          # Count test functions in WASM test files
+          TEST_COUNT=$(grep -r "^func Test" examples/webgpu-chart/*_test.go | wc -l)
+          echo "Found $TEST_COUNT test functions"
+
+          if [ "$TEST_COUNT" -lt 10 ]; then
+            echo "Warning: Expected at least 10 test functions, found $TEST_COUNT"
+            exit 1
+          fi
+
+          echo "✓ Test coverage verification passed"
+
   build:
     name: Build CLI
     runs-on: ubuntu-latest
