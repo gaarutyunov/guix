@@ -18,11 +18,17 @@ type BinanceKline []interface{}
 // symbol: trading pair (e.g., "BTCUSDT")
 // interval: time interval (e.g., "1h", "4h", "1d")
 // limit: number of candles to fetch (max 1000)
+// endTime: optional end time in milliseconds (0 for latest data)
 // Note: This may fail due to CORS when called from browser, in which case fallback data is used
-func FetchBinanceData(symbol, interval string, limit int) ([]chart.OHLCV, error) {
+func FetchBinanceDataWithEndTime(symbol, interval string, limit int, endTime int64) ([]chart.OHLCV, error) {
 	// Construct Binance API URL
 	url := fmt.Sprintf("https://api.binance.com/api/v3/klines?symbol=%s&interval=%s&limit=%d",
 		symbol, interval, limit)
+
+	// Add endTime parameter if specified
+	if endTime > 0 {
+		url += fmt.Sprintf("&endTime=%d", endTime)
+	}
 
 	// Create a promise to fetch data
 	promise := js.Global().Call("fetch", url)
@@ -151,6 +157,11 @@ func parseFloat(val interface{}) float64 {
 	default:
 		return 0
 	}
+}
+
+// FetchBinanceData fetches latest data from Binance (wrapper for backward compatibility)
+func FetchBinanceData(symbol, interval string, limit int) ([]chart.OHLCV, error) {
+	return FetchBinanceDataWithEndTime(symbol, interval, limit, 0)
 }
 
 // FetchBinanceDataAsync fetches data asynchronously and returns a channel

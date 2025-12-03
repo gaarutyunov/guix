@@ -24,7 +24,7 @@ func (c *App) BindApp(app *runtime.App) {
 func (c *App) Render() *runtime.VNode {
 	return func() *runtime.VNode {
 		chartData := GetChartData()
-		return runtime.Div(runtime.ID("app"), runtime.Class("chart-container"), runtime.TabIndex(0), runtime.H1(runtime.Class("title"), runtime.Text("Bitcoin Price Chart (Binance Data)")), runtime.P(runtime.Class("subtitle"), runtime.Text("WebGPU-powered candlestick chart with horizontal scrolling")), runtime.Div(runtime.Class("chart-wrapper"), runtime.Style("width: 100%; overflow-x: auto; overflow-y: hidden;"), runtime.Canvas(runtime.ID("chart-canvas"), runtime.Width(3000), runtime.Height(700), runtime.Style("display: block; min-width: 3000px;"), runtime.GPUChart(NewBitcoinChart(chartData)))), runtime.Div(runtime.Class("info"), runtime.P(runtime.Text("This chart demonstrates Guix's WebGPU charting capabilities with live Binance data.")), runtime.P(runtime.Text("Data: Bitcoin hourly OHLCV candles (~1000 candles). Scroll horizontally to explore the data."))))
+		return runtime.Div(runtime.ID("app"), runtime.Class("chart-container"), runtime.TabIndex(0), runtime.H1(runtime.Class("title"), runtime.Text("Bitcoin Price Chart (Binance Data)")), runtime.P(runtime.Class("subtitle"), runtime.Text("WebGPU-powered candlestick chart with viewport scrolling")), runtime.Canvas(runtime.ID("chart-canvas"), runtime.Width(1200), runtime.Height(700), runtime.GPUChart(NewBitcoinChart(chartData))), runtime.Div(runtime.Class("info"), runtime.P(runtime.Text("This chart demonstrates Guix's WebGPU charting capabilities with live Binance data.")), runtime.P(runtime.Text("Data: Bitcoin hourly OHLCV candles. Use mouse wheel, arrow keys, or touch to scroll horizontally."))))
 	}()
 }
 func (c *App) Mount(parent js.Value) {
