@@ -1,6 +1,8 @@
 package main
 
 func App() (Component) {
+	chartData := GetSampleData()
+
 	Div(
 		ID("app"),
 		Class("chart-container"),
@@ -17,7 +19,7 @@ func App() (Component) {
 			Width(1200),
 			Height(700)
 		) {
-			GPUChart(NewBitcoinChart())
+			GPUChart(NewBitcoinChart(chartData))
 		}
 		Div(Class("info")) {
 			P() {

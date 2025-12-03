@@ -37,9 +37,10 @@ type StructField struct {
 }
 
 // Import represents an import statement
+// Supports both single imports (import "path") and grouped imports (import ( "path1" "path2" ))
 type Import struct {
-	Pos  lexer.Position
-	Path string `"import" @String`
+	Pos   lexer.Position
+	Paths []string `"import" ( "(" @String+ ")" | @String )`
 }
 
 // Component represents a component or function definition

@@ -244,12 +244,15 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 
 	// Add user imports
 	for _, imp := range file.Imports {
-		specs = append(specs, &ast.ImportSpec{
-			Path: &ast.BasicLit{
-				Kind:  token.STRING,
-				Value: imp.Path,
-			},
-		})
+		// Handle both single and grouped imports
+		for _, path := range imp.Paths {
+			specs = append(specs, &ast.ImportSpec{
+				Path: &ast.BasicLit{
+					Kind:  token.STRING,
+					Value: path,
+				},
+			})
+		}
 	}
 
 	return &ast.GenDecl{

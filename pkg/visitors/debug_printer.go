@@ -76,7 +76,11 @@ func (d *DebugPrinter) VisitFile(node *ast.File) interface{} {
 
 // VisitImport prints an import node
 func (d *DebugPrinter) VisitImport(node *ast.Import) interface{} {
-	d.print("Import: %s", node.Path)
+	if len(node.Paths) == 1 {
+		d.print("Import: %s", node.Paths[0])
+	} else {
+		d.print("Import: %v", node.Paths)
+	}
 	return nil
 }
 
