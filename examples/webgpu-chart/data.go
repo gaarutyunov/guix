@@ -9,6 +9,25 @@ type ChartData struct {
 	Bitcoin []chart.OHLCV
 }
 
+// ChartConfig holds chart configuration
+type ChartConfig struct {
+	Data       []chart.OHLCV
+	Title      string
+	Background ChartColor
+}
+
+// ChartColor represents an RGBA color
+type ChartColor struct {
+	R, G, B, A float32
+}
+
+// NewChartConfig creates a new chart configuration with defaults
+func NewChartConfig() *ChartConfig {
+	return &ChartConfig{
+		Background: ChartColor{R: 0.08, G: 0.09, B: 0.12, A: 1.0},
+	}
+}
+
 // GetSampleData returns sample Bitcoin OHLCV data
 func GetSampleData() *ChartData {
 	return &ChartData{

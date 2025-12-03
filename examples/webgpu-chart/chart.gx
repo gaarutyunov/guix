@@ -3,43 +3,11 @@ package main
 import "github.com/gaarutyunov/guix/pkg/runtime/chart"
 
 // BitcoinChart creates a Bitcoin OHLCV candlestick chart
-func BitcoinChart(data *ChartData) (Chart) {
-
-	chart.ChartNode(
-		chart.ChartBackground(0.08, 0.09, 0.12, 1.0),
-		chart.ChartPaddingProp(60, 20, 40, 80),
-		chart.ChartInteractive(true),
-
-		// X-Axis: Time scale
-		chart.XAxis(
-			chart.AxisPos(chart.AxisBottom),
-			chart.TimeScale(true),
-			chart.TickFormat(func(t float64) string {
-				return chart.FormatTime(int64(t), "short")
-			}),
-			chart.GridLines(true),
-			chart.GridColor(0.2, 0.2, 0.25, 0.5),
-			chart.Label("Date"),
-		),
-
-		// Y-Axis: Price scale
-		chart.YAxis(
-			chart.AxisPos(chart.AxisRight),
-			chart.TickFormat(func(v float64) string {
-				return chart.FormatCurrency(v, "USD")
-			}),
-			chart.GridLines(true),
-			chart.GridColor(0.2, 0.2, 0.25, 0.5),
-			chart.Label("Price (USD)"),
-		),
-
-		// Main candlestick series
-		chart.CandlestickSeries(
-			chart.DataProp(data.Bitcoin),
-			chart.UpColor(0.18, 0.80, 0.44, 1.0),   // Green for gains
-			chart.DownColor(0.91, 0.27, 0.38, 1.0), // Red for losses
-			chart.WickColor(0.6, 0.6, 0.65, 1.0),
-			chart.BarWidth(0.8),
-		),
-	)
+// Returns a chart configuration for rendering
+func BitcoinChart(data *ChartData) *ChartConfig {
+	config := NewChartConfig()
+	config.Data = data.Bitcoin
+	config.Title = "Bitcoin Price Chart"
+	config.Background = ChartColor{R: 0.08, G: 0.09, B: 0.12, A: 1.0}
+	return config
 }

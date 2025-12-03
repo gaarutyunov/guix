@@ -14,12 +14,13 @@ func App() (Component) {
 		P(Class("subtitle")) {
 			"WebGPU-powered candlestick chart"
 		}
-		Canvas(
-			ID("chart-canvas"),
-			Width(1200),
-			Height(700)
-		) {
-			GPUChart(NewBitcoinChart(chartData))
+		Div(Class("chart-placeholder")) {
+			P() {
+				"Chart visualization coming soon..."
+			}
+			P() {
+				"Data loaded: 20 Bitcoin OHLCV candles"
+			}
 		}
 		Div(Class("info")) {
 			P() {
