@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"reflect"
 	"syscall/js"
 )
 
@@ -15,6 +16,16 @@ var candlestickShader string
 
 //go:embed chart/shaders/line.wgsl
 var lineShader string
+
+// ohlcvData represents extracted OHLCV data
+type ohlcvData struct {
+	Timestamp int64
+	Open      float64
+	High      float64
+	Low       float64
+	Close     float64
+	Volume    float64
+}
 
 // ChartRenderer manages rendering of charts
 type ChartRenderer struct {
@@ -280,16 +291,8 @@ func (cr *ChartRenderer) renderCandlestickSeries(pass js.Value, series *GPUNode)
 		return
 	}
 
-	// Try to extract OHLCV data
-	var candles []interface{}
-	switch d := data.(type) {
-	case []interface{}:
-		candles = d
-	default:
-		logError("[ChartRenderer] Invalid candlestick data type")
-		return
-	}
-
+	// Extract OHLCV data using reflection
+	candles := cr.extractOHLCVData(data)
 	if len(candles) == 0 {
 		return
 	}
@@ -410,6 +413,72 @@ func (cr *ChartRenderer) renderLineSeries(pass js.Value, series *GPUNode) {
 
 // Helper functions
 
+// extractOHLCVData uses reflection to extract OHLCV data from any slice type
+func (cr *ChartRenderer) extractOHLCVData(data interface{}) []ohlcvData {
+	v := reflect.ValueOf(data)
+	if v.Kind() != reflect.Slice {
+		logError(fmt.Sprintf("[ChartRenderer] Data is not a slice: %T", data))
+		return nil
+	}
+
+	result := make([]ohlcvData, v.Len())
+	for i := 0; i < v.Len(); i++ {
+		item := v.Index(i)
+		if item.Kind() == reflect.Struct {
+			// Extract fields by name
+			timestamp := getInt64Field(item, "Timestamp")
+			open := getFloat64Field(item, "Open")
+			high := getFloat64Field(item, "High")
+			low := getFloat64Field(item, "Low")
+			close := getFloat64Field(item, "Close")
+			volume := getFloat64Field(item, "Volume")
+
+			result[i] = ohlcvData{
+				Timestamp: timestamp,
+				Open:      open,
+				High:      high,
+				Low:       low,
+				Close:     close,
+				Volume:    volume,
+			}
+		}
+	}
+
+	return result
+}
+
+// getInt64Field extracts an int64 field from a struct
+func getInt64Field(v reflect.Value, fieldName string) int64 {
+	field := v.FieldByName(fieldName)
+	if !field.IsValid() {
+		return 0
+	}
+	switch field.Kind() {
+	case reflect.Int64:
+		return field.Int()
+	case reflect.Int, reflect.Int32:
+		return field.Int()
+	default:
+		return 0
+	}
+}
+
+// getFloat64Field extracts a float64 field from a struct
+func getFloat64Field(v reflect.Value, fieldName string) float64 {
+	field := v.FieldByName(fieldName)
+	if !field.IsValid() {
+		return 0
+	}
+	switch field.Kind() {
+	case reflect.Float64, reflect.Float32:
+		return field.Float()
+	case reflect.Int, reflect.Int32, reflect.Int64:
+		return float64(field.Int())
+	default:
+		return 0
+	}
+}
+
 func (cr *ChartRenderer) getPadding() map[string]float32 {
 	padding := map[string]float32{"top": 60, "right": 20, "bottom": 40, "left": 80}
 
@@ -424,7 +493,7 @@ func (cr *ChartRenderer) getPadding() map[string]float32 {
 	return padding
 }
 
-func (cr *ChartRenderer) calculateDataRanges(candles []interface{}) {
+func (cr *ChartRenderer) calculateDataRanges(candles []ohlcvData) {
 	if len(candles) == 0 {
 		return
 	}
@@ -433,14 +502,9 @@ func (cr *ChartRenderer) calculateDataRanges(candles []interface{}) {
 	minY, maxY := math.MaxFloat64, -math.MaxFloat64
 
 	for _, c := range candles {
-		candleMap, ok := c.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		timestamp, _ := candleMap["Timestamp"].(float64)
-		high, _ := candleMap["High"].(float64)
-		low, _ := candleMap["Low"].(float64)
+		timestamp := float64(c.Timestamp)
+		high := c.High
+		low := c.Low
 
 		if timestamp < minX {
 			minX = timestamp
@@ -497,24 +561,19 @@ func (cr *ChartRenderer) calculateLineDataRanges(points []interface{}) {
 	cr.DataYRange = [2]float64{minY, maxY}
 }
 
-func (cr *ChartRenderer) createCandleDataBuffer(candles []interface{}) *GPUBuffer {
+func (cr *ChartRenderer) createCandleDataBuffer(candles []ohlcvData) *GPUBuffer {
 	// Each candle: timestamp(f32), open(f32), high(f32), low(f32), close(f32), volume(f32) = 24 bytes
 	bufferSize := len(candles) * 24
 	data := make([]byte, bufferSize)
 
 	for i, c := range candles {
-		candleMap, ok := c.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
 		offset := i * 24
-		timestamp, _ := candleMap["Timestamp"].(float64)
-		open, _ := candleMap["Open"].(float64)
-		high, _ := candleMap["High"].(float64)
-		low, _ := candleMap["Low"].(float64)
-		close, _ := candleMap["Close"].(float64)
-		volume, _ := candleMap["Volume"].(float64)
+		timestamp := float64(c.Timestamp)
+		open := c.Open
+		high := c.High
+		low := c.Low
+		close := c.Close
+		volume := c.Volume
 
 		binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(float32(timestamp)))
 		binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(float32(open)))
