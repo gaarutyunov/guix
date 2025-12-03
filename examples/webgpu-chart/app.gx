@@ -1,0 +1,33 @@
+package main
+
+func App() (Component) {
+	chartData := GetSampleData()
+
+	Div(
+		ID("app"),
+		Class("chart-container"),
+		TabIndex(0)
+	) {
+		H1(Class("title")) {
+			"Bitcoin Price Chart"
+		}
+		P(Class("subtitle")) {
+			"WebGPU-powered candlestick chart"
+		}
+		Canvas(
+			ID("chart-canvas"),
+			Width(1200),
+			Height(700)
+		) {
+			GPUChart(NewBitcoinChart(chartData))
+		}
+		Div(Class("info")) {
+			P() {
+				"This chart demonstrates Guix's WebGPU charting capabilities."
+			}
+			P() {
+				"Data: Bitcoin daily OHLCV candles from December 2024"
+			}
+		}
+	}
+}

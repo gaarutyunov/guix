@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Price Chart - Guix WebGPU Charts</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .chart-container {
+            max-width: 1400px;
+            width: 100%;
+            background: #14161b;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #9ca3af;
+            margin-bottom: 30px;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto 30px;
+            border-radius: 8px;
+            background: #1a1d24;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .info {
+            background: #1a1d24;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #4ade80;
+        }
+
+        .info p {
+            color: #d1d5db;
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+
+        .info p:last-child {
+            margin-bottom: 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+            font-size: 1.1rem;
+        }
+
+        .error {
+            background: #dc26264d;
+            color: #fca5a5;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #dc2626;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 1280px) {
+            canvas {
+                max-width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="loading">
+            Loading WebGPU chart...
+        </div>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+        // Check for WebGPU support
+        if (!navigator.gpu) {
+            document.getElementById('app').innerHTML = `
+                <div class="chart-container">
+                    <h1 class="title">WebGPU Not Supported</h1>
+                    <div class="error">
+                        <p><strong>Your browser doesn't support WebGPU.</strong></p>
+                        <p>Please use a modern browser with WebGPU enabled:</p>
+                        <ul style="margin-top: 10px; padding-left: 20px;">
+                            <li>Chrome/Edge 113+ with WebGPU enabled</li>
+                            <li>Firefox Nightly with WebGPU enabled</li>
+                            <li>Safari Technology Preview</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Load and run WASM
+            const go = new Go();
+            WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+                go.run(result.instance);
+            }).catch((err) => {
+                console.error("Failed to load WASM:", err);
+                document.getElementById('app').innerHTML = `
+                    <div class="chart-container">
+                        <h1 class="title">Error Loading Application</h1>
+                        <div class="error">
+                            <p><strong>Failed to load the WebAssembly module.</strong></p>
+                            <p>Error: ${err.message}</p>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>

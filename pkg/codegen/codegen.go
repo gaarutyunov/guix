@@ -145,16 +145,16 @@ func (g *Generator) isComponentFunc(comp *guixast.Component) bool {
 	return false
 }
 
-// isSceneFunc checks if a function is a Scene component (returns Scene interface)
+// isSceneFunc checks if a function is a Scene or Chart component (returns Scene/Chart interface)
 func (g *Generator) isSceneFunc(comp *guixast.Component) bool {
 	// If it has no return type, it's a regular function
 	if len(comp.Results) == 0 {
 		return false
 	}
 
-	// Check if any result is named "Scene" (the interface)
+	// Check if any result is named "Scene" or "Chart" (GPU component interfaces)
 	for _, result := range comp.Results {
-		if result.Name == "Scene" {
+		if result.Name == "Scene" || result.Name == "Chart" {
 			return true
 		}
 	}
@@ -244,12 +244,15 @@ func (g *Generator) generateImports(file *guixast.File) *ast.GenDecl {
 
 	// Add user imports
 	for _, imp := range file.Imports {
-		specs = append(specs, &ast.ImportSpec{
-			Path: &ast.BasicLit{
-				Kind:  token.STRING,
-				Value: imp.Path,
-			},
-		})
+		// Handle both single and grouped imports
+		for _, path := range imp.Paths {
+			specs = append(specs, &ast.ImportSpec{
+				Path: &ast.BasicLit{
+					Kind:  token.STRING,
+					Value: path,
+				},
+			})
+		}
 	}
 
 	return &ast.GenDecl{
@@ -686,8 +689,17 @@ func (g *Generator) generateSceneStruct(comp *guixast.Component) *ast.GenDecl {
 	}
 }
 
-// generateSceneConstructor generates the constructor function for a Scene
+// generateSceneConstructor generates the constructor function for a Scene or Chart
 func (g *Generator) generateSceneConstructor(comp *guixast.Component) *ast.FuncDecl {
+	// Determine the return interface type
+	returnType := "Scene" // default
+	for _, result := range comp.Results {
+		if result.Name == "Scene" || result.Name == "Chart" {
+			returnType = result.Name
+			break
+		}
+	}
+
 	// Build parameter list
 	params := make([]*ast.Field, len(comp.Params))
 	for i, param := range comp.Params {
@@ -719,7 +731,7 @@ func (g *Generator) generateSceneConstructor(comp *guixast.Component) *ast.FuncD
 					{
 						Type: &ast.SelectorExpr{
 							X:   ast.NewIdent("runtime"),
-							Sel: ast.NewIdent("Scene"),
+							Sel: ast.NewIdent(returnType),
 						},
 					},
 				},
@@ -743,8 +755,19 @@ func (g *Generator) generateSceneConstructor(comp *guixast.Component) *ast.FuncD
 	}
 }
 
-// generateRenderSceneMethod generates the RenderScene method for a Scene component
+// generateRenderSceneMethod generates the RenderScene/RenderChart method for a Scene/Chart component
 func (g *Generator) generateRenderSceneMethod(comp *guixast.Component) *ast.FuncDecl {
+	// Determine the method name based on component type
+	methodName := "RenderScene" // default
+	for _, result := range comp.Results {
+		if result.Name == "Scene" {
+			methodName = "RenderScene"
+			break
+		} else if result.Name == "Chart" {
+			methodName = "RenderChart"
+			break
+		}
+	}
 	// Generate variable declarations first
 	var stmts []ast.Stmt
 	if comp.Body != nil && len(comp.Body.VarDecls) > 0 {
@@ -797,7 +820,7 @@ func (g *Generator) generateRenderSceneMethod(comp *guixast.Component) *ast.Func
 				},
 			},
 		},
-		Name: ast.NewIdent("RenderScene"),
+		Name: ast.NewIdent(methodName),
 		Type: &ast.FuncType{
 			Results: &ast.FieldList{
 				List: []*ast.Field{
@@ -1853,7 +1876,7 @@ var knownDOMElements = map[string]bool{
 	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
 	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
 	// WebGPU Canvas
-	"Canvas": true, "GPUScene": true,
+	"Canvas": true, "GPUScene": true, "GPUChart": true,
 }
 
 // Known WebGPU/3D element names - treated as runtime elements like DOM elements
@@ -1864,6 +1887,9 @@ var knownGPUElements = map[string]bool{
 	"PerspectiveCamera": true, "OrthographicCamera": true,
 	// Light elements
 	"AmbientLight": true, "DirectionalLight": true, "PointLight": true,
+	// Chart elements
+	"Chart": true, "XAxis": true, "YAxis": true,
+	"CandlestickSeries": true, "LineSeries": true,
 }
 
 // Known runtime functions that need runtime. prefix when called in expressions
@@ -1877,7 +1903,7 @@ var runtimeFunctions = map[string]bool{
 	"Header": true, "Footer": true, "Nav": true, "Section": true, "Article": true,
 	"Aside": true, "Main": true, "Figure": true, "Figcaption": true,
 	// WebGPU Canvas
-	"Canvas": true, "GPUScene": true,
+	"Canvas": true, "GPUScene": true, "GPUChart": true,
 	// GPU elements
 	"Scene": true, "Mesh": true, "Group": true,
 	"PerspectiveCamera": true, "OrthographicCamera": true,
@@ -1905,6 +1931,15 @@ var runtimeFunctions = map[string]bool{
 	"OnKeyDown": true, "OnKeyUp": true, "OnKeyPress": true,
 	"OnMouseOver": true, "OnMouseOut": true, "OnMouseEnter": true, "OnMouseLeave": true,
 	"OnFocus": true, "OnBlur": true,
+	// Chart elements
+	"Chart": true, "XAxis": true, "YAxis": true,
+	"CandlestickSeries": true, "LineSeries": true,
+	// Chart properties
+	"ChartBackground": true, "ChartPadding": true, "ChartInteractive": true,
+	"AxisPosition": true, "TimeScale": true, "GridLines": true, "GridColor": true,
+	"ChartData": true,
+	"UpColor":   true, "DownColor": true, "WickColor": true, "BarWidth": true,
+	"StrokeColor": true, "StrokeWidth": true, "FillColor": true, "FillEnabled": true,
 }
 
 // isRuntimeFunction checks if a function name is a known runtime function
@@ -2045,10 +2080,13 @@ func (g *Generator) generateElement(elem *guixast.Element) ast.Expr {
 		}
 	} else {
 		// DOM/GPU element: call runtime.Element()
-		// Special case: Scene element maps to SceneNode() function
+		// Special case: Scene and Chart elements map to SceneNode/ChartNode functions
 		runtimeFuncName := elem.Tag
-		if elem.Tag == "Scene" {
+		switch elem.Tag {
+		case "Scene":
 			runtimeFuncName = "SceneNode"
+		case "Chart":
+			runtimeFuncName = "ChartNode"
 		}
 
 		return &ast.CallExpr{
@@ -2664,8 +2702,18 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 				}
 			}
 		} else {
-			// Check if this is a GPU/runtime function that needs runtime. prefix
-			if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+			// Check if base is a component parameter
+			if g.componentParams != nil && g.componentParams[cos.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(cos.Base)),
+				}
+			} else if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				// Check if this is a GPU/runtime function that needs runtime. prefix
 				expr = &ast.SelectorExpr{
 					X:   ast.NewIdent("runtime"),
 					Sel: ast.NewIdent(cos.Base),
@@ -2695,8 +2743,18 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 					Sel: ast.NewIdent(cos.Base), // currentState
 				}
 			} else {
-				// Check if this is a GPU/runtime function that needs runtime. prefix
-				if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				// Check if base is a component parameter
+				if g.componentParams != nil && g.componentParams[cos.Base] {
+					receiverName := g.receiverName
+					if receiverName == "" {
+						receiverName = "c"
+					}
+					expr = &ast.SelectorExpr{
+						X:   ast.NewIdent(receiverName),
+						Sel: ast.NewIdent(capitalize(cos.Base)),
+					}
+				} else if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+					// Check if this is a GPU/runtime function that needs runtime. prefix
 					expr = &ast.SelectorExpr{
 						X:   ast.NewIdent("runtime"),
 						Sel: ast.NewIdent(cos.Base),
@@ -2706,8 +2764,18 @@ func (g *Generator) generateCallOrSelect(cos *guixast.CallOrSelect) ast.Expr {
 				}
 			}
 		} else {
-			// Check if this is a GPU/runtime function that needs runtime. prefix
-			if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+			// Check if base is a component parameter
+			if g.componentParams != nil && g.componentParams[cos.Base] {
+				receiverName := g.receiverName
+				if receiverName == "" {
+					receiverName = "c"
+				}
+				expr = &ast.SelectorExpr{
+					X:   ast.NewIdent(receiverName),
+					Sel: ast.NewIdent(capitalize(cos.Base)),
+				}
+			} else if isRuntimeFunction(cos.Base) && len(cos.Fields) == 0 && cos.Args != nil {
+				// Check if this is a GPU/runtime function that needs runtime. prefix
 				expr = &ast.SelectorExpr{
 					X:   ast.NewIdent("runtime"),
 					Sel: ast.NewIdent(cos.Base),
