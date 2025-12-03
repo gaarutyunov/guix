@@ -1,7 +1,8 @@
 package main
 
 func App() (Component) {
-	chartData := GetSampleData()
+	// Fetch Bitcoin data from Binance with fallback to static data
+	chartData := GetChartData()
 
 	Div(
 		ID("app"),
@@ -9,24 +10,30 @@ func App() (Component) {
 		TabIndex(0)
 	) {
 		H1(Class("title")) {
-			"Bitcoin Price Chart"
+			"Bitcoin Price Chart (Binance Data)"
 		}
 		P(Class("subtitle")) {
-			"WebGPU-powered candlestick chart"
+			"WebGPU-powered candlestick chart with horizontal scrolling"
 		}
-		Canvas(
-			ID("chart-canvas"),
-			Width(1200),
-			Height(700)
+		Div(
+			Class("chart-wrapper"),
+			Style("width: 100%; overflow-x: auto; overflow-y: hidden;")
 		) {
-			GPUChart(NewBitcoinChart(chartData))
+			Canvas(
+				ID("chart-canvas"),
+				Width(3000),
+				Height(700),
+				Style("display: block; min-width: 3000px;")
+			) {
+				GPUChart(NewBitcoinChart(chartData))
+			}
 		}
 		Div(Class("info")) {
 			P() {
-				"This chart demonstrates Guix's WebGPU charting capabilities."
+				"This chart demonstrates Guix's WebGPU charting capabilities with live Binance data."
 			}
 			P() {
-				"Data: Bitcoin daily OHLCV candles from December 2024"
+				"Data: Bitcoin hourly OHLCV candles (~1000 candles). Scroll horizontally to explore the data."
 			}
 		}
 	}

@@ -47,12 +47,44 @@
             margin-bottom: 30px;
         }
 
-        canvas {
-            display: block;
-            margin: 0 auto 30px;
+        .chart-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+            margin-bottom: 30px;
             border-radius: 8px;
             background: #1a1d24;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            /* Smooth scrolling */
+            scroll-behavior: smooth;
+            /* Custom scrollbar styling */
+            scrollbar-width: thin;
+            scrollbar-color: #4ade80 #1a1d24;
+        }
+
+        .chart-wrapper::-webkit-scrollbar {
+            height: 12px;
+        }
+
+        .chart-wrapper::-webkit-scrollbar-track {
+            background: #1a1d24;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .chart-wrapper::-webkit-scrollbar-thumb {
+            background: #4ade80;
+            border-radius: 6px;
+            border: 2px solid #1a1d24;
+        }
+
+        .chart-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #22c55e;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 8px;
+            background: #1a1d24;
         }
 
         .info {
