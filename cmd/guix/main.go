@@ -263,7 +263,54 @@ func generateFile(srcPath string, p *parser.Parser, verbose bool, verboseLogs bo
 		return err
 	}
 
-	// Generate Go code
+	// Check if file contains GPU declarations
+	hasGPU := len(file.GPUStructs) > 0 || len(file.GPUBindings) > 0 || len(file.GPUFunctions) > 0
+
+	if hasGPU {
+		// Generate WGSL shader code
+		wgslGen := codegen.NewWGSLGenerator()
+		wgslOutput, err := wgslGen.Generate(file)
+		if err != nil {
+			return fmt.Errorf("failed to generate WGSL: %w", err)
+		}
+
+		// Write WGSL file
+		wgslPath := strings.TrimSuffix(srcPath, guixExt) + ".wgsl"
+		if err := os.WriteFile(wgslPath, wgslOutput, 0644); err != nil {
+			return err
+		}
+
+		if verbose {
+			log.Printf("Generated %s", wgslPath)
+		}
+
+		// Generate GPU Go structs
+		// Extract base filename for embed directive
+		baseName := filepath.Base(strings.TrimSuffix(srcPath, guixExt))
+		shaderFilename := baseName + ".wgsl"
+		gpuGoGen := codegen.NewGPUGoGenerator(file.Package, shaderFilename)
+		gpuGoOutput, err := gpuGoGen.Generate(file)
+		if err != nil {
+			return fmt.Errorf("failed to generate GPU Go code: %w", err)
+		}
+
+		// Write GPU Go file
+		gpuGoPath := strings.TrimSuffix(srcPath, guixExt) + "_gpu_gen.go"
+		if err := os.WriteFile(gpuGoPath, gpuGoOutput, 0644); err != nil {
+			return err
+		}
+
+		// Format with gofmt
+		if err := formatFile(gpuGoPath); err != nil {
+			log.Printf("Warning: failed to format %s: %v", gpuGoPath, err)
+		}
+
+		if verbose {
+			log.Printf("Generated %s", gpuGoPath)
+		}
+	}
+
+	// Generate regular Go code
 	gen := codegen.New(file.Package)
 	gen.SetVerbose(verboseLogs)
 	output, err := gen.Generate(file)

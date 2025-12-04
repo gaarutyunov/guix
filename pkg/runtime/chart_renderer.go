@@ -9,6 +9,8 @@ import (
 	"math"
 	"reflect"
 	"syscall/js"
+
+	"github.com/gaarutyunov/guix/pkg/runtime/chart/shaders"
 )
 
 //go:embed chart/shaders/candlestick.wgsl
@@ -16,16 +18,6 @@ var candlestickShader string
 
 //go:embed chart/shaders/line.wgsl
 var lineShader string
-
-// ohlcvData represents extracted OHLCV data
-type ohlcvData struct {
-	Timestamp int64
-	Open      float64
-	High      float64
-	Low       float64
-	Close     float64
-	Volume    float64
-}
 
 // ChartRenderer manages rendering of charts
 type ChartRenderer struct {
@@ -341,7 +333,7 @@ func (cr *ChartRenderer) renderCandlestickSeries(pass js.Value, series *GPUNode)
 	// Log first candle for debugging
 	if len(candles) > 0 {
 		c := candles[0]
-		log(fmt.Sprintf("[ChartRenderer] First candle - Timestamp: %d, O: %.2f, H: %.2f, L: %.2f, C: %.2f, V: %.2f",
+		log(fmt.Sprintf("[ChartRenderer] First candle - Timestamp: %.0f, O: %.2f, H: %.2f, L: %.2f, C: %.2f, V: %.2f",
 			c.Timestamp, c.Open, c.High, c.Low, c.Close, c.Volume))
 	}
 
@@ -514,7 +506,7 @@ func (cr *ChartRenderer) renderLineSeries(pass js.Value, series *GPUNode) {
 // Helper functions
 
 // extractOHLCVData uses reflection to extract OHLCV data from any slice type
-func (cr *ChartRenderer) extractOHLCVData(data interface{}) []ohlcvData {
+func (cr *ChartRenderer) extractOHLCVData(data interface{}) []shaders.Candle {
 	log(fmt.Sprintf("[ChartRenderer] extractOHLCVData called with type: %T", data))
 
 	v := reflect.ValueOf(data)
@@ -534,7 +526,7 @@ func (cr *ChartRenderer) extractOHLCVData(data interface{}) []ohlcvData {
 	firstItem := v.Index(0)
 	log(fmt.Sprintf("[ChartRenderer] First item type: %v, kind: %v", firstItem.Type(), firstItem.Kind()))
 
-	result := make([]ohlcvData, v.Len())
+	result := make([]shaders.Candle, v.Len())
 	successCount := 0
 
 	for i := 0; i < v.Len(); i++ {
@@ -548,13 +540,13 @@ func (cr *ChartRenderer) extractOHLCVData(data interface{}) []ohlcvData {
 			close := getFloat64Field(item, "Close")
 			volume := getFloat64Field(item, "Volume")
 
-			result[i] = ohlcvData{
-				Timestamp: timestamp,
-				Open:      open,
-				High:      high,
-				Low:       low,
-				Close:     close,
-				Volume:    volume,
+			result[i] = shaders.Candle{
+				Timestamp: float32(timestamp),
+				Open:      float32(open),
+				High:      float32(high),
+				Low:       float32(low),
+				Close:     float32(close),
+				Volume:    float32(volume),
 			}
 
 			if i == 0 {
@@ -620,7 +612,7 @@ func (cr *ChartRenderer) getPadding() map[string]float32 {
 	return padding
 }
 
-func (cr *ChartRenderer) calculateDataRanges(candles []ohlcvData) {
+func (cr *ChartRenderer) calculateDataRanges(candles []shaders.Candle) {
 	if len(candles) == 0 {
 		return
 	}
@@ -630,8 +622,8 @@ func (cr *ChartRenderer) calculateDataRanges(candles []ohlcvData) {
 
 	for _, c := range candles {
 		timestamp := float64(c.Timestamp)
-		high := c.High
-		low := c.Low
+		high := float64(c.High)
+		low := float64(c.Low)
 
 		if timestamp < minX {
 			minX = timestamp
@@ -688,26 +680,15 @@ func (cr *ChartRenderer) calculateLineDataRanges(points []interface{}) {
 	cr.DataYRange = [2]float64{minY, maxY}
 }
 
-func (cr *ChartRenderer) createCandleDataBuffer(candles []ohlcvData) *GPUBuffer {
+func (cr *ChartRenderer) createCandleDataBuffer(candles []shaders.Candle) *GPUBuffer {
 	// Each candle: timestamp(f32), open(f32), high(f32), low(f32), close(f32), volume(f32) = 24 bytes
 	bufferSize := len(candles) * 24
 	data := make([]byte, bufferSize)
 
+	// Use generated ToBytes() method for type-safe zero-copy serialization
 	for i, c := range candles {
-		offset := i * 24
-		timestamp := float64(c.Timestamp)
-		open := c.Open
-		high := c.High
-		low := c.Low
-		close := c.Close
-		volume := c.Volume
-
-		binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(float32(timestamp)))
-		binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(float32(open)))
-		binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(float32(high)))
-		binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(float32(low)))
-		binary.LittleEndian.PutUint32(data[offset+16:], math.Float32bits(float32(close)))
-		binary.LittleEndian.PutUint32(data[offset+20:], math.Float32bits(float32(volume)))
+		candleBytes := c.ToBytes()
+		copy(data[i*24:(i+1)*24], candleBytes)
 	}
 
 	// Create buffer and write data
@@ -762,108 +743,40 @@ func (cr *ChartRenderer) createLineDataBuffer(points []interface{}) *GPUBuffer {
 func (cr *ChartRenderer) createCandleUniforms(upColor, downColor, wickColor Vec4, candleWidth float32) []byte {
 	padding := cr.getPadding()
 
-	// Uniform layout matches WGSL struct
-	data := make([]byte, 256)
-	offset := 0
+	// Use generated ChartUniforms struct with automatic ToBytes() serialization
+	uniforms := shaders.ChartUniforms{
+		ViewportSize: [2]float32{float32(cr.Canvas.Width), float32(cr.Canvas.Height)},
+		DataRange:    [4]float32{float32(cr.DataXRange[0]), float32(cr.DataXRange[1]), float32(cr.DataYRange[0]), float32(cr.DataYRange[1])},
+		Padding:      [4]float32{padding["top"], padding["right"], padding["bottom"], padding["left"]},
+		CandleWidth:  candleWidth,
+		UpColor:      [4]float32{upColor.X, upColor.Y, upColor.Z, upColor.W},
+		DownColor:    [4]float32{downColor.X, downColor.Y, downColor.Z, downColor.W},
+		WickColor:    [4]float32{wickColor.X, wickColor.Y, wickColor.Z, wickColor.W},
+	}
 
-	// viewportSize: vec2<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(float32(cr.Canvas.Width)))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(float32(cr.Canvas.Height)))
-	offset += 16 // vec2 aligned to 16 bytes
-
-	// dataRange: vec4<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(float32(cr.DataXRange[0])))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(float32(cr.DataXRange[1])))
-	binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(float32(cr.DataYRange[0])))
-	binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(float32(cr.DataYRange[1])))
-	offset += 16
-
-	// padding: vec4<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(padding["top"]))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(padding["right"]))
-	binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(padding["bottom"]))
-	binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(padding["left"]))
-	offset += 16
-
-	// candleWidth: f32
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(candleWidth))
-	offset += 16 // aligned to 16 bytes
-
-	// upColor: vec4<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(upColor.X))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(upColor.Y))
-	binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(upColor.Z))
-	binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(upColor.W))
-	offset += 16
-
-	// downColor: vec4<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(downColor.X))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(downColor.Y))
-	binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(downColor.Z))
-	binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(downColor.W))
-	offset += 16
-
-	// wickColor: vec4<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(wickColor.X))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(wickColor.Y))
-	binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(wickColor.Z))
-	binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(wickColor.W))
-
-	return data
+	return uniforms.ToBytes()
 }
 
 func (cr *ChartRenderer) createLineUniforms(strokeColor Vec4, strokeWidth float32, fill bool, fillColor Vec4) []byte {
 	padding := cr.getPadding()
 
-	// Uniform layout matches WGSL struct
-	data := make([]byte, 256)
-	offset := 0
-
-	// viewportSize: vec2<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(float32(cr.Canvas.Width)))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(float32(cr.Canvas.Height)))
-	offset += 16
-
-	// dataRange: vec4<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(float32(cr.DataXRange[0])))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(float32(cr.DataXRange[1])))
-	binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(float32(cr.DataYRange[0])))
-	binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(float32(cr.DataYRange[1])))
-	offset += 16
-
-	// padding: vec4<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(padding["top"]))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(padding["right"]))
-	binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(padding["bottom"]))
-	binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(padding["left"]))
-	offset += 16
-
-	// strokeWidth: f32
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(strokeWidth))
-	offset += 16
-
-	// strokeColor: vec4<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(strokeColor.X))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(strokeColor.Y))
-	binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(strokeColor.Z))
-	binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(strokeColor.W))
-	offset += 16
-
-	// fillEnabled: u32
 	fillValue := uint32(0)
 	if fill {
 		fillValue = 1
 	}
-	binary.LittleEndian.PutUint32(data[offset:], fillValue)
-	offset += 16
 
-	// fillColor: vec4<f32>
-	binary.LittleEndian.PutUint32(data[offset:], math.Float32bits(fillColor.X))
-	binary.LittleEndian.PutUint32(data[offset+4:], math.Float32bits(fillColor.Y))
-	binary.LittleEndian.PutUint32(data[offset+8:], math.Float32bits(fillColor.Z))
-	binary.LittleEndian.PutUint32(data[offset+12:], math.Float32bits(fillColor.W))
+	// Use generated LineUniforms struct with automatic ToBytes() serialization
+	uniforms := shaders.LineUniforms{
+		ViewportSize: [2]float32{float32(cr.Canvas.Width), float32(cr.Canvas.Height)},
+		DataRange:    [4]float32{float32(cr.DataXRange[0]), float32(cr.DataXRange[1]), float32(cr.DataYRange[0]), float32(cr.DataYRange[1])},
+		Padding:      [4]float32{padding["top"], padding["right"], padding["bottom"], padding["left"]},
+		StrokeWidth:  strokeWidth,
+		StrokeColor:  [4]float32{strokeColor.X, strokeColor.Y, strokeColor.Z, strokeColor.W},
+		FillEnabled:  fillValue,
+		FillColor:    [4]float32{fillColor.X, fillColor.Y, fillColor.Z, fillColor.W},
+	}
 
-	return data
+	return uniforms.ToBytes()
 }
 
 func (cr *ChartRenderer) createCandleBindGroup(dataBuffer *GPUBuffer) js.Value {
