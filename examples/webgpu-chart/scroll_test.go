@@ -35,9 +35,9 @@ func TestNewChartDataManager(t *testing.T) {
 		t.Error("Expected generator to be initialized")
 	}
 
-	// Should show 200 candles at a time
-	if cdm.visibleEnd != 200 {
-		t.Errorf("Expected visibleEnd=200, got %d", cdm.visibleEnd)
+	// Should show 100 candles at a time
+	if cdm.visibleEnd != 100 {
+		t.Errorf("Expected visibleEnd=100, got %d", cdm.visibleEnd)
 	}
 
 	if cdm.visibleStart != 0 {
@@ -46,7 +46,7 @@ func TestNewChartDataManager(t *testing.T) {
 }
 
 func TestNewChartDataManagerSmallDataset(t *testing.T) {
-	// Test with fewer than 200 candles
+	// Test with fewer than 100 candles
 	initialData := GenerateFallbackData(50)
 	cdm := NewChartDataManager(initialData, "BTCUSDT", "1h")
 
@@ -81,8 +81,8 @@ func TestGetVisibleData(t *testing.T) {
 
 	visibleData := cdm.GetVisibleData()
 
-	if len(visibleData) != 200 {
-		t.Errorf("Expected 200 visible candles, got %d", len(visibleData))
+	if len(visibleData) != 100 {
+		t.Errorf("Expected 100 visible candles, got %d", len(visibleData))
 	}
 
 	// Visible data should be a slice of the original data
@@ -120,8 +120,8 @@ func TestShiftViewport(t *testing.T) {
 	initialData := GenerateFallbackData(500)
 	cdm := NewChartDataManager(initialData, "BTCUSDT", "1h")
 
-	// Initial state: 0-200
-	if cdm.visibleStart != 0 || cdm.visibleEnd != 200 {
+	// Initial state: 0-100
+	if cdm.visibleStart != 0 || cdm.visibleEnd != 100 {
 		t.Errorf("Initial state incorrect: start=%d, end=%d",
 			cdm.visibleStart, cdm.visibleEnd)
 	}
@@ -132,8 +132,8 @@ func TestShiftViewport(t *testing.T) {
 		t.Error("Expected viewport to change")
 	}
 
-	if cdm.visibleStart != 50 || cdm.visibleEnd != 250 {
-		t.Errorf("After shift: expected start=50, end=250, got start=%d, end=%d",
+	if cdm.visibleStart != 50 || cdm.visibleEnd != 150 {
+		t.Errorf("After shift: expected start=50, end=150, got start=%d, end=%d",
 			cdm.visibleStart, cdm.visibleEnd)
 	}
 }
@@ -150,8 +150,8 @@ func TestShiftViewportLeftBound(t *testing.T) {
 		t.Errorf("Expected start=0, got %d", cdm.visibleStart)
 	}
 
-	if cdm.visibleEnd != 200 {
-		t.Errorf("Expected end=200, got %d", cdm.visibleEnd)
+	if cdm.visibleEnd != 100 {
+		t.Errorf("Expected end=100, got %d", cdm.visibleEnd)
 	}
 
 	// Since we're already at the boundary, nothing changed
@@ -235,8 +235,8 @@ func TestChartDataManagerPrefetchSize(t *testing.T) {
 	initialData := GenerateFallbackData(500)
 	cdm := NewChartDataManager(initialData, "BTCUSDT", "1h")
 
-	if cdm.prefetchSize != 100 {
-		t.Errorf("Expected prefetchSize=100, got %d", cdm.prefetchSize)
+	if cdm.prefetchSize != 50 {
+		t.Errorf("Expected prefetchSize=50, got %d", cdm.prefetchSize)
 	}
 }
 
@@ -289,9 +289,9 @@ func TestGetVisibleDataAfterShift(t *testing.T) {
 
 	visibleData := cdm.GetVisibleData()
 
-	// Should show candles 100-300
-	if len(visibleData) != 200 {
-		t.Errorf("Expected 200 visible candles, got %d", len(visibleData))
+	// Should show candles 100-200
+	if len(visibleData) != 100 {
+		t.Errorf("Expected 100 visible candles, got %d", len(visibleData))
 	}
 
 	// First visible candle should be the 100th candle from original data

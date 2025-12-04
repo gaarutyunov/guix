@@ -92,6 +92,9 @@ func NewChartRenderer(canvas *GPUCanvas, chart *GPUNode) (*ChartRenderer, error)
 		return nil, err
 	}
 
+	// Start monitoring data channels for updates
+	renderer.startDataChannelMonitors()
+
 	log("[ChartRenderer] Chart renderer created successfully")
 	return renderer, nil
 }
@@ -916,4 +919,81 @@ func (cr *ChartRenderer) createLineBindGroup(dataBuffer *GPUBuffer) js.Value {
 	bindGroupDesc.Set("entries", entries)
 
 	return cr.Canvas.GPUContext.Device.Call("createBindGroup", bindGroupDesc)
+}
+
+// startDataChannelMonitors starts goroutines to monitor data channels for updates
+func (cr *ChartRenderer) startDataChannelMonitors() {
+	log("[ChartRenderer] Starting data channel monitors")
+
+	// Monitor candlestick series data channels
+	for _, series := range cr.CandlestickSeries {
+		if channelValue, hasChannel := series.Properties["dataChannel"]; hasChannel {
+			log("[ChartRenderer] Found dataChannel in candlestick series")
+
+			// Type assert to the correct channel type
+			if dataChan, ok := channelValue.(chan []interface{}); ok {
+				log("[ChartRenderer] Starting monitor for candlestick data channel (generic)")
+				go cr.monitorCandlestickChannel(series, dataChan)
+			} else {
+				// Try reflection to handle the actual type
+				log("[ChartRenderer] Data channel type:", fmt.Sprintf("%T", channelValue))
+				go cr.monitorCandlestickChannelReflect(series, channelValue)
+			}
+		}
+	}
+
+	log("[ChartRenderer] Data channel monitors started")
+}
+
+// monitorCandlestickChannel monitors a candlestick data channel for updates
+func (cr *ChartRenderer) monitorCandlestickChannel(series *GPUNode, dataChan chan []interface{}) {
+	log("[ChartRenderer] Candlestick channel monitor started")
+
+	for {
+		select {
+		case newData, ok := <-dataChan:
+			if !ok {
+				log("[ChartRenderer] Data channel closed")
+				return
+			}
+
+			log("[ChartRenderer] Received new data through channel:", len(newData), "candles")
+
+			// Update the series data property
+			series.Properties["data"] = newData
+		}
+	}
+}
+
+// monitorCandlestickChannelReflect monitors a channel using reflection
+func (cr *ChartRenderer) monitorCandlestickChannelReflect(series *GPUNode, channelValue interface{}) {
+	log("[ChartRenderer] Starting reflect-based channel monitor")
+
+	// Use reflection to receive from channel
+	channelVal := reflect.ValueOf(channelValue)
+	if channelVal.Kind() != reflect.Chan {
+		logError("[ChartRenderer] Value is not a channel")
+		return
+	}
+
+	log("[ChartRenderer] Channel monitor loop started")
+
+	for {
+		chosen, recv, recvOK := reflect.Select([]reflect.SelectCase{
+			{Dir: reflect.SelectRecv, Chan: channelVal},
+		})
+
+		if chosen == 0 {
+			if !recvOK {
+				log("[ChartRenderer] Channel closed")
+				return
+			}
+
+			// Update the series data property with received value
+			newData := recv.Interface()
+			log("[ChartRenderer] Received new data through reflect channel:", fmt.Sprintf("%T", newData))
+
+			series.Properties["data"] = newData
+		}
+	}
 }

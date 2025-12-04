@@ -213,6 +213,11 @@ func ChartData(data interface{}) GPUProp {
 	return GPUProp{Key: "data", Value: data}
 }
 
+// ChartDataChannel sets a reactive data channel for the series
+func ChartDataChannel(ch interface{}) GPUProp {
+	return GPUProp{Key: "dataChannel", Value: ch}
+}
+
 // UpColor sets up candle color
 func UpColor(r, g, b, a float32) GPUProp {
 	return GPUProp{Key: "upColor", Value: NewVec4(r, g, b, a)}
