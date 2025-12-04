@@ -8,7 +8,21 @@ import "github.com/gaarutyunov/guix/pkg/runtime/chart"
 var (
 	globalScrollManager *ScrollManager
 	globalApp           *App
+	chartDataChannel    chan []chart.OHLCV
 )
+
+// InitChartDataChannel initializes the global chart data channel
+func InitChartDataChannel() chan []chart.OHLCV {
+	if chartDataChannel == nil {
+		chartDataChannel = make(chan []chart.OHLCV, 1) // Buffered channel
+	}
+	return chartDataChannel
+}
+
+// GetChartDataChannel returns the global chart data channel
+func GetChartDataChannel() chan []chart.OHLCV {
+	return chartDataChannel
+}
 
 // GetVisibleChartData returns the currently visible chart data
 // This is called by the app during rendering to get only the visible window of data
@@ -30,9 +44,20 @@ func SetGlobalApp(app *App) {
 	globalApp = app
 }
 
-// TriggerChartUpdate triggers the app to rerender with updated data
-func TriggerChartUpdate() {
-	if globalApp != nil {
-		globalApp.Update()
+// SendChartDataUpdate sends new chart data through the channel
+func SendChartDataUpdate(data []chart.OHLCV) {
+	if chartDataChannel != nil {
+		// Non-blocking send - if channel is full, drain it first
+		select {
+		case chartDataChannel <- data:
+			// Successfully sent
+		default:
+			// Channel full, drain and send new data
+			select {
+			case <-chartDataChannel:
+			default:
+			}
+			chartDataChannel <- data
+		}
 	}
 }

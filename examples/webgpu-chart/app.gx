@@ -4,6 +4,9 @@ func App() (Component) {
 	// Get visible window of chart data (managed by scroll manager)
 	chartData := GetVisibleChartData()
 
+	// Get or initialize the data channel for reactive updates
+	dataChan := InitChartDataChannel()
+
 	Div(
 		ID("app"),
 		Class("chart-container"),
@@ -20,7 +23,7 @@ func App() (Component) {
 			Width(1200),
 			Height(700)
 		) {
-			GPUChart(NewBitcoinChart(chartData))
+			GPUChart(NewBitcoinChart(chartData, dataChan))
 		}
 		Div(Class("info")) {
 			P() {

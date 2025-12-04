@@ -295,12 +295,13 @@ func (sm *ScrollManager) attachEventListeners() {
 	sm.app.Call("addEventListener", "keydown", sm.keyCallback)
 }
 
-// updateChart triggers a chart rerender with updated data
+// updateChart triggers a chart update by sending data through the channel
 func (sm *ScrollManager) updateChart() {
 	log("[Scroll] Viewport updated:", sm.chartData.visibleStart, "-", sm.chartData.visibleEnd, "of", len(sm.chartData.allData))
 
-	// Trigger the app to rerender with new visible data
-	TriggerChartUpdate()
+	// Send new visible data through the channel (non-blocking)
+	visibleData := sm.chartData.GetVisibleData()
+	SendChartDataUpdate(visibleData)
 
 	// Check if we need to fetch/generate more data
 	if sm.chartData.visibleEnd > len(sm.chartData.allData)-sm.chartData.prefetchSize {

@@ -1,6 +1,6 @@
 package main
 
-func BitcoinChart(data []OHLCV) (Chart) {
+func BitcoinChart(data []OHLCV, dataChan chan []OHLCV) (Chart) {
 	Chart(ChartBackground(0.08, 0.09, 0.12, 1.0)) {
 		XAxis(AxisPosition("bottom"), TimeScale(true), GridLines(true), Label("Time"))
 
@@ -8,6 +8,7 @@ func BitcoinChart(data []OHLCV) (Chart) {
 
 		CandlestickSeries(
 			ChartData(data),
+			ChartDataChannel(dataChan),
 			UpColor(0.18, 0.80, 0.44, 1.0),
 			DownColor(0.91, 0.27, 0.38, 1.0),
 			WickColor(0.6, 0.6, 0.65, 1.0),
