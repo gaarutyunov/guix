@@ -99,21 +99,58 @@ func (g *GPUGoGenerator) generateImports() *ast.GenDecl {
 
 // Generate GPU struct declaration
 func (g *GPUGoGenerator) generateGPUStruct(gpuStruct *guixast.GPUStructDecl) *ast.GenDecl {
-	fields := make([]*ast.Field, 0, len(gpuStruct.Struct.Fields))
+	fields := make([]*ast.Field, 0)
+	offset := 0
+	paddingCounter := 0
 
 	for _, field := range gpuStruct.Struct.Fields {
+		typeInfo, ok := guixToWGSL[field.Type.Name]
+		if !ok {
+			// Unknown type - try to map it
+			goType, err := MapGPUTypeToGo(field.Type)
+			if err != nil {
+				goType = field.Type.Name
+			}
+			astType := g.parseTypeString(goType)
+			fields = append(fields, &ast.Field{
+				Names: []*ast.Ident{ast.NewIdent(Title(field.Name))},
+				Type:  astType,
+			})
+			continue
+		}
+
+		// Add padding if needed for alignment
+		if offset%typeInfo.Alignment != 0 {
+			paddingSize := typeInfo.Alignment - (offset % typeInfo.Alignment)
+
+			// Add padding field: _padN [paddingSize]byte
+			fields = append(fields, &ast.Field{
+				Names: []*ast.Ident{ast.NewIdent(fmt.Sprintf("_pad%d", paddingCounter))},
+				Type: &ast.ArrayType{
+					Len: &ast.BasicLit{
+						Kind:  token.INT,
+						Value: fmt.Sprintf("%d", paddingSize),
+					},
+					Elt: ast.NewIdent("byte"),
+				},
+			})
+			paddingCounter++
+			offset += paddingSize
+		}
+
+		// Add the actual field
 		goType, err := MapGPUTypeToGo(field.Type)
 		if err != nil {
-			// Fall back to field type name if mapping fails
 			goType = field.Type.Name
 		}
 
 		astType := g.parseTypeString(goType)
-
 		fields = append(fields, &ast.Field{
 			Names: []*ast.Ident{ast.NewIdent(Title(field.Name))},
 			Type:  astType,
 		})
+
+		offset += typeInfo.Size
 	}
 
 	return &ast.GenDecl{

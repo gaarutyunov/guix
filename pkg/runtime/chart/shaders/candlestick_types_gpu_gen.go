@@ -12,9 +12,11 @@ import (
 
 type ChartUniforms struct {
 	ViewportSize [2]float32
+	_pad0        [8]byte
 	DataRange    [4]float32
 	Padding      [4]float32
 	CandleWidth  float32
+	_pad1        [12]byte
 	UpColor      [4]float32
 	DownColor    [4]float32
 	WickColor    [4]float32

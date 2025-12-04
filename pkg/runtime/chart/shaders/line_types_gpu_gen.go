@@ -12,11 +12,14 @@ import (
 
 type LineUniforms struct {
 	ViewportSize [2]float32
+	_pad0        [8]byte
 	DataRange    [4]float32
 	Padding      [4]float32
 	StrokeWidth  float32
+	_pad1        [12]byte
 	StrokeColor  [4]float32
 	FillEnabled  uint32
+	_pad2        [12]byte
 	FillColor    [4]float32
 }
 
